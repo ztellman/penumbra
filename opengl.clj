@@ -1,35 +1,57 @@
-(ns vellum)
+(ns vellum.opengl)
 
-(import '(java.awt Frame)
-	      '(java.awt.event WindowListener WindowAdapter)
-	      '(javax.media.opengl GLCanvas GLEventListener GL)
-	      '(com.sun.opengl.util Animator))
+(import '(javax.media.opengl GLCanvas GL)
+        '(javax.media.opengl.glu GLU))
 
 (set! *warn-on-reflection* true)
 
 (def #^GL *gl* nil)
+(def #^GLU *glu* (new GLU))
 
-(defmacro import-fn [import-from import-as]
+(defmacro gl-import [import-from import-as]
   `(defmacro ~import-as [& args#]
       `(. *gl* ~'~import-from ~@args#)))
 
+(defmacro glu-import [import-from import-as]
+  `(defmacro ~import-as [& args#]
+      `(. *glu* ~'~import-from ~@args#)))
+
+(defmacro gl-value [import-from import-as]
+  `(def ~import-as (. GL ~import-from)))
+
 ;renamed functions
-(import-fn glVertex3d vertex)
-(import-fn glColor3d color)
-(import-fn glRotated rotate)
-(import-fn glTranslated translate)
-(import-fn glScalef scale)
-(import-fn glLoadIdentity load-identity)
+(gl-import glVertex3d vertex)
+(gl-import glColor3d color)
+(gl-import glRotated rotate)
+(gl-import glTranslated translate)
+(gl-import glScalef scale)
+(gl-import glLoadIdentity load-identity)
 
 ;gl-style functions, which will likely be wrapped in some other function
-(import-fn glBegin gl-begin)
-(import-fn glEnd gl-end)
-(import-fn glPushMatrix gl-push-matrix)
-(import-fn glPopMatrix gl-pop-matrix)
-(import-fn glMatrixMode gl-matrix-mode)
-(import-fn glFrustrum gl-frustrum)
-(import-fn glOrtho gl-ortho)
-(import-fn glClear gl-clear)
+(gl-import glBegin gl-begin)
+(gl-import glEnd gl-end)
+(gl-import glPushMatrix gl-push-matrix)
+(gl-import glPopMatrix gl-pop-matrix)
+(gl-import glMatrixMode gl-matrix-mode)
+(gl-import glFrustrum gl-frustrum)
+(gl-import glOrtho gl-ortho)
+(gl-import glClear gl-clear)
+(glu-import gluPerspective glu-perspective)
+
+;predefined values
+(gl-value GL_QUADS quads)
+(gl-value GL_TRIANGLE_STRIP triangle-strip)
+(gl-value GL_LINES lines)
+(gl-value GL_LINE_STRIP line-strip)
+(gl-value GL_PROJECTION projection)
+(gl-value GL_MODELVIEW modelview)
+(gl-value GL_DEPTH_BUFFER_BIT depth-buffer)
+(gl-value GL_COLOR_BUFFER_BIT color-buffer)
+
+
+(defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & args]
+  `(binding [*gl* (.getGL ~drawable)]
+    ~@args))
 
 (defmacro push-matrix [& args]
   `(do
@@ -37,72 +59,31 @@
     ~@args
     (gl-pop-matrix)))
 
-(defmacro do-quads [& args]
-  `(do
-    (gl-begin GL/GL_QUADS)
-    ~@args
-    (gl-end)))
+(defmacro defn-draw
+  "transforms (defn-draw line-strip) into a macro called 'draw-line-strip'"
+  [type]
+  `(defmacro ~(symbol (format "draw-%s" (name type))) [& args#]
+    `(do
+      (gl-begin ~'~type)
+      ~@args#
+      (gl-end))))
 
-(defn set-ortho [left right bottom top near far]
-  (gl-matrix-mode GL/GL_PROJECTION)
+(defn-draw quads)
+(defn-draw line-strip)
+(defn-draw lines)
+(defn-draw triangle-strip)
+
+(defn clear []
+  (gl-clear (+ depth-buffer color-buffer)))
+
+(defn ortho-view [left right bottom top near far]
+  (gl-matrix-mode projection)
   (load-identity)
   (gl-ortho left right bottom top near far)
-  (gl-matrix-mode GL/GL_MODELVIEW))
+  (gl-matrix-mode modelview))
 
-;; Based on Dustin Withers' port of glxgears to clojure
-(defn start [functions]
-  (let
-    [frame (new Frame)
-     canvas (new GLCanvas)
-     animator (new Animator canvas)]
-    (. canvas
-      (addGLEventListener
-        (proxy [GLEventListener] []
-
-          (display [#^javax.media.opengl.GLAutoDrawable drawable]
-            (if (:display functions)
-              (binding [*gl* (.getGL drawable)]
-                (gl-clear GL/GL_DEPTH_BUFFER_BIT)
-                (gl-clear GL/GL_COLOR_BUFFER_BIT)
-                ((:display functions) nil))))
-
-          (displayChanged [drawable mode-change device changed])
-
-          (reshape [#^javax.media.opengl.GLAutoDrawable drawable x y width height]
-            (if (:reshape functions)
-              (binding [*gl* (.getGL drawable)]
-                ((:reshape functions) x y width height))))
-
-          (init [#^javax.media.opengl.GLAutoDrawable drawable]
-            (if (:init functions)
-              (binding [*gl* (.getGL drawable)]
-                ((:init functions) nil)))))))
-    (. frame
-          (addWindowListener
-            (proxy [WindowAdapter] []
-              (windowClosing [event]
-                (. (new Thread
-                  (fn []
-                    (. animator stop)
-                    (. frame dispose))) start)))))
-    (doto frame
-      (.add canvas)
-      (.setSize 800 600)
-      (.show))
-    (. animator start)))
-
-(defn reshape [x y width height]
-  (set-ortho 0 width 0 height 1 100)
+(defn frustum-view [fovx aspect near far]
+  (gl-matrix-mode projection)
   (load-identity)
-  (translate (/ width 2) (/ height 2) 0)
-  (scale 1 1 -1))
-
-(defn display [& args]
-  (color 1 1 1)
-  (do-quads
-    (vertex 0 0 10)
-    (vertex 0 10 10)
-    (vertex 10 10 10)
-    (vertex 10 0 10)))
-
-(start {:reshape reshape :display display})
+  (glu-perspective fovx aspect near far)
+  (gl-matrix-mode modelview))
