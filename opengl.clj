@@ -29,7 +29,7 @@
 
 (defmacro gl-facade-import [import-from import-as]
   (let [facade-fn (prepend "facade" import-as)
-       direct-fn (prepend "direct" import-as)]
+       direct-fn (prepend "gl" import-as)]
     `(do
       (defmacro ~import-as [& a#]
         `(if @*redirect*
@@ -54,16 +54,25 @@
 (gl-facade-import glScalef scale)
 
 ;straightforward imports
-(gl-import glLoadIdentity load-identity)
 (gl-import glBegin gl-begin)
 (gl-import glEnd gl-end)
+
+(gl-import glLoadIdentity load-identity)
 (gl-import glPushMatrix gl-push-matrix)
 (gl-import glPopMatrix gl-pop-matrix)
 (gl-import glMatrixMode gl-matrix-mode)
-(gl-import glFrustrum gl-frustrum)
+
 (gl-import glOrtho gl-ortho)
-(gl-import glClear gl-clear)
 (glu-import gluPerspective glu-perspective)
+
+(gl-import glClear gl-clear)
+
+(gl-import glCallList gl-call-list)
+(gl-import glGenLists gl-gen-lists)
+(gl-import glNewList gl-new-list)
+(gl-import glEndList gl-end-list)
+(gl-import glDeleteList gl-delete-list)
+(gl-import glIsList gl-is-list)
 
 ;predefined values
 (gl-value GL_QUADS quads)
@@ -74,14 +83,15 @@
 (gl-value GL_MODELVIEW modelview)
 (gl-value GL_DEPTH_BUFFER_BIT depth-buffer)
 (gl-value GL_COLOR_BUFFER_BIT color-buffer)
+(gl-value GL_COMPILE compile-list)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro facade-transform
-  "Forwards a vector transform by *matrix* from facade-fn to fn."
+  "Forwards a vector transformed by *matrix* from fn to the OpenGL function fn represents."
   [fn]
   (let [facade-fn (prepend "facade" fn)
-        direct-fn (prepend "direct" fn)]
+        direct-fn (prepend "gl" fn)]
     `(defn ~facade-fn [x# y# z#]
       (let [[xp# yp# zp# wp#] (apply-matrix @*matrix* [x# y# z# 1])]
         (~direct-fn xp# yp# zp#)))))
@@ -127,11 +137,36 @@
     ~@args
     (gl-pop-matrix)))
 
+(defmacro set-list [list-ref & args]
+  "Points list-ref to a new list, and deletes the list it was previous pointing to."
+  `(let [list# (gl-gen-lists 1)]
+    (do
+      (gl-new-list list# compile-list)
+      ~@args
+      (gl-end-list))
+    (if (is-list ~list-ref) (delete-list ~list-ref))
+    (dosync (ref-set ~list-ref list#))))
+
+(defn is-list [list-ref]
+  (and
+    (not (nil? @list-ref))
+    (gl-is-list @list-ref)))
+
+(defn delete-list [list-ref]
+  (gl-delete-list @list-ref 1))
+
+(defn call-list [list-ref]
+  (gl-call-list @list-ref))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn clear []
   (gl-clear (+ depth-buffer color-buffer)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn ortho-view
-  "Use orthographic view, where distant objects aren't smaller."
+  "Create orthographic view, where distant objects don't get smaller."
   [left right bottom top near far]
   (gl-matrix-mode projection)
   (load-identity)

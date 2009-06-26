@@ -29,7 +29,7 @@
                 (bind-gl drawable
                   (clear)
                   (push-matrix
-                    ((:display functions) delta))))))
+                    ((:display functions) delta (/ current 1e9)))))))
 
           (displayChanged [drawable mode-change device-changed])
 
