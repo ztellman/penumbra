@@ -11,8 +11,8 @@ rather than:
 
 	(draw-line-strip
   		(dotimes [angle 360]
-    		(vertex (Math/cos (* Math/PI (/ angle 180)))
-            		(Math/sin (* Math/PI (/ angle 180)))
+    		(vertex (Math/cos (* Math/PI (/ angle 180.)))
+            		(Math/sin (* Math/PI (/ angle 180.)))
             		0)))
 
 This is a trivial example, but as shapes become more complex, this becomes increasingly useful.
