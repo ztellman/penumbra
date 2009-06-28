@@ -6,12 +6,11 @@
 ;Gear building functions
 
 (defmacro mirror [divider & args]
-  "given [a b c], yields [b c a c b]"
-  (let [rev-args# (reverse args)]
-    `(do
-      ~@args
-      ~divider
-      ~@rev-args#)))
+  "given [A b c], yields [b c A c b]"
+  `(do
+    ~@args
+    ~divider
+    ~@(reverse args)))
 
 (defn draw-gear-face [num-teeth low mid high]
   (let [increment (/ 90. num-teeth)]
@@ -56,16 +55,28 @@
             (vertex 0 mid 1)
             (vertex 0 mid 0)))))))
 
+(defn draw-gear-hole [num-teeth radius]
+  (let [increment (/ 180. num-teeth)]
+    (draw-quads
+      (dotimes [idx (* 2 num-teeth)]
+        (mirror (rotate increment 0 0 1)
+          (vertex 0 radius 0)
+          (vertex 0 radius 1))))))
+
 (defn draw-gear [num-teeth low mid high width]
   (material 0.8 0.2 0.2 1)
   (push-matrix
+    (scale 1 1 width)
     (push-matrix
       (rotate 180 0 1 0)
       (draw-gear-face num-teeth low mid high))
-    (scale 1 1 width)
-    (draw-gear-teeth num-teeth mid high)
-    (translate 0 0 1)
-    (draw-gear-face num-teeth low mid high)))
+    (push-matrix
+      (draw-gear-teeth num-teeth mid high))
+    (push-matrix
+      (translate 0 0 1)
+      (draw-gear-face num-teeth low mid high))
+    (push-matrix
+      (draw-gear-hole num-teeth low))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -74,11 +85,11 @@
 (defn init []
   (cull-back)
   (enable-cull-face)
-  (enable-auto-normals)
+(enable-auto-normals)
   (enable-depth-test)
-  (shade-model flat-shading)
+  (shade-model :flat)
   (enable-anti-aliasing)
-  (render-mode solid)
+  (render-mode :fill)
   (set-list gear (draw-gear 20 0.5 3 4 2))
   (setup-light 0 [0 0 0]))
 
