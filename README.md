@@ -1,4 +1,4 @@
-A basic, but more idiomatic wrapper for OpenGL.
+A basic, idiomatic wrapper for OpenGL in Clojure.
 
 Vellum allows for intra-primitive transformations, which allows us to define a circle like so:
 
