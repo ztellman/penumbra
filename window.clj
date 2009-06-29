@@ -1,58 +1,93 @@
 (ns vellum.window)
 
 (import '(java.awt Frame)
-	      '(java.awt.event WindowListener WindowAdapter)
+	      '(java.awt.event MouseAdapter MouseListener
+                         MouseEvent MouseMotionListener MouseMotionAdapter
+                         WindowListener WindowAdapter)
 	      '(javax.media.opengl GLCanvas GLEventListener GL)
 	      '(com.sun.opengl.util Animator))
+
+(set! *warn-on-reflection* true)
 
 (use 'vellum.opengl)
 
 (defn clock [] (System/nanoTime))
 
 (def last-render (ref (clock)))
+(def last-pos (ref [0 0]))
 
 ;; Based on Dustin Withers' port of glxgears to clojure
-(defn start [functions]
+(defn start [funs]
   (let
     [frame (new Frame)
      canvas (new GLCanvas)
      animator (new Animator canvas)]
-    (. canvas
-      (addGLEventListener
+    (doto canvas
+      (.addGLEventListener
         (proxy [GLEventListener] []
 
           (display [#^javax.media.opengl.GLAutoDrawable drawable]
             (let [current (clock)
                   delta (/ (- current @last-render) 1e9)]
               (dosync (ref-set last-render current))
-              (if (:display functions)
+              (if (:display funs)
                 (bind-gl drawable
                   (clear)
                   (push-matrix
-                    ((:display functions) delta (/ current 1e9)))))))
+                    ((:display funs) delta (/ current 1e9)))))))
 
           (displayChanged [drawable mode-change device-changed])
 
           (reshape [#^javax.media.opengl.GLAutoDrawable drawable x y width height]
             (set-dimensions width height)
-            (if (:reshape functions)
+            (if (:reshape funs)
               (bind-gl drawable
-                ((:reshape functions) x y width height))))
+                ((:reshape funs) x y width height))))
 
           (init [#^javax.media.opengl.GLAutoDrawable drawable]
-            (if (:init functions)
+            (if (:init funs)
               (bind-gl drawable
-                ((:init functions))))))))
+                ((:init funs)))))))
 
-    (. frame
-          (addWindowListener
-            (proxy [WindowAdapter] []
-              (windowClosing [event]
-                (. (new Thread
-                  (fn []
-                    (. animator stop)
-                    (. frame dispose))) start)))))
+      (.addMouseListener
+        (proxy [MouseAdapter] []
+
+          (mouseClicked [#^java.awt.event.MouseEvent event]
+            (if (:mouse-click funs) ((:mouse-click funs) (. event getX) (. event getY))))
+
+          (mousePressed [#^java.awt.event.MouseEvent event]
+            (if (:mouse-down funs) ((:mouse-down funs) (. event getX) (. event getY))))
+
+          (mouseReleased [#^java.awt.event.MouseEvent event]
+            (if (:mouse-up funs) ((:mouse-up funs) (. event getX) (. event getY))))))
+
+      (.addMouseMotionListener
+        (proxy [MouseMotionAdapter] []
+
+          (mouseDragged [#^java.awt.event.MouseEvent event]
+            (if (:mouse-drag funs)
+              (let [x (. event getX), y (. event getY)
+                    [last-x last-y] @last-pos
+                    delta [(- x last-x) (- y last-y)]]
+                (dosync (ref-set last-pos [x y]))
+                ((:mouse-drag funs) delta [x y]))))
+
+          (mouseMoved [#^java.awt.event.MouseEvent event]
+            (if (:mouse-move funs)
+              (let [x (. event getX), y (. event getY)
+                    [last-x last-y] @last-pos
+                    delta [(- x last-x) (- y last-y)]]
+                (dosync (ref-set last-pos [x y]))
+                ((:mouse-move funs) delta [x y])))))))
+
     (doto frame
+      (.addWindowListener
+              (proxy [WindowAdapter] []
+                (windowClosing [event]
+                  (. (new Thread
+                    (fn []
+                      (. animator stop)
+                      (. frame dispose))) start))))
       (.add canvas)
       (.setSize 800 600)
       (.show))

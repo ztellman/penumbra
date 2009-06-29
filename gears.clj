@@ -69,6 +69,7 @@
     (scale 1 1 width)
     (push-matrix
       (rotate 180 0 1 0)
+      (rotate (/ 90. num-teeth) 0 0 1)
       (draw-gear-face num-teeth low mid high))
     (push-matrix
       (draw-gear-teeth num-teeth mid high))
@@ -80,12 +81,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(def rot-x (ref 0))
+(def rot-y (ref 0))
 (def gear (ref nil))
 
 (defn init []
   (cull-back)
   (enable-cull-face)
-(enable-auto-normals)
+  (enable-auto-normals)
   (enable-depth-test)
   (shade-model :flat)
   (enable-anti-aliasing)
@@ -97,12 +100,18 @@
   (frustum-view 90 (/ (double width) height) 1 100)
   (load-identity))
 
+(defn mouse-drag [[dx dy] _]
+  (dosync
+    (ref-set rot-x (- @rot-x dy))
+    (ref-set rot-y (- @rot-y dx))))
+
 (defn display [delta time]
   (write (format "%d fps" (int (/ 1 delta))) 0 1)
+  (setup-light 0 [0 0 0])
   (translate 0 0 -10)
-  (rotate 45 0 1 0)
+  (rotate @rot-x 1 0 0)
+  (rotate @rot-y 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
-  (color 1 0 0)
   (call-list gear))
 
-(start {:reshape reshape :display display :init init})
+(start {:reshape reshape :display display :init init :mouse-drag mouse-drag})
