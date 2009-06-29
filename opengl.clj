@@ -96,15 +96,17 @@
 
 (defmacro facade-transform
   "Forwards the transformed vector from fn to the OpenGL function fn represents."
-  [fn]
+  [fn transform-fn]
   (let [facade-fn (prepend "facade" fn)
         direct-fn (prepend "gl" fn)]
     `(defn ~facade-fn [x# y# z#]
-      (let [[xp# yp# zp# wp#] (apply-matrix (peek @*transform-stack*) [x# y# z# 1])]
+      (let [[xp# yp# zp# wp#] (apply-matrix (~transform-fn (peek @*transform-stack*)) [x# y# z# 1])]
         (~direct-fn xp# yp# zp#)))))
 
-(facade-transform vertex)
-(facade-transform normal)
+(defn normal-transform [matrix] (concat (subvec matrix 0 12) [0 0 0 0])) ;we don't want to translate normals
+
+(facade-transform vertex identity)
+(facade-transform normal normal-transform)
 
 (defn apply-transform
   "Pops off the head of the transform stack, multiplies it by the matrix, and pushes it back on"
