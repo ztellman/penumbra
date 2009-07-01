@@ -11,8 +11,8 @@
 
 (def #^GL *gl* nil)
 (def #^GLU *glu* (new GLU))
-(def *transform-stack* (ref [(identity-matrix)]))
-(def *inside-begin-end* (ref false))
+(def transform-stack (ref [(identity-matrix)]))
+(def inside-begin-end (ref false))
 
 (defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & args]
   `(binding [*gl* (.getGL ~drawable)]
@@ -31,7 +31,7 @@
        direct-fn (prepend "gl" import-as)]
     `(do
       (defmacro ~import-as [& a#]
-        `(if @*inside-begin-end*
+        `(if @inside-begin-end
           (~'~facade-fn ~@a#)
           (. *gl* ~'~import-from ~@a#)))
       (defmacro ~direct-fn [& b#]
@@ -100,10 +100,10 @@
   (let [facade-fn (prepend "facade" fn)
         direct-fn (prepend "gl" fn)]
     `(defn ~facade-fn [x# y# z#]
-      (let [[xp# yp# zp# wp#] (apply-matrix (~transform-fn (peek @*transform-stack*)) [x# y# z# 1])]
+      (let [[xp# yp# zp# wp#] (apply-matrix (~transform-fn (peek @transform-stack)) [x# y# z# 1])]
         (~direct-fn xp# yp# zp#)))))
 
-(defn normal-transform [matrix] (concat (subvec matrix 0 12) [0 0 0 0])) ;we don't want to translate normals
+(defn normal-transform [matrix] (vec (concat (subvec matrix 0 12) [0 0 0 0]))) ;we don't want to translate normals
 
 (facade-transform vertex identity)
 (facade-transform normal normal-transform)
@@ -112,10 +112,10 @@
   "Pops off the head of the transform stack, multiplies it by the matrix, and pushes it back on"
   [matrix]
   (dosync
-    (ref-set *transform-stack* (conj (pop @*transform-stack*) (mult-matrix (peek @*transform-stack*) matrix)))))
+    (ref-set transform-stack (conj (pop @transform-stack) (mult-matrix (peek @transform-stack) matrix)))))
 
 (defmacro facade-multiply
-  "Applies a transform to *transform-stack* rather than the OpenGL modelview matrix."
+  "Applies a transform to transform-stack rather than the OpenGL modelview matrix."
   [fn matrix-fn]
   (let [facade-fn (prepend "facade" fn)]
     `(defmacro ~facade-fn [& args#]
@@ -132,13 +132,13 @@
   `(defmacro ~(symbol (str "draw-" (name primitive-type))) [& args#]
     `(do
       (dosync
-        (ref-set *transform-stack* [(identity-matrix)])
-        (ref-set *inside-begin-end* true))
+        (ref-set transform-stack [(identity-matrix)])
+        (ref-set inside-begin-end true))
       (gl-begin ~'~(translate-keyword primitive-type))
       ~@args#
       (gl-end)
       (dosync
-        (ref-set *inside-begin-end* false)))))
+        (ref-set inside-begin-end false)))))
 
 (defn-draw :quads)
 (defn-draw :line-strip)
@@ -156,35 +156,35 @@
 ;Various utility functions
 
 (defmacro push-matrix [& args]
-  `(if @*inside-begin-end*
+  `(if @inside-begin-end
     (do
-      (dosync (ref-set *transform-stack* (conj (deref *transform-stack*) (peek (deref *transform-stack*)))))
+      (dosync (ref-set transform-stack (conj (deref transform-stack) (peek (deref transform-stack)))))
       ~@args
-      (dosync (ref-set *transform-stack* (pop (deref *transform-stack*)))))
+      (dosync (ref-set transform-stack (pop (deref transform-stack)))))
     (do
       (gl-push-matrix)
       ~@args
       (gl-pop-matrix))))
 
-(defmacro set-list [list-ref & args]
+(defmacro set-call-list [list-ref & args]
   "Points list-ref to a new list, and deletes the list it was previous pointing to."
   `(let [list# (gl-gen-lists 1)]
     (do
       (gl-new-list list# :compile)
       ~@args
       (gl-end-list))
-    (if (is-list ~list-ref) (delete-list ~list-ref))
+    (if (is-call-list ~list-ref) (delete-call-list ~list-ref))
     (dosync (ref-set ~list-ref list#))))
 
-(defn is-list [list-ref]
+(defn is-call-list [list-ref]
   (and
     (not (nil? @list-ref))
     (gl-is-list @list-ref)))
 
-(defn delete-list [list-ref]
+(defn delete-call-list [list-ref]
   (gl-delete-lists @list-ref 1))
 
-(defn call-list [list-ref]
+(defn do-call-list [list-ref]
   (gl-call-list @list-ref))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -201,6 +201,7 @@
 (def-toggle :depth-test depth-test)
 (def-toggle :cull-face cull-face)
 (def-toggle :auto-normal auto-normals)
+(def-toggle :normalize normalize)
 (def-toggle :blend alpha-blending)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -220,12 +221,12 @@
   (enable-alpha-blending)
   (gl-blend-func :src-alpha :one-minus-src-alpha))
 
-(defmacro setup-light [num [x y z]]
+(defmacro setup-light [num [x y z w]]
   (let [light# (keyword (str "light" num))]
     `(do
       (gl-enable :lighting)
       (gl-enable ~light#)
-      (set-light ~light# :position (float-array 4 [~x ~y ~z 1]) 0))))
+      (set-light ~light# :position (float-array 4 [~x ~y ~z ~w]) 0))))
 
 (defmacro material [r g b a]
   `(set-material :front-and-back :ambient-and-diffuse (float-array 4 [~r ~g ~b ~a]) 0))

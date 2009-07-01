@@ -5,8 +5,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;Gear building functions
 
-(defmacro mirror [divider & args]
-  "given [A b c], yields [b c A c b]"
+(defmacro mirror
+  "given [a b c], yields [b c a c b]"
+  [divider & args]
   `(do
     ~@args
     ~divider
@@ -14,20 +15,24 @@
 
 (defn draw-gear-face [num-teeth low mid high]
   (let [increment (/ 90. num-teeth)]
+    (normal 0 0 1)
     (draw-quads
       (rotate increment 0 0 1)
       (dotimes [idx (inc num-teeth)]
         (mirror (rotate increment 0 0 1)
           (vertex 0 low 0)
           (vertex 0 high 0))
+
         (vertex 0 low 0)
         (vertex 0 high 0)
         (rotate increment 0 0 1)
         (vertex 0 mid 0)
         (vertex 0 low 0)
+
         (mirror (rotate increment 0 0 1)
           (vertex 0 low 0)
           (vertex 0 mid 0))
+
         (vertex 0 low 0)
         (vertex 0 mid 0)
         (rotate increment 0 0 1)
@@ -35,21 +40,30 @@
         (vertex 0 low 0)))))
 
 (defn draw-gear-teeth [num-teeth mid high]
-  (let [increment (/ 90. num-teeth)]
+  (let [increment (/ 90. num-teeth)
+        tooth-slope (/ (- high mid) (/ (* Math/PI high) (/ 360 increment)))]
     (draw-quads
       (dotimes [idx num-teeth]
         (rotate increment 0 0 1)
+
+        (normal 0 1 0)
         (mirror (rotate increment 0 0 1)
           (vertex 0 high 1)
           (vertex 0 high 0))
+        (normal tooth-slope 1 0)
+
         (push-matrix
           (mirror (do (rotate increment 0 0 1) (translate 0 (- mid high) 0))
             (vertex 0 high 1)
             (vertex 0 high 0)))
         (rotate increment 0 0 1)
+
+        (normal 0 1 0)
         (mirror (rotate increment 0 0 1)
           (vertex 0 mid 1)
           (vertex 0 mid 0))
+
+        (normal (- 0 tooth-slope) 1 0)
         (push-matrix
           (mirror (do (rotate increment 0 0 1) (translate 0 (- high mid) 0))
             (vertex 0 mid 1)
@@ -59,6 +73,7 @@
   (let [increment (/ 180. num-teeth)]
     (draw-quads
       (dotimes [idx (* 2 num-teeth)]
+        (normal 0 -1 0)
         (mirror (rotate increment 0 0 1)
           (vertex 0 radius 0)
           (vertex 0 radius 1))))))
@@ -89,12 +104,12 @@
   (cull-back)
   (enable-cull-face)
   (enable-auto-normals)
+  (enable-normalize)
   (enable-depth-test)
   (shade-model :flat)
   (enable-anti-aliasing)
   (render-mode :fill)
-  (set-list gear (draw-gear 20 0.5 3 4 2))
-  (setup-light 0 [0 0 0]))
+  (set-call-list gear (draw-gear 30 0.5 3 4 2)))
 
 (defn reshape [x y width height]
   (frustum-view 90 (/ (double width) height) 1 100)
@@ -107,11 +122,11 @@
 
 (defn display [delta time]
   (write (format "%d fps" (int (/ 1 delta))) 0 1)
-  (setup-light 0 [0 0 0])
   (translate 0 0 -10)
+  (setup-light 0 [1 1 1 0])
   (rotate @rot-x 1 0 0)
   (rotate @rot-y 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
-  (call-list gear))
+  (do-call-list gear))
 
 (start {:reshape reshape :display display :init init :mouse-drag mouse-drag})

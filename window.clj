@@ -16,7 +16,7 @@
 (def last-render (ref (clock)))
 (def last-pos (ref [0 0]))
 
-;; Based on Dustin Withers' port of glxgears to clojure
+;; Based on Dustin Withers' port of glxgears to clojure and Phil Hazelden's cloggle project
 (defn start [funs]
   (let
     [frame (new Frame)
