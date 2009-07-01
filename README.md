@@ -41,7 +41,7 @@ rather than this:
             		0)))
 
 
-Some features I'd like to add, in ascending order of complexity:
-* procedural mesh generation
-* pixel shading
-* GPGPU
+Some features I'd like to add, in ascending order of complexity:	
+	* helper methods for procedural mesh generation
+	* pixel shading
+	* GPGPU
