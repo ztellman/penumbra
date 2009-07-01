@@ -42,6 +42,9 @@ rather than this:
 
 
 Some features I'd like to add, in ascending order of complexity:	
+
 - helper methods for procedural mesh generation
+
 - pixel shading
+
 - GPGPU
