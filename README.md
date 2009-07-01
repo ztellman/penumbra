@@ -1,15 +1,6 @@
 Penumbra is a basic wrapper for OpenGL in Clojure.
 
----
-
-    glEnable(GL_NORMALIZE)
-
-becomes
-
-	(gl-enable :normalize)
-
----
-
+	glEnable(GL_LIGHT0);
 	glPushMatrix();
 	glTranslate(0, 0, -10);
 	glBegin(GL_QUADS);
@@ -22,6 +13,7 @@ becomes
 	
 becomes
 
+	(gl-enable :light0)
 	(push-matrix
 		(translate 0 0 -10)
 		(draw-quads
@@ -30,9 +22,7 @@ becomes
 			(vertex 1 1 0)
 			(vertex 1 0 0)))
 
----
-
-Penumbra also allows for intra-primitive transformations, which allows us to define a circle like this:
+It also allows for intra-primitive transformations, which allows us to define a circle like this:
 
 	(draw-line-strip
   		(dotimes [angle 360]
