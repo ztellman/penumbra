@@ -1,11 +1,11 @@
-(ns vellum.opengl)
+(ns penumbra.opengl)
 
 (import '(javax.media.opengl GLCanvas GL)
         '(javax.media.opengl.glu GLU)
         '(java.awt Font)
         '(com.sun.opengl.util.j2d TextRenderer))
 
-(use 'vellum.matrix)
+(use 'penumbra.matrix)
 
 (set! *warn-on-reflection* true)
 

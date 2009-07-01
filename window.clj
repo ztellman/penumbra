@@ -1,4 +1,4 @@
-(ns vellum.window)
+(ns penumbra.window)
 
 (import '(java.awt Frame)
 	      '(java.awt.event MouseAdapter MouseListener
@@ -9,7 +9,7 @@
 
 (set! *warn-on-reflection* true)
 
-(use 'vellum.opengl)
+(use 'penumbra.opengl)
 
 (defn clock [] (System/nanoTime))
 

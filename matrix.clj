@@ -1,4 +1,4 @@
-(ns vellum.matrix)
+(ns penumbra.matrix)
 
 (defn sin [x] (Math/sin (* Math/PI (/ x 180))))
 (defn cos [x] (Math/cos (* Math/PI (/ x 180))))

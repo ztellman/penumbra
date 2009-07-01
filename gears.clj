@@ -1,6 +1,6 @@
-(ns vellum.gears)
+(ns penumbra.gears)
 
-(use 'vellum.opengl 'vellum.window 'vellum.matrix)
+(use 'penumbra.opengl 'penumbra.window 'penumbra.matrix)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;Gear building functions
