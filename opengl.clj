@@ -103,28 +103,29 @@
       (let [[xp# yp# zp# wp#] (apply-matrix (~transform-fn (peek @transform-stack)) [x# y# z# 1])]
         (~direct-fn xp# yp# zp#)))))
 
-(defn normal-transform [matrix] (vec (concat (subvec matrix 0 12) [0 0 0 0]))) ;we don't want to translate normals
+(defn undo-translation [matrix] (vec (concat (subvec matrix 0 12) [0 0 0 0]))) ;we don't want to translate normals
 
 (facade-transform vertex identity)
-(facade-transform normal normal-transform)
+(facade-transform normal undo-translation)
 
 (defn apply-transform
   "Pops off the head of the transform stack, multiplies it by the matrix, and pushes it back on"
-  [matrix]
+  [matrix transform-fn]
   (dosync
-    (ref-set transform-stack (conj (pop @transform-stack) (mult-matrix (peek @transform-stack) matrix)))))
+    (ref-set transform-stack (conj (pop @transform-stack) (transform-fn (peek @transform-stack) matrix)))))
 
 (defmacro facade-multiply
   "Applies a transform to transform-stack rather than the OpenGL modelview matrix."
-  [fn matrix-fn]
+  ([fn matrix-fn] `(facade-multiply ~fn ~matrix-fn mult-matrix))
+  ([fn matrix-fn transform-fn]
   (let [facade-fn (prepend "facade" fn)]
     `(defmacro ~facade-fn [& args#]
-      `(apply-transform (~'~matrix-fn ~@args#)))))
+      `(apply-transform (~'~matrix-fn ~@args#) ~'~transform-fn)))))
 
 (facade-multiply rotate rotation-matrix)
 (facade-multiply scale scaling-matrix)
 (facade-multiply translate translation-matrix)
-(facade-multiply load-identity identity-matrix) ;Note: this only resets transformations local to the begin/end clause
+(facade-multiply load-identity identity-matrix #(%2)) ;Note: this only resets transformations local to the begin/end clause
 
 (defmacro defn-draw
   "Creates a macro called draw-'type' which redirects vertex and transform calls through appropriate facades."
