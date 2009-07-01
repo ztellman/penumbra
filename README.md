@@ -1,5 +1,7 @@
 Penumbra is a basic wrapper for OpenGL in Clojure.
 
+This Java/C code
+
 	glEnable(GL_LIGHT0);
 	glPushMatrix();
 	glTranslate(0, 0, -10);
@@ -22,6 +24,7 @@ becomes
 			(vertex 1 1 0)
 			(vertex 1 0 0)))
 
+
 It also allows for intra-primitive transformations, which allows us to define a circle like this:
 
 	(draw-line-strip
@@ -29,10 +32,16 @@ It also allows for intra-primitive transformations, which allows us to define a 
     		(rotate 1 0 0 1)
     		(vertex 0 1 0)))
 
-rather than:
+rather than this:
 
 	(draw-line-strip
   		(dotimes [angle 360]
     		(vertex (Math/cos (* Math/PI (/ angle 180.)))
             		(Math/sin (* Math/PI (/ angle 180.)))
             		0)))
+
+
+Some features I'd like to add, in ascending order of complexity:
+* procedural mesh generation
+* pixel shading
+* GPGPU
