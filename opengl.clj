@@ -208,11 +208,12 @@
       (enable ~light#)
       (set-light ~light# :position (float-array 4 [~x ~y ~z ~w]) 0))))
 
-(defmacro material [r g b a]
-  `(set-material :front-and-back :ambient-and-diffuse (float-array 4 [~r ~g ~b ~a]) 0))
+(defn material [r g b a]
+  (set-material :front-and-back :ambient-and-diffuse (float-array 4 [r g b a]) 0))
 
-(defmacro render-mode [mode]
-  `(gl-polygon-mode :front-and-back ~mode))
+(defn draw-solid [] (gl-polygon-mode :front-and-back :fill))
+(defn draw-wireframe [] (gl-polygon-mode :front-and-back :line))
+(defn draw-point-cloud [] (gl-polygon-mode :front-and-back :point))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;View initialization

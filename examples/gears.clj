@@ -107,7 +107,6 @@
   (enable :normalize)
   (enable :depth-test)
   (shade-model :flat)
-  (render-mode :fill)
   (set-display-list gear (draw-gear 30 0.5 3 4 2)))
 
 (defn reshape [x y width height]
