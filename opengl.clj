@@ -72,9 +72,9 @@
 (gl-import glOrtho gl-ortho)
 (glu-import gluPerspective glu-perspective)
 
-(gl-import glEnable gl-enable)
-(gl-import glDisable gl-disable)
-(gl-import glCullFace gl-cull-face-func)
+(gl-import glEnable enable)
+(gl-import glDisable disable)
+(gl-import glCullFace gl-cull-face)
 (gl-import glPolygonMode gl-polygon-mode)
 (gl-import glHint gl-hint)
 (gl-import glClear gl-clear)
@@ -167,66 +167,45 @@
       ~@args
       (gl-pop-matrix))))
 
-(defmacro set-call-list [list-ref & args]
+(defmacro set-display-list [list-ref & args]
   "Points list-ref to a new list, and deletes the list it was previous pointing to."
   `(let [list# (gl-gen-lists 1)]
     (do
       (gl-new-list list# :compile)
       ~@args
       (gl-end-list))
-    (if (is-call-list ~list-ref) (delete-call-list ~list-ref))
+    (if (is-display-list ~list-ref) (delete-display-list ~list-ref))
     (dosync (ref-set ~list-ref list#))))
 
-(defn is-call-list [list-ref]
+(defn is-display-list [list-ref]
   (and
     (not (nil? @list-ref))
     (gl-is-list @list-ref)))
 
-(defn delete-call-list [list-ref]
+(defn delete-display-list [list-ref]
   (gl-delete-lists @list-ref 1))
 
-(defn do-call-list [list-ref]
+(defn call-display-list [list-ref]
   (gl-call-list @list-ref))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;Enable/Disable
-
-(defmacro def-toggle
-  [import-from import-as]
-  (let [enable# (prepend "enable" import-as)
-        disable# (prepend "disable" import-as)]
-    `(do
-      (defmacro ~enable# [] `(gl-enable ~'~import-from))
-      (defmacro ~disable# [] `(gl-disable ~'~import-from)))))
-
-(def-toggle :depth-test depth-test)
-(def-toggle :cull-face cull-face)
-(def-toggle :auto-normal auto-normals)
-(def-toggle :normalize normalize)
-(def-toggle :blend alpha-blending)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Render state
 
-(defn cull-back [] (gl-cull-face-func :back))
-(defn cull-front [] (gl-cull-face-func :front))
-(defn cull-front-and-back [] (gl-cull-face-func :front-and-back))
-
 (defn enable-anti-aliasing []
-  (gl-enable :point-smooth)
-  (gl-enable :line-smooth)
-  (gl-enable :polygon-smooth)
+  (enable :point-smooth)
+  (enable :line-smooth)
+  (enable :polygon-smooth)
   (gl-hint :point-smooth-hint :nicest)
   (gl-hint :line-smooth-hint :nicest)
   (gl-hint :polygon-smooth-hint :nicest)
-  (enable-alpha-blending)
+  (enable :blend)
   (gl-blend-func :src-alpha :one-minus-src-alpha))
 
-(defmacro setup-light [num [x y z w]]
+(defmacro set-light-position [num [x y z w]]
   (let [light# (keyword (str "light" num))]
     `(do
-      (gl-enable :lighting)
-      (gl-enable ~light#)
+      (enable :lighting)
+      (enable ~light#)
       (set-light ~light# :position (float-array 4 [~x ~y ~z ~w]) 0))))
 
 (defmacro material [r g b a]

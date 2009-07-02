@@ -1,4 +1,4 @@
-(ns penumbra.gears)
+(ns penumbra.examples.gears)
 
 (use 'penumbra.opengl 'penumbra.window 'penumbra.matrix)
 
@@ -50,8 +50,8 @@
         (mirror (rotate increment 0 0 1)
           (vertex 0 high 1)
           (vertex 0 high 0))
-        (normal tooth-slope 1 0)
 
+        (normal (- 0 tooth-slope) 1 0)
         (push-matrix
           (mirror (do (rotate increment 0 0 1) (translate 0 (- mid high) 0))
             (vertex 0 high 1)
@@ -63,7 +63,7 @@
           (vertex 0 mid 1)
           (vertex 0 mid 0))
 
-        (normal (- 0 tooth-slope) 1 0)
+        (normal tooth-slope 1 0)
         (push-matrix
           (mirror (do (rotate increment 0 0 1) (translate 0 (- high mid) 0))
             (vertex 0 mid 1)
@@ -101,15 +101,14 @@
 (def gear (ref nil))
 
 (defn init []
-  (cull-back)
-  (enable-cull-face)
-  (enable-auto-normals)
-  (enable-normalize)
-  (enable-depth-test)
+  (gl-cull-face :back)
+  (enable :cull-face)
+  (enable :auto-normal)
+  (enable :normalize)
+  (enable :depth-test)
   (shade-model :flat)
-  (enable-anti-aliasing)
   (render-mode :fill)
-  (set-call-list gear (draw-gear 30 0.5 3 4 2)))
+  (set-display-list gear (draw-gear 30 0.5 3 4 2)))
 
 (defn reshape [x y width height]
   (frustum-view 90 (/ (double width) height) 1 100)
@@ -123,10 +122,10 @@
 (defn display [delta time]
   (write (format "%d fps" (int (/ 1 delta))) 0 1)
   (translate 0 0 -10)
-  (setup-light 0 [1 1 1 0])
+  (set-light-position 0 [1 1 1 0])
   (rotate @rot-x 1 0 0)
   (rotate @rot-y 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
-  (do-call-list gear))
+  (call-display-list gear))
 
 (start {:reshape reshape :display display :init init :mouse-drag mouse-drag})
