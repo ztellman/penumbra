@@ -15,7 +15,7 @@ This Java/C code
 	
 becomes
 
-	(gl-enable :light0)
+	(enable :light0)
 	(push-matrix
 		(translate 0 0 -10)
 		(draw-quads
