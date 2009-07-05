@@ -90,6 +90,7 @@
 
 (gl-import glLightfv set-light)
 (gl-import glMaterialfv set-material)
+(gl-import glFogfv gl-fog)
 (gl-import glBlendFunc gl-blend-func)
 (gl-import glShadeModel shade-model)
 (gl-import glLineWidth line-width)
@@ -208,6 +209,15 @@
       (enable :lighting)
       (enable ~light#)
       (set-light ~light# :position (float-array 4 [~x ~y ~z ~w]) 0))))
+
+(defmacro setup-fog [mode density near far [r g b a]]
+  `(do
+    (enable :fog)
+    (gl-fog :fog-mode (float-array 1 [~(translate-keyword mode)]) 0)
+    (gl-fog :fog-density (float-array 1 [~density]) 0)
+    (gl-fog :fog-start (float-array 1 [~near]) 0)
+    (gl-fog :fog-end (float-array 1 [~far]) 0)
+    (gl-fog :fog-color (float-array 4 [~r ~g ~b ~a]) 0)))
 
 (defn material [r g b a]
   (set-material :front-and-back :ambient-and-diffuse (float-array 4 [r g b a]) 0))

@@ -44,7 +44,7 @@
   (enable :depth-test)
   (enable :multisample)
   (shade-model :flat)
-  (reset! pyramid (nth (sierpinski) 2)))
+  (reset! pyramid (nth (sierpinski) 6)))
 
 (defn reshape [x y width height]
   (frustum-view 50 (/ (double width) height) 0.1 100)
@@ -56,8 +56,9 @@
     (ref-set rot-y (- @rot-y dx))))
 
 (defn display [delta time]
-  (translate 0 -0.35 -2)
+  (translate 0 -0.35 -1.75)
   (set-light-position 0 [1 1 1 0])
+  (setup-fog :exp 0.75 0 10 [0 0 0 0])
   (rotate @rot-x 1 0 0)
   (rotate @rot-y 0 1 0)
   (call-display-list @pyramid))
