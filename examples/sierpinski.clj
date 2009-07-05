@@ -33,11 +33,9 @@
         (call-display-list display-list)))))
 
 (defn sierpinski []
-  (map
-    first
-    (iterate
-      (fn [[a b]] [(get-display-list (subdivide a)) a])
-      [(get-display-list (draw-pyramid)) nil])))
+  (iterate
+    #(get-display-list (subdivide %))
+    (get-display-list (draw-pyramid))))
 
 (defn init []
   (enable :normalize)
