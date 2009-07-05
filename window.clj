@@ -65,20 +65,18 @@
         (proxy [MouseMotionAdapter] []
 
           (mouseDragged [#^java.awt.event.MouseEvent event]
-            (if (:mouse-drag funs)
-              (let [x (. event getX), y (. event getY)
-                    [last-x last-y] @last-pos
-                    delta [(- x last-x) (- y last-y)]]
-                (dosync (ref-set last-pos [x y]))
-                ((:mouse-drag funs) delta [x y]))))
+            (let [x (. event getX), y (. event getY)
+                  [last-x last-y] @last-pos
+                  delta [(- x last-x) (- y last-y)]]
+              (dosync (ref-set last-pos [x y]))
+              (if (:mouse-drag funs) ((:mouse-drag funs) delta [x y]))))
 
           (mouseMoved [#^java.awt.event.MouseEvent event]
-            (if (:mouse-move funs)
-              (let [x (. event getX), y (. event getY)
-                    [last-x last-y] @last-pos
-                    delta [(- x last-x) (- y last-y)]]
-                (dosync (ref-set last-pos [x y]))
-                ((:mouse-move funs) delta [x y])))))))
+            (let [x (. event getX), y (. event getY)
+                  [last-x last-y] @last-pos
+                  delta [(- x last-x) (- y last-y)]]
+              (dosync (ref-set last-pos [x y]))
+              (if (:mouse-move funs) ((:mouse-move funs) delta [x y])))))))
 
     (doto frame
       (.addWindowListener
@@ -89,6 +87,6 @@
                       (. animator stop)
                       (. frame dispose))) start))))
       (.add canvas)
-      (.setSize 800 600)
+      (.setSize 640 480)
       (.show))
     (. animator start)))

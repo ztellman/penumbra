@@ -11,12 +11,12 @@
 
 (def #^GL *gl* nil)
 (def #^GLU *glu* (new GLU))
-(def transform-stack (ref [(identity-matrix)]))
-(def inside-begin-end (ref false))
+(def transform-matrix (atom (identity-matrix)))
+(def inside-begin-end false)
 
-(defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & args]
+(defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & body]
   `(binding [*gl* (.getGL ~drawable)]
-    ~@args))
+    ~@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
@@ -31,7 +31,7 @@
        direct-fn (prepend "gl" import-as)]
     `(do
       (defmacro ~import-as [& a#]
-        `(if @inside-begin-end
+        `(if inside-begin-end
           (~'~facade-fn ~@a#)
           (. *gl* ~'~import-from ~@a#)))
       (defmacro ~direct-fn [& b#]
@@ -77,7 +77,9 @@
 (gl-import glCullFace gl-cull-face)
 (gl-import glPolygonMode gl-polygon-mode)
 (gl-import glHint gl-hint)
+
 (gl-import glClear gl-clear)
+(gl-import glClearColor clear-color)
 
 (gl-import glCallList gl-call-list)
 (gl-import glGenLists gl-gen-lists)
@@ -90,6 +92,8 @@
 (gl-import glMaterialfv set-material)
 (gl-import glBlendFunc gl-blend-func)
 (gl-import glShadeModel shade-model)
+(gl-import glLineWidth line-width)
+(gl-import glPointSize point-size)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Render functions
@@ -100,7 +104,7 @@
   (let [facade-fn (prepend "facade" fn)
         direct-fn (prepend "gl" fn)]
     `(defn ~facade-fn [x# y# z#]
-      (let [[xp# yp# zp# wp#] (apply-matrix (~transform-fn (peek @transform-stack)) [x# y# z# 1])]
+      (let [[xp# yp# zp# wp#] (apply-matrix (~transform-fn @transform-matrix) [x# y# z# 1])]
         (~direct-fn xp# yp# zp#)))))
 
 (defn undo-translation [matrix] (vec (concat (subvec matrix 0 12) [0 0 0 0]))) ;we don't want to translate normals
@@ -111,8 +115,7 @@
 (defn apply-transform
   "Pops off the head of the transform stack, multiplies it by the matrix, and pushes it back on"
   [matrix transform-fn]
-  (dosync
-    (ref-set transform-stack (conj (pop @transform-stack) (transform-fn (peek @transform-stack) matrix)))))
+  (swap! transform-matrix transform-fn matrix))
 
 (defmacro facade-multiply
   "Applies a transform to transform-stack rather than the OpenGL modelview matrix."
@@ -130,16 +133,12 @@
 (defmacro defn-draw
   "Creates a macro called draw-'type' which redirects vertex and transform calls through appropriate facades."
   [primitive-type]
-  `(defmacro ~(symbol (str "draw-" (name primitive-type))) [& args#]
-    `(do
-      (dosync
-        (ref-set transform-stack [(identity-matrix)])
-        (ref-set inside-begin-end true))
+  `(defmacro ~(symbol (str "draw-" (name primitive-type))) [& body#]
+    `(binding [inside-begin-end true
+               transform-matrix (atom (identity-matrix))]
       (gl-begin ~'~(translate-keyword primitive-type))
-      ~@args#
-      (gl-end)
-      (dosync
-        (ref-set inside-begin-end false)))))
+      ~@body#
+      (gl-end))))
 
 (defn-draw :quads)
 (defn-draw :line-strip)
@@ -148,6 +147,9 @@
 (defn-draw :triangle-fan)
 (defn-draw :quad-strip)
 (defn-draw :triangles)
+(defn-draw :polygon)
+(defn-draw :line-loop)
+(defn-draw :points)
 
 (defn clear []
   (gl-clear :depth-buffer-bit)
@@ -156,37 +158,36 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Various utility functions
 
-(defmacro push-matrix [& args]
-  `(if @inside-begin-end
-    (do
-      (dosync (ref-set transform-stack (conj (deref transform-stack) (peek (deref transform-stack)))))
-      ~@args
-      (dosync (ref-set transform-stack (pop (deref transform-stack)))))
-    (do
-      (gl-push-matrix)
-      ~@args
-      (gl-pop-matrix))))
+(defmacro push-matrix [& body]
+  `(binding [transform-matrix (if inside-begin-end (atom @transform-matrix) transform-matrix)]
+    (if (not inside-begin-end) (gl-push-matrix))
+    ~@body
+    (if (not inside-begin-end) (gl-pop-matrix))))
 
-(defmacro set-display-list [list-ref & args]
-  "Points list-ref to a new list, and deletes the list it was previous pointing to."
+(defmacro set-display-list
+  "Points list-atom to a new list, and deletes the list it was previous pointing to."
+  [list-atom & body]
+  `(let [list# (get-display-list ~@body)]
+    (if (is-display-list ~@list-atom) (delete-display-list ~@list-atom))
+    (reset! ~list-atom list#)))
+
+(defmacro get-display-list [& body]
   `(let [list# (gl-gen-lists 1)]
-    (do
-      (gl-new-list list# :compile)
-      ~@args
-      (gl-end-list))
-    (if (is-display-list ~list-ref) (delete-display-list ~list-ref))
-    (dosync (ref-set ~list-ref list#))))
+    (gl-new-list list# :compile)
+    ~@body
+    (gl-end-list)
+    list#))
 
-(defn is-display-list [list-ref]
+(defn is-display-list [display-list]
   (and
-    (not (nil? @list-ref))
-    (gl-is-list @list-ref)))
+    (not (nil? display-list))
+    (gl-is-list display-list)))
 
-(defn delete-display-list [list-ref]
-  (gl-delete-lists @list-ref 1))
+(defn delete-display-list [display-list]
+  (gl-delete-lists display-list 1))
 
-(defn call-display-list [list-ref]
-  (gl-call-list @list-ref))
+(defn call-display-list [display-list]
+  (gl-call-list display-list))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Render state
@@ -220,7 +221,7 @@
 
 (defn ortho-view
   "Create orthographic view, where distant objects don't get smaller."
-  [left right bottom top near far]
+  [left top right bottom near far]
   (gl-matrix-mode :projection)
   (load-identity)
   (gl-ortho left right bottom top near far)

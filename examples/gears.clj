@@ -98,7 +98,7 @@
 
 (def rot-x (ref 0))
 (def rot-y (ref 0))
-(def gear (ref nil))
+(def gear (atom nil))
 
 (defn init []
   (gl-cull-face :back)
@@ -125,6 +125,6 @@
   (rotate @rot-x 1 0 0)
   (rotate @rot-y 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
-  (call-display-list gear))
+  (call-display-list @gear))
 
 (start {:reshape reshape :display display :init init :mouse-drag mouse-drag})
