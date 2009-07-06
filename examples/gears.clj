@@ -101,7 +101,6 @@
 (def gear (atom nil))
 
 (defn init []
-  (gl-cull-face :back)
   (enable :cull-face)
   (enable :auto-normal)
   (enable :normalize)
@@ -110,8 +109,10 @@
   (set-display-list gear (draw-gear 30 0.5 3 4 2)))
 
 (defn reshape [x y width height]
-  (frustum-view 90 (/ (double width) height) 1 100)
-  (load-identity))
+  (frustum-view 60 (/ (double width) height) 1 100)
+  (load-identity)
+  (translate 0 0 -10)
+  (set-light-position 0 [1 1 1 0]))
 
 (defn mouse-drag [[dx dy] _]
   (dosync
@@ -120,8 +121,6 @@
 
 (defn display [delta time]
   (write (format "%d fps" (int (/ 1 delta))) 0 1)
-  (translate 0 0 -10)
-  (set-light-position 0 [1 1 1 0])
   (rotate @rot-x 1 0 0)
   (rotate @rot-y 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)

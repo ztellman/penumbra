@@ -43,7 +43,7 @@
   (enable :multisample)
   (enable :cull-face)
   (shade-model :flat)
-  (reset! pyramid (nth (sierpinski) 6)))
+  (reset! pyramid (nth (sierpinski) 3)))
 
 (defn reshape [x y width height]
   (frustum-view 50 (/ (double width) height) 0.1 100)
@@ -58,6 +58,7 @@
     (ref-set rot-y (- @rot-y dx))))
 
 (defn display [delta time]
+  (write (format "%d fps" (int (/ 1 delta))) 0 1)
   (rotate @rot-x 1 0 0)
   (rotate @rot-y 0 1 0)
   (call-display-list @pyramid))
