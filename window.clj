@@ -4,7 +4,7 @@
 	      '(java.awt.event MouseAdapter MouseListener
                          MouseEvent MouseMotionListener MouseMotionAdapter
                          WindowListener WindowAdapter)
-	      '(javax.media.opengl GLCanvas GLEventListener GL)
+	      '(javax.media.opengl GLCanvas GLEventListener GLCapabilities GL)
 	      '(com.sun.opengl.util Animator))
 
 (set! *warn-on-reflection* true)
@@ -20,73 +20,77 @@
 (defn start [funs]
   (let
     [frame (new Frame)
-     canvas (new GLCanvas)
-     animator (new Animator canvas)]
-    (doto canvas
-      (.addGLEventListener
-        (proxy [GLEventListener] []
+     cap (new GLCapabilities)]
+    (doto cap
+      (.setSampleBuffers true)
+      (.setNumSamples 4))
+    (let [canvas (new GLCanvas cap)
+          animator (new Animator canvas)]
+      (doto canvas
+        (.addGLEventListener
+          (proxy [GLEventListener] []
 
-          (display [#^javax.media.opengl.GLAutoDrawable drawable]
-            (let [current (clock)
-                  delta (/ (- current @last-render) 1e9)]
-              (dosync (ref-set last-render current))
-              (if (:display funs)
+            (display [#^javax.media.opengl.GLAutoDrawable drawable]
+              (let [current (clock)
+                    delta (/ (- current @last-render) 1e9)]
+                (dosync (ref-set last-render current))
+                (if (:display funs)
+                  (bind-gl drawable
+                    (clear)
+                    (push-matrix
+                      ((:display funs) delta (/ current 1e9)))))))
+
+            (displayChanged [drawable mode-change device-changed])
+
+            (reshape [#^javax.media.opengl.GLAutoDrawable drawable x y width height]
+              (set-dimensions width height)
+              (if (:reshape funs)
                 (bind-gl drawable
-                  (clear)
-                  (push-matrix
-                    ((:display funs) delta (/ current 1e9)))))))
+                  ((:reshape funs) x y width height))))
 
-          (displayChanged [drawable mode-change device-changed])
+            (init [#^javax.media.opengl.GLAutoDrawable drawable]
+              (if (:init funs)
+                (bind-gl drawable
+                  ((:init funs)))))))
 
-          (reshape [#^javax.media.opengl.GLAutoDrawable drawable x y width height]
-            (set-dimensions width height)
-            (if (:reshape funs)
-              (bind-gl drawable
-                ((:reshape funs) x y width height))))
+        (.addMouseListener
+          (proxy [MouseAdapter] []
 
-          (init [#^javax.media.opengl.GLAutoDrawable drawable]
-            (if (:init funs)
-              (bind-gl drawable
-                ((:init funs)))))))
+            (mouseClicked [#^java.awt.event.MouseEvent event]
+              (if (:mouse-click funs) ((:mouse-click funs) (. event getX) (. event getY))))
 
-      (.addMouseListener
-        (proxy [MouseAdapter] []
+            (mousePressed [#^java.awt.event.MouseEvent event]
+              (if (:mouse-down funs) ((:mouse-down funs) (. event getX) (. event getY))))
 
-          (mouseClicked [#^java.awt.event.MouseEvent event]
-            (if (:mouse-click funs) ((:mouse-click funs) (. event getX) (. event getY))))
+            (mouseReleased [#^java.awt.event.MouseEvent event]
+              (if (:mouse-up funs) ((:mouse-up funs) (. event getX) (. event getY))))))
 
-          (mousePressed [#^java.awt.event.MouseEvent event]
-            (if (:mouse-down funs) ((:mouse-down funs) (. event getX) (. event getY))))
+        (.addMouseMotionListener
+          (proxy [MouseMotionAdapter] []
 
-          (mouseReleased [#^java.awt.event.MouseEvent event]
-            (if (:mouse-up funs) ((:mouse-up funs) (. event getX) (. event getY))))))
+            (mouseDragged [#^java.awt.event.MouseEvent event]
+              (let [x (. event getX), y (. event getY)
+                    [last-x last-y] @last-pos
+                    delta [(- x last-x) (- y last-y)]]
+                (dosync (ref-set last-pos [x y]))
+                (if (:mouse-drag funs) ((:mouse-drag funs) delta [x y]))))
 
-      (.addMouseMotionListener
-        (proxy [MouseMotionAdapter] []
+            (mouseMoved [#^java.awt.event.MouseEvent event]
+              (let [x (. event getX), y (. event getY)
+                    [last-x last-y] @last-pos
+                    delta [(- x last-x) (- y last-y)]]
+                (dosync (ref-set last-pos [x y]))
+                (if (:mouse-move funs) ((:mouse-move funs) delta [x y])))))))
 
-          (mouseDragged [#^java.awt.event.MouseEvent event]
-            (let [x (. event getX), y (. event getY)
-                  [last-x last-y] @last-pos
-                  delta [(- x last-x) (- y last-y)]]
-              (dosync (ref-set last-pos [x y]))
-              (if (:mouse-drag funs) ((:mouse-drag funs) delta [x y]))))
-
-          (mouseMoved [#^java.awt.event.MouseEvent event]
-            (let [x (. event getX), y (. event getY)
-                  [last-x last-y] @last-pos
-                  delta [(- x last-x) (- y last-y)]]
-              (dosync (ref-set last-pos [x y]))
-              (if (:mouse-move funs) ((:mouse-move funs) delta [x y])))))))
-
-    (doto frame
-      (.addWindowListener
-              (proxy [WindowAdapter] []
-                (windowClosing [event]
-                  (. (new Thread
-                    (fn []
-                      (. animator stop)
-                      (. frame dispose))) start))))
-      (.add canvas)
-      (.setSize 640 480)
-      (.show))
-    (. animator start)))
+      (doto frame
+        (.addWindowListener
+                (proxy [WindowAdapter] []
+                  (windowClosing [event]
+                    (. (new Thread
+                      (fn []
+                        (. animator stop)
+                        (. frame dispose))) start))))
+        (.add canvas)
+        (.setSize 640 480)
+        (.show))
+      (. animator start))))

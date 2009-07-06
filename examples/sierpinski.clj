@@ -7,7 +7,7 @@
 (def pyramid (atom nil))
 
 (defn draw-pyramid []
-  (material 0.8 0.2 0.2 1)
+  (material 1 0.25 0.25 1)
   (draw-triangle-fan
     (vertex 0 1 0)
     (dotimes [_ 5]
@@ -46,7 +46,10 @@
 
 (defn reshape [x y width height]
   (frustum-view 50 (/ (double width) height) 0.1 100)
-  (load-identity))
+  (load-identity)
+  (translate 0 -0.35 -1.75)
+  (set-light-position 0 [1 1 1 0])
+  (setup-fog :exp 0.75 0 10 [0 0 0 0]))
 
 (defn mouse-drag [[dx dy] _]
   (dosync
@@ -54,9 +57,6 @@
     (ref-set rot-y (- @rot-y dx))))
 
 (defn display [delta time]
-  (translate 0 -0.35 -1.75)
-  (set-light-position 0 [1 1 1 0])
-  (setup-fog :exp 0.75 0 10 [0 0 0 0])
   (rotate @rot-x 1 0 0)
   (rotate @rot-y 0 1 0)
   (call-display-list @pyramid))
