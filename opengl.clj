@@ -165,19 +165,19 @@
     ~@body
     (if (not inside-begin-end) (gl-pop-matrix))))
 
-(defmacro set-display-list
-  "Points list-atom to a new list, and deletes the list it was previous pointing to."
-  [list-atom & body]
-  `(let [list# (get-display-list ~@body)]
-    (if (is-display-list ~@list-atom) (delete-display-list ~@list-atom))
-    (reset! ~list-atom list#)))
-
 (defmacro get-display-list [& body]
   `(let [list# (gl-gen-lists 1)]
     (gl-new-list list# :compile)
     ~@body
     (gl-end-list)
     list#))
+
+(defmacro set-display-list
+  "Points list-atom to a new list, and deletes the list it was previous pointing to."
+  [list-atom & body]
+  `(let [list# (get-display-list ~@body)]
+    (if (is-display-list (deref ~list-atom)) (delete-display-list (deref ~list-atom)))
+    (reset! ~list-atom list#)))
 
 (defn is-display-list [display-list]
   (and

@@ -23,7 +23,7 @@
      cap (new GLCapabilities)]
     (doto cap
       (.setSampleBuffers true)
-      (.setNumSamples 4))
+      (.setNumSamples 4)) ;anti-aliasing level
     (let [canvas (new GLCanvas cap)
           animator (new Animator canvas)]
       (doto canvas

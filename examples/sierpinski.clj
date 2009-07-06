@@ -41,6 +41,7 @@
   (enable :normalize)
   (enable :depth-test)
   (enable :multisample)
+  (enable :cull-face)
   (shade-model :flat)
   (reset! pyramid (nth (sierpinski) 6)))
 
