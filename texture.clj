@@ -6,7 +6,7 @@
 
 (import '(java.nio ByteBuffer))
 
-(defstruct texture :width :height :id) ;type is either :texture-1d or :texture-2d
+(defstruct texture :width :height :id)
 
 (gl-import glTexCoord1d tex-1)
 (gl-import glTexCoord2d tex-2)
@@ -40,8 +40,12 @@
     (nth a 0)))
 
 (defn populate-1d-texture [size fun]
-  (let [colors (map #(fun % (/ % (float size))) (range size))]
-    (apply concat (map (fn [color] (map #((int (* 255 %))) color)) colors))))
+  (map 
+   #(int (* 255 %)) 
+   (apply 
+    concat 
+    (for [x (range size)] 
+     (fun % (/ % (float size))))))) 
 
 (defn create-1d-texture [size fun]
   (let [tex-id (gen-texture)
@@ -51,13 +55,16 @@
     (struct-map texture :width size :height 1 :id tex-id)))
 
 (defn populate-2d-texture [w h fun]
-  (let [colors (map #(apply fun %) (for [x (range w) y (range h)] [[x y] [(/ x (float w)) (/ y (float h))]]))]
-    (apply concat (map (fn [color] (map #((int (* 255 %))) color)) colors))))
-
+  (map
+   #(int (* 255 %))
+   (apply
+    concat
+    (for [x (range w) y (range h)]
+      (fun [x y] [(/ x (float w)) (/ y (float h))])))))
+    
 (defn create-2d-texture [w h fun]
   (let [tex-id (gen-texture)
         buf (ByteBuffer/wrap (populate-2d-texture w h fun))]
     (gl-bind-texture :texture-2d tex-id)
     (tex-image-2d :texture-2d 0 4 w h 0 :rgba :unsigned-byte buf)
     (struct-map texture :width w :height h :id tex-id)))
-
