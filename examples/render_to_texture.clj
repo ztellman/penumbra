@@ -2,6 +2,8 @@
 
 (use 'penumbra.opengl 'penumbra.window 'penumbra.texture)
 
+(def t (atom nil))
+
 (defn square []
   (draw-quads
     (tex 0 0) (vertex 0 0 0)
@@ -13,7 +15,9 @@
   (enable :normalize)
   (enable :depth-test)
   (enable :multisample)
-  (shade-model :flat))
+  (enable :texture-2d)
+  (shade-model :flat)
+  (reset! t (create-2d-texture 128 128 #([0 1 0 0]))))
 
 (defn reshape [x y width height]
   (ortho-view 0 0 (* 10 (/ (float width) height)) 10 0 10)
@@ -27,6 +31,7 @@
   (color 1 0 0)
   (scale 4 4 4)
   (translate -0.5 -0.5 0)
+  (bind-tex @t)
   (square))
 
 (start {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init})

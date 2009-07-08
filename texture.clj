@@ -20,10 +20,10 @@
   ([u] (tex-1 u))
   ([u v] (tex-2 u v)))
 
-(defn bind-tex [texture]
-  (if (< 1 (:height texture))
-    (gl-bind-texture :texture-2d (:id texture))
-    (gl-bind-texture :texture-1d (:id texture))))
+(defn bind-tex [t]
+  (if (< 1 (:height t))
+    (gl-bind-texture :texture-2d (:id t))
+    (gl-bind-texture :texture-1d (:id t))))
 
 (defn byte-array [source]
   (let [array (make-array (. Byte TYPE) (count source))]
@@ -36,29 +36,27 @@
 
 (defn gen-texture []
   (let [a (int-array 1)]
-    (gl-gen-textures 1 a)
+    (gl-gen-textures 1 a 0)
     (nth a 0)))
+
+(defn populate-1d-texture [size fun]
+  (let [colors (map #(fun % (/ % (float size))) (range size))]
+    (apply concat (map (fn [color] (map #((int (* 255 %))) color)) colors))))
 
 (defn create-1d-texture [size fun]
   (let [tex-id (gen-texture)
-        buf (ByteBuffer/wrap
-              (byte-array
-                (apply concat
-                  (map
-                    #(apply fun %)
-                    (for [x (range size)] (x (/ x (float size))))))))]
+        buf (ByteBuffer/wrap (populate-1d-texture size fun))]
     (gl-bind-texture :texture-1d tex-id)
     (tex-image-1d :texture-1d 0 4 size 0 :rgba :unsigned-byte buf)
     (struct-map texture :width size :height 1 :id tex-id)))
 
+(defn populate-2d-texture [w h fun]
+  (let [colors (map #(apply fun %) (for [x (range w) y (range h)] [[x y] [(/ x (float w)) (/ y (float h))]]))]
+    (apply concat (map (fn [color] (map #((int (* 255 %))) color)) colors))))
+
 (defn create-2d-texture [w h fun]
   (let [tex-id (gen-texture)
-        buf (ByteBuffer/wrap
-              (byte-array
-                (apply concat
-                  (map
-                    #(apply fun %)
-                    (for [x (range w) y (range h)] ([x y] [(/ x (float w)) (/ y (float h))]))))))]
+        buf (ByteBuffer/wrap (populate-2d-texture w h fun))]
     (gl-bind-texture :texture-2d tex-id)
     (tex-image-2d :texture-2d 0 4 w h 0 :rgba :unsigned-byte buf)
     (struct-map texture :width w :height h :id tex-id)))
