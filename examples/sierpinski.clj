@@ -1,10 +1,6 @@
 (ns penumbra.examples.sierpinski)
 
-(use 'penumbra.opengl 'penumbra.matrix 'penumbra.window)
-
-(def rot-x (ref 9))
-(def rot-y (ref 202))
-(def pyramid (atom nil))
+(use 'penumbra.opengl 'penumbra.window)
 
 (defn draw-pyramid []
   (material 1 0.25 0.25 1)
@@ -36,6 +32,11 @@
   (iterate
     #(get-display-list (subdivide %))
     (get-display-list (draw-pyramid))))
+
+;;;;;;;;;;;;;;;;;
+(def rot-x (ref 9))
+(def rot-y (ref 202))
+(def pyramid (atom nil))
 
 (defn init []
   (enable :normalize)

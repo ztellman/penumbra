@@ -5,9 +5,50 @@
         '(java.awt Font)
         '(com.sun.opengl.util.j2d TextRenderer))
 
-(use 'penumbra.matrix)
-
 (set! *warn-on-reflection* true)
+
+;;;;;;;;;;;;;;;;;;;;;;
+;Basic matrix math
+
+(defn identity-matrix []
+  [1 0 0 0
+   0 1 0 0
+   0 0 1 0
+   0 0 0 1])
+
+(defn translation-matrix [x y z]
+  [1 0 0 x
+   0 1 0 y
+   0 0 1 z
+   0 0 0 1])
+
+(defn scaling-matrix [x y z]
+  [x 0 0 0
+   0 y 0 0
+   0 0 z 0
+   0 0 0 1])
+
+(defn rotation-matrix [theta x y z]
+  (let [s (Math/sin (* Math/PI (/ theta 180)))
+        c (Math/cos (* Math/PI (/ theta 180)))
+        t (- 1 c)]
+  [(+ c (* t x x))        (- (* t x y) (* s z))   (+ (* t x z) (* s y))   0
+   (+ (* t x y) (* s z))  (+ (* t y y) c)         (- (* t y z) (* s x))   0
+   (- (* t x z) (* s y))  (+ (* t y z) (* s x))   (+ (* t z z) c)         0
+   0                      0                       0                       1]))
+
+(defn index [m i j] (m (+ i (* j 4))))
+
+(defn mult-matrix [a b]
+  (let [indices (for [i (range 4) j (range 4)] [i j])
+        traverse (fn [[i j]] (apply + (map #(* (index a % i) (index b j %)) (range 4))))]
+    (vec (map traverse indices))))
+
+(defn apply-matrix [m v]
+  (let [traverse-fn (fn [i] #(* (v %) (index m % i)))]
+    (map #(apply + (map (traverse-fn %) (range 4))) (range 4))))
+
+;;;;;;;;;;;;;;;;;;;;;;
 
 (def #^GL *gl* nil)
 (def #^GLU *glu* (new GLU))
@@ -19,6 +60,7 @@
     ~@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;
+;Import macros
 
 (defn prepend [text sym] (symbol (format "%s-%s" text (name sym))))
 
@@ -28,7 +70,7 @@
     - a macro which directly calls the OpenGL function (glVertex3d -> gl-vertex)"
   [import-from import-as]
   (let [facade-fn (prepend "facade" import-as)
-       direct-fn (prepend "gl" import-as)]
+        direct-fn (prepend "gl" import-as)]
     `(do
       (defmacro ~import-as [& a#]
         `(if inside-begin-end
@@ -53,6 +95,9 @@
   `(defmacro ~import-as [& args#]
     `(. *gl* ~'~import-from ~@(map translate-keyword args#))))
 
+;;;;;;;;;;;;;;;;;;;;;;
+;Import declarations
+
 (gl-facade-import glVertex3d vertex)
 (gl-facade-import glNormal3d normal)
 (gl-facade-import glRotated rotate)
@@ -76,7 +121,6 @@
 (gl-import glDisable disable)
 (gl-import glCullFace gl-cull-face)
 (gl-import glPolygonMode gl-polygon-mode)
-(gl-import glHint gl-hint)
 
 (gl-import glClear gl-clear)
 (gl-import glClearColor clear-color)
@@ -91,10 +135,7 @@
 (gl-import glLightfv set-light)
 (gl-import glMaterialfv set-material)
 (gl-import glFogfv gl-fog)
-(gl-import glBlendFunc gl-blend-func)
 (gl-import glShadeModel shade-model)
-(gl-import glLineWidth line-width)
-(gl-import glPointSize point-size)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Render functions
@@ -192,16 +233,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Render state
-
-(defn enable-anti-aliasing []
-  (enable :point-smooth)
-  (enable :line-smooth)
-  (enable :polygon-smooth)
-  (gl-hint :point-smooth-hint :nicest)
-  (gl-hint :line-smooth-hint :nicest)
-  (gl-hint :polygon-smooth-hint :nicest)
-  (enable :blend)
-  (gl-blend-func :src-alpha :one-minus-src-alpha))
 
 (defmacro set-light-position [num [x y z w]]
   (let [light# (keyword (str "light" num))]

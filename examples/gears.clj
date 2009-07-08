@@ -1,6 +1,6 @@
 (ns penumbra.examples.gears)
 
-(use 'penumbra.opengl 'penumbra.window 'penumbra.matrix)
+(use 'penumbra.opengl 'penumbra.window)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;Gear building functions
@@ -82,6 +82,7 @@
   (material 0.8 0.2 0.2 1)
   (push-matrix
     (scale 1 1 width)
+    (translate 0 0 -0.5)
     (push-matrix
       (rotate 180 0 1 0)
       (rotate (/ 90. num-teeth) 0 0 1)
@@ -126,4 +127,4 @@
   (rotate (* 20. (rem time 360)) 0 0 1)
   (call-display-list @gear))
 
-(start {:reshape reshape :display display :init init :mouse-drag mouse-drag})
+(start {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag})
