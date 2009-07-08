@@ -45,7 +45,7 @@
    (apply 
     concat 
     (for [x (range size)] 
-     (fun % (/ % (float size))))))) 
+     (fun x (/ x (float size))))))) 
 
 (defn create-1d-texture [size fun]
   (let [tex-id (gen-texture)
