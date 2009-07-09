@@ -123,6 +123,7 @@
 (gl-import glPolygonMode gl-polygon-mode)
 
 (gl-import glClear gl-clear)
+(gl-import glFlush gl-flush)
 (gl-import glClearColor clear-color)
 
 (gl-import glCallList gl-call-list)
@@ -131,6 +132,8 @@
 (gl-import glEndList gl-end-list)
 (gl-import glDeleteLists gl-delete-lists)
 (gl-import glIsList gl-is-list)
+
+(gl-import glGetError get-error)
 
 (gl-import glLightfv set-light)
 (gl-import glMaterialfv set-material)
