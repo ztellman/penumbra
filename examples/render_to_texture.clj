@@ -3,19 +3,29 @@
 (import '(com.sun.opengl.util.texture TextureIO)
         '(java.io File))
 
-(use 'penumbra.opengl 'penumbra.window 'penumbra.texture)
+(use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view 'penumbra.opengl.texture 'penumbra.window)
+
 
 (def t (atom nil))
 
 (defn square []
-  (draw-quads
-    (texture 0 0) (vertex 0 0 0)
-    (texture 1 0) (vertex 1 0 0)
-    (texture 1 1) (vertex 1 1 0)
-    (texture 0 1) (vertex 0 1 0)))
+  (push-matrix
+    (scale 6 6 1)
+    (translate -0.5 -0.5 0)
+    (draw-quads
+      (texture 0 0) (vertex 0 0 0)
+      (texture 1 0) (vertex 1 0 0)
+      (texture 1 1) (vertex 1 1 0)
+      (texture 0 1) (vertex 0 1 0))))
+
+(defn bordered-square []
+  (disable :texture-2d)
+  (push-matrix (scale 1.05 1.05 1) (square))
+  (enable :texture-2d)
+  (square))
 
 (defn init []
-  (reset! t (create-2d-texture 32 32 (fn [_ [u v]] [u v 0 1])))
+  (reset! t (create-2d-texture 512 512 (fn [_ [u v]] [1 0 0 1])))
   '(.bind (TextureIO/newTexture (File. "/Users/zach/Downloads/Devastator.jpg") false))
   (enable :texture-2d)
   (tex-parameter :texture-2d :texture-wrap-s :clamp)
@@ -32,12 +42,14 @@
 (defn mouse-drag [[dx dy] _]
   )
 
-(defn display [delta time]
-  (scale 4 4 4)
-  (translate -0.5 -0.5 0)
-  (square))
+(defn mouse-click [x y]
+  (enqueue #(render-to-texture @t () (bordered-square))))
 
-(start {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init})
+(defn display [delta time]
+  '(render-to-texture @t () (bordered-square))
+  (bordered-square))
+
+(start {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init, :mouse-click mouse-click})
 
 
 

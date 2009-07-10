@@ -1,6 +1,6 @@
 (ns penumbra.examples.gears)
 
-(use 'penumbra.opengl 'penumbra.window)
+(use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view 'penumbra.window)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;Gear building functions

@@ -9,14 +9,22 @@
 
 (set! *warn-on-reflection* true)
 
-(use 'penumbra.opengl)
+(use 'penumbra.opengl.core 'penumbra.opengl.view 'penumbra.opengl.geometry)
 
 (defn clock [] (System/nanoTime))
 
 (def last-render (ref (clock)))
 (def last-pos (ref [0 0]))
+(def actions (ref []))
 
-;; Based on Dustin Withers' port of glxgears to clojure and Phil Hazelden's cloggle project
+(defn enqueue
+  ([fun] (enqueue fun actions))
+  ([fun list-ref] (dosync (alter list-ref #(conj % fun)))))
+
+(defn execute
+  ([] (execute actions))
+  ([list-ref] (dosync (alter list-ref #(do (doseq [a %] (apply a)) [])))))
+
 (defn start [funs]
   (let
     [frame (new Frame)
@@ -34,18 +42,20 @@
               (let [current (clock)
                     delta (/ (- current @last-render) 1e9)]
                 (dosync (ref-set last-render current))
-                (if (:display funs)
-                  (bind-gl drawable
-                    (clear)
-                    (push-matrix
-                      ((:display funs) delta (/ current 1e9)))))))
+                (bind-gl drawable
+                  (clear)
+                  (execute)
+                  (if (:display funs)
+                    (do
+                      (push-matrix
+                      ((:display funs) delta (/ current 1e9))))))))
 
             (displayChanged [drawable mode-change device-changed])
 
             (reshape [#^javax.media.opengl.GLAutoDrawable drawable x y width height]
-              (set-dimensions width height)
-              (if (:reshape funs)
-                (bind-gl drawable
+              (bind-gl drawable
+                (viewport width height)
+                (if (:reshape funs)
                   ((:reshape funs) x y width height))))
 
             (init [#^javax.media.opengl.GLAutoDrawable drawable]

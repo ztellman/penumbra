@@ -1,6 +1,6 @@
 (ns penumbra.examples.sierpinski)
 
-(use 'penumbra.opengl 'penumbra.window)
+(use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view 'penumbra.window)
 
 (defn draw-pyramid []
   (material 1 0.25 0.25 1)
