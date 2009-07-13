@@ -16,10 +16,10 @@
     (translate -0.5 -0.5 0.5)
     (normal 0 0 -1)
     (draw-quads
-      (texture 0 0) (vertex 0 0 0)
-      (texture 1 0) (vertex 1 0 0)
       (texture 1 1) (vertex 1 1 0)
-      (texture 0 1) (vertex 0 1 0))))
+      (texture 0 1) (vertex 0 1 0)
+      (texture 0 0) (vertex 0 0 0)
+      (texture 1 0) (vertex 1 0 0))))
 
 (defn textured-cube []
   (dotimes [_ 4]
@@ -89,14 +89,14 @@
 
     ;render the checkered cube to the window
     (bind-texture @checkers)
-    (push-viewport [0 0 (/ w 2.0) h]
+    (with-viewport [0 0 (/ w 2.0) h]
       (push-matrix
         (rotate @left-rot-x 1 0 0) (rotate @left-rot-y 0 1 0)
         (textured-cube)))
 
     ;render a cube with the checkered cube texture
     (bind-texture @view)
-    (push-viewport [(/ w 2.0) 0 (/ w 2.0) h]
+    (with-viewport [(/ w 2.0) 0 (/ w 2.0) h]
       (push-matrix
         (rotate @right-rot-x 1 0 0) (rotate @right-rot-y 0 1 0)
         (textured-cube))))

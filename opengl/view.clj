@@ -33,7 +33,7 @@
   (dosync (ref-set view-bounds [x y w h]))
   (gl-viewport x y w h))
 
-(defmacro push-viewport [[x y w h] & body]
+(defmacro with-viewport [[x y w h] & body]
   `(let [[x# y# w# h#] @view-bounds]
     (gl-viewport ~x ~y ~w ~h)
     ~@body

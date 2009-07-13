@@ -139,19 +139,18 @@
   (if (= (:height tex) 1)
     (gl-tex-sub-image-1d :texture-1d 0 0 (:width tex) :rgba :unsigned-byte (populate-1d-texture (:width tex) fun))
     (gl-tex-sub-image-2d :texture-2d 0 0 0 (:width tex) (:height tex) :rgba :unsigned-byte (populate-2d-texture (:width tex) (:height tex) fun))))
-
   
 (defmacro render-to-texture
   "Renders a scene to a texture."
   [tex setup-projection & body]
   `(do
     (clear)
-    (push-viewport [0 0 (:width ~tex) (:height ~tex)]
-      (gl-matrix-mode :projection) (gl-push-matrix) ~setup-projection             ;set up projection matrix
-      (gl-matrix-mode :modelview) (push-matrix (scale 1 1 1) ~@body)              ;render scene
+    (with-viewport [0 0 (:width ~tex) (:height ~tex)]
+      (gl-matrix-mode :projection) (gl-push-matrix) ~setup-projection               ;set up projection matrix
+      (gl-matrix-mode :modelview) (push-matrix (scale 1 1 1) ~@body)                ;render scene
       (bind-texture ~tex)
-      (gl-copy-tex-sub-image-2d :texture-2d 0 0 0 0 0 (:width ~tex) (:height ~tex))  ;copy to texture
-      (gl-matrix-mode :projection) (gl-pop-matrix) (gl-matrix-mode :modelview))   ;return to previous projection matrix
+      (gl-copy-tex-sub-image-2d :texture-2d 0 0 0 0 0 (:width ~tex) (:height ~tex)) ;copy to texture
+      (gl-matrix-mode :projection) (gl-pop-matrix) (gl-matrix-mode :modelview))     ;return to previous projection matrix
     (clear)))
 
 
