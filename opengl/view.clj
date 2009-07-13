@@ -5,7 +5,7 @@
 (import '(java.awt Font)
         '(com.sun.opengl.util.j2d TextRenderer))
 
-(def view-dim (ref [0 0]))
+(def view-bounds (ref [0 0 0 0]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -21,6 +21,7 @@
 (gl-import glFogfv gl-fog)
 (gl-import glShadeModel shade-model)
 (gl-import glViewport gl-viewport)
+(gl-import glLineWidth line-width)
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -28,15 +29,15 @@
   (gl-clear :depth-buffer-bit)
   (gl-clear :color-buffer-bit))
 
-(defn viewport [w h]
-  (dosync (ref-set view-dim [w h]))
-  (gl-viewport 0 0 w h))
+(defn viewport [x y w h]
+  (dosync (ref-set view-bounds [x y w h]))
+  (gl-viewport x y w h))
 
-(defmacro push-viewport [w h & body]
-  `(let [[w# h#] @view-dim]
-    (gl-viewport 0 0 ~w ~h)
+(defmacro push-viewport [[x y w h] & body]
+  `(let [[x# y# w# h#] @view-bounds]
+    (gl-viewport ~x ~y ~w ~h)
     ~@body
-    (gl-viewport 0 0 w# h#)))
+    (gl-viewport x# y# w# h#)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -87,7 +88,7 @@
 (defn write
   "writes string at normalized coordinates (x,y)"
   [string x y]
-  (let [[w h] @view-dim
+  (let [[_ _ w h] @view-bounds
         text-height (.. *text* (getBounds string) getHeight)]
     (.beginRendering *text* w h)
     (.draw *text* string (int (* x w)) (int (* y (- h text-height))))

@@ -54,7 +54,7 @@
 
             (reshape [#^javax.media.opengl.GLAutoDrawable drawable x y width height]
               (bind-gl drawable
-                (viewport width height)
+                (viewport 0 0 width height)
                 (if (:reshape funs)
                   ((:reshape funs) x y width height))))
 

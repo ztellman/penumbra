@@ -51,7 +51,7 @@
           (vertex 0 high 1)
           (vertex 0 high 0))
 
-        (normal (- 0 tooth-slope) 1 0)
+        (normal (- tooth-slope) 1 0)
         (push-matrix
           (mirror (do (rotate increment 0 0 1) (translate 0 (- mid high) 0))
             (vertex 0 high 1)

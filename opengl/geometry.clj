@@ -6,7 +6,6 @@
 (use 'penumbra.opengl.core)
 
 (def transform-matrix (atom nil))
-(def inside-begin-end false)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

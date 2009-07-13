@@ -1,55 +1,115 @@
 (ns penumbra.examples.render-to-texture)
 
-(import '(com.sun.opengl.util.texture TextureIO)
-        '(java.io File))
-
 (use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view 'penumbra.opengl.texture 'penumbra.window)
 
+(def checkers (atom nil))
+(def view (atom nil))
 
-(def t (atom nil))
+(def left-rot-x (ref 0))
+(def left-rot-y (ref 0))
 
-(defn square []
+(def right-rot-x (ref 0))
+(def right-rot-y (ref 0))
+
+(defn textured-quad []
   (push-matrix
-    (scale 6 6 1)
-    (translate -0.5 -0.5 0)
+    (translate -0.5 -0.5 0.5)
+    (normal 0 0 -1)
     (draw-quads
       (texture 0 0) (vertex 0 0 0)
       (texture 1 0) (vertex 1 0 0)
       (texture 1 1) (vertex 1 1 0)
       (texture 0 1) (vertex 0 1 0))))
 
-(defn bordered-square []
-  (disable :texture-2d)
-  (push-matrix (scale 1.05 1.05 1) (square))
-  (enable :texture-2d)
-  (square))
+(defn textured-cube []
+  (dotimes [_ 4]
+    (rotate 90 0 1 0)
+    (textured-quad))
+  (rotate 90 1 0 0)
+  (textured-quad)
+  (rotate 180 1 0 0)
+  (textured-quad))
+
+(defn xor [a b] (or (and a (not b)) (and (not a) b)))
+
+(defn init-textures []
+  (reset! view (create-texture 256 256))
+  (reset! checkers (create-texture 128 128))
+  (draw-to-subsampled-texture
+    @checkers
+    (fn [[x y] _]
+      (if (xor (even? (int (/ x 16))) (even? (int (/ y 16))))
+        [1 0 0 1]
+        [0 0 0 1]))))
 
 (defn init []
-  (reset! t (create-2d-texture 512 512 (fn [_ [u v]] [1 0 0 1])))
-  '(.bind (TextureIO/newTexture (File. "/Users/zach/Downloads/Devastator.jpg") false))
+  (tex-env :texture-env :texture-env-mode :modulate)
   (enable :texture-2d)
-  (tex-parameter :texture-2d :texture-wrap-s :clamp)
-  (tex-parameter :texture-2d :texture-wrap-t :clamp)
-  (tex-parameter :texture-2d :texture-min-filter :nearest)
-  (tex-parameter :texture-2d :texture-mag-filter :nearest)
-  (tex-env :texture-env :texture-env-mode :replace))
+  (enable :normalize)
+  (enable :multisample)
+  (enable :depth-test)
+  (init-textures))
 
 (defn reshape [x y width height]
-  (ortho-view 0 0 (* 10 (/ (float width) height)) 10 0 10)
   (load-identity)
-  (translate (* 5 (/ (float width) height)) 5 -5))
+  (scale 1 1 -1)
+  (translate 0 0 2))
 
-(defn mouse-drag [[dx dy] _]
-  )
-
-(defn mouse-click [x y]
-  (enqueue #(render-to-texture @t () (bordered-square))))
+(defn mouse-drag [[dx dy] [x y]]
+  (let [[_ _ w h] @view-bounds]
+    (if (< x (int (/ w 2)))
+      (dosync
+        (ref-set left-rot-x (- @left-rot-x dy))
+        (ref-set left-rot-y (- @left-rot-y dx)))
+      (dosync
+        (ref-set right-rot-x (- @right-rot-x dy))
+        (ref-set right-rot-y (- @right-rot-y dx))))))
 
 (defn display [delta time]
-  '(render-to-texture @t () (bordered-square))
-  (bordered-square))
 
-(start {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init, :mouse-click mouse-click})
+  (bind-texture @checkers)
+  (enable :texture-2d)
+
+  (set-light-position 0 [-1 -1 1 0])
+  (material 0.8 0.1 0.1 1)
+
+  ;render the checkered cube to a texture
+  (clear-color 0.5 0.5 0.5 1)
+  (render-to-texture @view
+    (frustum-view 50 1 0.1 10)
+    (push-matrix
+      (rotate @left-rot-x 1 0 0) (rotate @left-rot-y 0 1 0)
+      (textured-cube)))
+
+  (clear-color 0 0 0 1)
+  (clear)
+
+  (let [[_ _ w h] @view-bounds]
+    (frustum-view 90 (float (/ w 2.0 h)) 0.1 10)
+
+    ;render the checkered cube to the window
+    (bind-texture @checkers)
+    (push-viewport [0 0 (/ w 2.0) h]
+      (push-matrix
+        (rotate @left-rot-x 1 0 0) (rotate @left-rot-y 0 1 0)
+        (textured-cube)))
+
+    ;render a cube with the checkered cube texture
+    (bind-texture @view)
+    (push-viewport [(/ w 2.0) 0 (/ w 2.0) h]
+      (push-matrix
+        (rotate @right-rot-x 1 0 0) (rotate @right-rot-y 0 1 0)
+        (textured-cube))))
+
+    ;draw a dividing line
+    (disable :lighting)
+    (disable :texture-2d)
+    (color 1 1 1)
+    (ortho-view 0 0 1 1 0 10)
+    (line-width 3)
+    (draw-lines (vertex 0.5 0 5) (vertex 0.5 1 5)))
+
+(start {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init})
 
 
 

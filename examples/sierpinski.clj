@@ -44,7 +44,7 @@
   (enable :multisample)
   (enable :cull-face)
   (shade-model :flat)
-  (reset! pyramid (nth (sierpinski) 3)))
+  (reset! pyramid (nth (sierpinski) 6)))
 
 (defn reshape [x y width height]
   (frustum-view 50 (/ (double width) height) 0.1 100)
