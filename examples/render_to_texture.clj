@@ -1,6 +1,14 @@
+;   Copyright (c) Zachary Tellman. All rights reserved.
+;   The use and distribution terms for this software are covered by the
+;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;   which can be found in the file epl-v10.html at the root of this distribution.
+;   By using this software in any fashion, you are agreeing to be bound by
+;   the terms of this license.
+;   You must not remove this notice, or any other, from this software.
+
 (ns penumbra.examples.render-to-texture)
 
-(use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view 'penumbra.opengl.texture 'penumbra.window)
+(use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view 'penumbra.opengl.texture 'penumbra.interface.window)
 
 (def checkers (atom nil))
 (def view (atom nil))
@@ -66,7 +74,6 @@
         (ref-set right-rot-y (- @right-rot-y dx))))))
 
 (defn display [delta time]
-
   (bind-texture @checkers)
   (enable :texture-2d)
 
@@ -76,38 +83,36 @@
   ;render the checkered cube to a texture
   (clear-color 0.5 0.5 0.5 1)
   (render-to-texture @view
-    (frustum-view 50 1 0.1 10)
-    (push-matrix
-      (rotate @left-rot-x 1 0 0) (rotate @left-rot-y 0 1 0)
-      (textured-cube)))
+    (with-projection (frustum-view 50 1 0.1 10)
+      (push-matrix
+        (rotate @left-rot-x 1 0 0) (rotate @left-rot-y 0 1 0)
+        (textured-cube))))
 
   (clear-color 0 0 0 1)
   (clear)
 
   (let [[_ _ w h] @view-bounds]
-    (frustum-view 90 (float (/ w 2.0 h)) 0.1 10)
-
-    ;render the checkered cube to the window
-    (bind-texture @checkers)
-    (with-viewport [0 0 (/ w 2.0) h]
-      (push-matrix
-        (rotate @left-rot-x 1 0 0) (rotate @left-rot-y 0 1 0)
-        (textured-cube)))
-
-    ;render a cube with the checkered cube texture
-    (bind-texture @view)
-    (with-viewport [(/ w 2.0) 0 (/ w 2.0) h]
-      (push-matrix
-        (rotate @right-rot-x 1 0 0) (rotate @right-rot-y 0 1 0)
-        (textured-cube))))
+    (with-projection (frustum-view 90 (float (/ w 2.0 h)) 0.1 10)
+      ;render the checkered cube to the window
+      (bind-texture @checkers)
+      (with-viewport [0 0 (/ w 2.0) h]
+        (push-matrix
+          (rotate @left-rot-x 1 0 0) (rotate @left-rot-y 0 1 0)
+          (textured-cube)))
+      ;render a cube with the checkered cube texture
+      (bind-texture @view)
+      (with-viewport [(/ w 2.0) 0 (/ w 2.0) h]
+        (push-matrix
+          (rotate @right-rot-x 1 0 0) (rotate @right-rot-y 0 1 0)
+          (textured-cube))))
 
     ;draw a dividing line
     (disable :lighting)
     (disable :texture-2d)
     (color 1 1 1)
-    (ortho-view 0 0 1 1 0 10)
     (line-width 3)
-    (draw-lines (vertex 0.5 0 5) (vertex 0.5 1 5)))
+    (with-projection (ortho-view 0 0 1 1 0 10)
+      (draw-lines (vertex 0.5 0 5) (vertex 0.5 1 5)))))
 
 (start {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init})
 

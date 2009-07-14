@@ -1,9 +1,17 @@
+;   Copyright (c) Zachary Tellman. All rights reserved.
+;   The use and distribution terms for this software are covered by the
+;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;   which can be found in the file epl-v10.html at the root of this distribution.
+;   By using this software in any fashion, you are agreeing to be bound by
+;   the terms of this license.
+;   You must not remove this notice, or any other, from this software.
+
 (ns penumbra.opengl.geometry)
 
 (import '(javax.media.opengl GL)
         '(javax.media.opengl.glu GLU))
 
-(use 'penumbra.opengl.core)
+(use 'penumbra.opengl.core 'clojure.contrib.def)
 
 (def transform-matrix (atom nil))
 
@@ -49,9 +57,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn prepend [text sym] (symbol (format "%s-%s" text (name sym))))
+(defn- prepend [text sym] (symbol (format "%s-%s" text (name sym))))
 
-(defmacro gl-facade-import
+(defmacro- gl-facade-import
   "Takes an OpenGL function and turns it into two macros:
     - a macro which behaves differently if we're inside a glBegin/End clause (glVertex3d -> vertex)
     - a macro which directly calls the OpenGL function (glVertex3d -> gl-vertex)"
@@ -75,7 +83,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro facade-transform
+(defmacro- facade-transform
   "Forwards the transformed vector from fn to the OpenGL function fn represents."
   [fn transform-fn]
   (let [facade-fn (prepend "facade" fn)
@@ -84,7 +92,7 @@
       (let [[xp# yp# zp# wp#] (apply-matrix (~transform-fn @transform-matrix) [x# y# z# 1])]
         (~direct-fn xp# yp# zp#)))))
 
-(defn undo-translation [matrix] (vec (concat (subvec matrix 0 12) [0 0 0 0]))) ;we don't want to translate normals
+(defn- undo-translation [matrix] (vec (concat (subvec matrix 0 12) [0 0 0 0]))) ;we don't want to translate normals
 
 (facade-transform vertex identity)
 (facade-transform normal undo-translation)
@@ -92,12 +100,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn apply-transform
-  "Pops off the head of the transform stack, multiplies it by the matrix, and pushes it back on"
   [matrix transform-fn]
   (swap! transform-matrix transform-fn matrix))
 
-(defmacro facade-multiply
-  "Applies a transform to transform-stack rather than the OpenGL modelview matrix."
+(defmacro- facade-multiply
+  "Applies a transform to transform-matrix rather than the OpenGL modelview matrix."
   ([fn matrix-fn] `(facade-multiply ~fn ~matrix-fn mult-matrix))
   ([fn matrix-fn transform-fn]
   (let [facade-fn (prepend "facade" fn)]
@@ -111,7 +118,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro defn-draw
+(defmacro- defn-draw
   "Creates a macro called draw-'type' which redirects vertex and transform calls through appropriate facades."
   [primitive-type]
   `(defmacro ~(symbol (str "draw-" (name primitive-type))) [& body#]

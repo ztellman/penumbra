@@ -1,6 +1,14 @@
+;   Copyright (c) Zachary Tellman. All rights reserved.
+;   The use and distribution terms for this software are covered by the
+;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;   which can be found in the file epl-v10.html at the root of this distribution.
+;   By using this software in any fashion, you are agreeing to be bound by
+;   the terms of this license.
+;   You must not remove this notice, or any other, from this software.
+
 (ns penumbra.opengl.texture)
 
-(use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view)
+(use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view 'clojure.contrib.def)
 
 (set! *warn-on-reflection* true)
 
@@ -90,7 +98,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro to-byte [num] `(byte (* 255 (double ~num)))) ;this is a macro for performance reasons
+(defmacro- to-byte [num] `(byte (* 255 (double ~num)))) ;this is a macro for performance reasons
 
 (defn populate-1d-texture [size fun]
   (let [buf (ByteBuffer/allocate (* size 4))]
@@ -142,15 +150,14 @@
   
 (defmacro render-to-texture
   "Renders a scene to a texture."
-  [tex setup-projection & body]
+  [tex & body]
   `(do
     (clear)
     (with-viewport [0 0 (:width ~tex) (:height ~tex)]
-      (gl-matrix-mode :projection) (gl-push-matrix) ~setup-projection               ;set up projection matrix
-      (gl-matrix-mode :modelview) (push-matrix (scale 1 1 1) ~@body)                ;render scene
+      (push-matrix
+        ~@body)                              
       (bind-texture ~tex)
-      (gl-copy-tex-sub-image-2d :texture-2d 0 0 0 0 0 (:width ~tex) (:height ~tex)) ;copy to texture
-      (gl-matrix-mode :projection) (gl-pop-matrix) (gl-matrix-mode :modelview))     ;return to previous projection matrix
-    (clear)))
+      (gl-copy-tex-sub-image-2d :texture-2d 0 0 0 0 0 (:width ~tex) (:height ~tex))
+    (clear))))
 
 

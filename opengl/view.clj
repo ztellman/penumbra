@@ -1,3 +1,11 @@
+;   Copyright (c) Zachary Tellman. All rights reserved.
+;   The use and distribution terms for this software are covered by the
+;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;   which can be found in the file epl-v10.html at the root of this distribution.
+;   By using this software in any fashion, you are agreeing to be bound by
+;   the terms of this license.
+;   You must not remove this notice, or any other, from this software.
+
 (ns penumbra.opengl.view)
 
 (use 'penumbra.opengl.core 'penumbra.opengl.geometry)
@@ -65,6 +73,12 @@
 (defn draw-point-cloud [] (gl-polygon-mode :front-and-back :point))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmacro with-projection [projection & body]
+  `(do
+    (gl-matrix-mode :projection) (gl-push-matrix) ~projection (gl-matrix-mode :modelview)
+    ~@body
+    (gl-matrix-mode :projection) (gl-pop-matrix) (gl-matrix-mode :modelview)))
 
 (defn ortho-view
   "Create orthographic view, where distant objects don't get smaller."
