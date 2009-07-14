@@ -8,7 +8,11 @@
 
 (ns penumbra.examples.render-to-texture)
 
-(use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view 'penumbra.opengl.texture 'penumbra.interface.window)
+(use 'penumbra.opengl.core
+     'penumbra.opengl.geometry
+     'penumbra.opengl.view
+     'penumbra.opengl.texture
+     'penumbra.interface.window)
 
 (def checkers (atom nil))
 (def view (atom nil))
