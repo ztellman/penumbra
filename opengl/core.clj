@@ -21,19 +21,9 @@
   `(binding [*gl* (.getGL ~drawable)]
     ~@body))
 
-(defmacro glu-import [import-from import-as]
-  `(defmacro ~import-as [& args#]
-      `(. *glu* ~'~import-from ~@(map translate-keyword args#))))
-
-(defn translate-keyword [k]
- (if (keyword? k)
-   (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
-   `(. GL ~(symbol gl)))
-   k))
-
 ;;;;;;;;;;;;;;;;;;;;;;
 
-(def *check-errors* false)
+(def *check-errors* true) ;makes any OpenGL error throw an exception
 
 (defn get-name
   "Takes the numeric value of a gl constant (i.e. GL_LINEAR), and gives the name"
@@ -48,13 +38,24 @@
     (if (not (zero? error))
       (throw (Exception. (str "OpenGL error: " (get-name error)))))))
 
-(defmacro gl-import    ;TODO: add call to glGetError after each call for debug purposes
+(defn translate-keyword [k]
+ (if (keyword? k)
+   (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
+   `(. GL ~(symbol gl)))
+   k))
+
+(defmacro gl-import
   "Imports an OpenGL function, transforming all :keywords into GL_KEYWORDS"
   [import-from import-as]
   `(defmacro ~import-as [& args#]
     `(do
-      (. *gl* ~'~import-from ~@(map translate-keyword args#))
-      (if *check-errors* (check-error)))))
+      (let [~'value# (. *gl* ~'~import-from ~@(map translate-keyword args#))]
+        (if (and *check-errors* (not inside-begin-end)) (check-error))
+        ~'value#))))
+
+(defmacro glu-import [import-from import-as]
+  `(defmacro ~import-as [& args#]
+      `(. *glu* ~'~import-from ~@(map translate-keyword args#))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 

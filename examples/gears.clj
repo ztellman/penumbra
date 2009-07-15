@@ -109,6 +109,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn init [state]
+  (println state)
   (enable :cull-face)
   (enable :auto-normal)
   (enable :normalize)

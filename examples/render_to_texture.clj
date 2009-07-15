@@ -114,6 +114,8 @@
           (rotate rx 1 0 0) (rotate ry 0 1 0)
           (textured-cube))))
 
+    (write (format "%d fps" (int (/ 1 delta))) 0 1)
+    
     ;draw a dividing line
     (disable :lighting)
     (disable :texture-2d)

@@ -72,7 +72,7 @@
     (let [id (gen-texture)]
       (gl-bind-texture :texture-1d id)
       (gl-tex-image-1d :texture-1d 0 :rgba size 0 :rgba :unsigned-byte (ByteBuffer/allocate (* size 4)))
-      (tex-parameter :texture-1d :texture-wrap-s :clamp)                          ;set up target texture
+      (tex-parameter :texture-1d :texture-wrap-s :clamp)
       (tex-parameter :texture-1d :texture-min-filter :linear)
       (tex-parameter :texture-1d :texture-mag-filter :linear)
       (struct-map tex-struct :width size :height 1 :id id :type :byte)))
@@ -80,7 +80,7 @@
     (let [id (gen-texture)]
       (gl-bind-texture :texture-2d id)
       (gl-tex-image-2d :texture-2d 0 :rgba width height 0 :rgba :unsigned-byte (ByteBuffer/allocate (* width height 4)))
-      (tex-parameter :texture-2d :texture-wrap-s :clamp)                          ;set up target texture
+      (tex-parameter :texture-2d :texture-wrap-s :clamp)
       (tex-parameter :texture-2d :texture-wrap-t :clamp)
       (tex-parameter :texture-2d :texture-min-filter :nearest)
       (tex-parameter :texture-2d :texture-mag-filter :nearest)
@@ -129,24 +129,34 @@
   "Takes a function that returns normalized RGBA values for all texel coordinates, and applies it to the texture"
   [tex fun]
   (bind-texture tex)
-  (tex-parameter :texture-2d :texture-wrap-s :clamp)
-  (tex-parameter :texture-2d :texture-wrap-t :clamp)
-  (tex-parameter :texture-2d :texture-min-filter :linear-mipmap-linear)
-  (tex-parameter :texture-2d :texture-mag-filter :linear-mipmap-linear)
   (if (= (:height tex) 1)
-    (glu-build-1d-mipmaps :texture-1d :rgba (:width tex) :rgba :unsigned-byte (populate-1d-texture (:width tex) fun))
-    (glu-build-2d-mipmaps :texture-2d :rgba (:width tex) (:height tex) :rgba :unsigned-byte (populate-2d-texture (:width tex) (:height tex) fun))))
+    (do
+      (tex-parameter :texture-1d :texture-wrap-s :clamp)
+      (tex-parameter :texture-1d :texture-min-filter :linear-mipmap-linear)
+      (tex-parameter :texture-2d :texture-min-filter :linear)
+      (glu-build-1d-mipmaps :texture-1d :rgba (:width tex) :rgba :unsigned-byte (populate-1d-texture (:width tex) fun)))
+    (do
+      (tex-parameter :texture-2d :texture-wrap-s :clamp)
+      (tex-parameter :texture-2d :texture-wrap-t :clamp)
+      (tex-parameter :texture-2d :texture-min-filter :linear-mipmap-linear)
+      (tex-parameter :texture-2d :texture-mag-filter :linear)
+      (glu-build-2d-mipmaps :texture-2d :rgba (:width tex) (:height tex) :rgba :unsigned-byte (populate-2d-texture (:width tex) (:height tex) fun)))))
 
 (defn draw-to-texture
   [tex fun]
   (bind-texture tex)
-  (tex-parameter :texture-2d :texture-wrap-s :clamp)
-  (tex-parameter :texture-2d :texture-wrap-t :clamp)
-  (tex-parameter :texture-2d :texture-min-filter :linear)
-  (tex-parameter :texture-2d :texture-mag-filter :linear)
   (if (= (:height tex) 1)
-    (gl-tex-sub-image-1d :texture-1d 0 0 (:width tex) :rgba :unsigned-byte (populate-1d-texture (:width tex) fun))
-    (gl-tex-sub-image-2d :texture-2d 0 0 0 (:width tex) (:height tex) :rgba :unsigned-byte (populate-2d-texture (:width tex) (:height tex) fun))))
+    (do
+      (tex-parameter :texture-1d :texture-wrap-s :clamp)
+      (tex-parameter :texture-1d :texture-min-filter :linear)
+      (tex-parameter :texture-1d :texture-min-filter :linear)  
+      (gl-tex-sub-image-1d :texture-1d 0 0 (:width tex) :rgba :unsigned-byte (populate-1d-texture (:width tex) fun)))
+    (do
+      (tex-parameter :texture-2d :texture-wrap-s :clamp)
+      (tex-parameter :texture-2d :texture-wrap-t :clamp)
+      (tex-parameter :texture-2d :texture-min-filter :linear)
+      (tex-parameter :texture-2d :texture-mag-filter :linear)
+      (gl-tex-sub-image-2d :texture-2d 0 0 0 (:width tex) (:height tex) :rgba :unsigned-byte (populate-2d-texture (:width tex) (:height tex) fun)))))
   
 (defmacro render-to-texture
   "Renders a scene to a texture."
@@ -159,5 +169,4 @@
       (bind-texture ~tex)
       (gl-copy-tex-sub-image-2d :texture-2d 0 0 0 0 0 (:width ~tex) (:height ~tex))
     (clear))))
-
 
