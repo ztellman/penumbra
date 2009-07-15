@@ -31,16 +31,36 @@
    `(. GL ~(symbol gl)))
    k))
 
+;;;;;;;;;;;;;;;;;;;;;;
+
+(def *check-errors* false)
+
+(defn get-name
+  "Takes the numeric value of a gl constant (i.e. GL_LINEAR), and gives the name"
+  [enum-value]
+  (if (= 0 enum-value)
+    "NONE"
+    (let [fields (seq (.. *gl* (getClass) (getFields)))]
+      (.getName (some #(if (= enum-value (.get % *gl*)) % nil) fields)))))
+
+(defn check-error []
+  (let [error (.glGetError *gl*)]
+    (if (not (zero? error))
+      (throw (Exception. (str "OpenGL error: " (get-name error)))))))
+
 (defmacro gl-import    ;TODO: add call to glGetError after each call for debug purposes
   "Imports an OpenGL function, transforming all :keywords into GL_KEYWORDS"
   [import-from import-as]
   `(defmacro ~import-as [& args#]
-    `(. *gl* ~'~import-from ~@(map translate-keyword args#))))
+    `(do
+      (. *gl* ~'~import-from ~@(map translate-keyword args#))
+      (if *check-errors* (check-error)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
 (gl-import glEnable enable)
 (gl-import glDisable disable)
+
 (gl-import glGetError gl-get-error)
 
 (gl-import glMatrixMode gl-matrix-mode)
@@ -52,10 +72,3 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
-(defn get-name
-  "Takes the numeric value of a gl constant (i.e. GL_LINEAR), and gives the name"
-  [enum-value]
-  (if (= 0 enum-value)
-    "NONE"
-    (let [fields (seq (.. *gl* (getClass) (getFields)))]
-      (.getName (some #(if (= enum-value (.get % *gl*)) % nil) fields)))))
