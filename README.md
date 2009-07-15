@@ -36,7 +36,7 @@ becomes
 It also allows for intra-primitive transformations, which allows us to define a circle like this:
 
 	(draw-line-strip
-  		(dotimes [angle 360]
+  		(dotimes [_ 360]
     		(rotate 1 0 0 1)
     		(vertex 0 1 0)))
 

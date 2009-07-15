@@ -108,34 +108,34 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def rot-x (ref 0))
-(def rot-y (ref 0))
-(def gear (atom nil))
-
-(defn init []
+(defn init [state]
   (enable :cull-face)
   (enable :auto-normal)
   (enable :normalize)
   (enable :depth-test)
   (shade-model :flat)
-  (set-display-list gear (draw-gear 30 0.5 3 4 2)))
+  (assoc state
+    :gear (get-display-list (draw-gear 30 0.5 3 4 2))))
 
-(defn reshape [x y width height]
+(defn reshape [[x y width height] state]
   (frustum-view 60 (/ (double width) height) 1 100)
   (load-identity)
   (translate 0 0 -10)
-  (set-light-position 0 [1 1 1 0]))
+  (set-light-position 0 [1 1 1 0])
+  state)
 
-(defn mouse-drag [[dx dy] _]
-  (dosync
-    (ref-set rot-x (- @rot-x dy))
-    (ref-set rot-y (- @rot-y dx))))
+(defn mouse-drag [[[dx dy] _] state]
+  (assoc state
+    :rot-x (- (:rot-x state) dy)
+    :rot-y (- (:rot-y state) dx)))
 
-(defn display [delta time]
+(defn display [[delta time] state]
   (write (format "%d fps" (int (/ 1 delta))) 0 1)
-  (rotate @rot-x 1 0 0)
-  (rotate @rot-y 0 1 0)
+  (rotate (:rot-x state) 1 0 0)
+  (rotate (:rot-y state) 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
-  (call-display-list @gear))
+  (call-display-list (:gear state)))
 
-(start {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag})
+(start
+  {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
+  {:rot-x 0, :rot-y 0, :gear nil})

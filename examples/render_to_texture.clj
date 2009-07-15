@@ -14,15 +14,6 @@
      'penumbra.opengl.texture
      'penumbra.interface.window)
 
-(def checkers (atom nil))
-(def view (atom nil))
-
-(def left-rot-x (ref 0))
-(def left-rot-y (ref 0))
-
-(def right-rot-x (ref 0))
-(def right-rot-y (ref 0))
-
 (defn textured-quad []
   (push-matrix
     (translate -0.5 -0.5 0.5)
@@ -45,69 +36,82 @@
 (defn xor [a b] (or (and a (not b)) (and (not a) b)))
 
 (defn init-textures []
-  (reset! view (create-texture 256 256))
-  (reset! checkers (create-texture 128 128))
+  (let [view (create-texture 256 256)
+        checkers (create-texture 128 128)]
   (draw-to-subsampled-texture
-    @checkers
+    checkers
     (fn [[x y] _]
       (if (xor (even? (int (/ x 16))) (even? (int (/ y 16))))
         [1 0 0 1]
-        [0 0 0 1]))))
+        [0 0 0 1])))
+    [checkers view]))
 
-(defn init []
+;;;;;;;;;;;;;;;;;
+
+(defn init [state]
   (tex-env :texture-env :texture-env-mode :modulate)
   (enable :texture-2d)
   (enable :normalize)
   (enable :multisample)
   (enable :depth-test)
-  (init-textures))
+  (let [[checkers view] (init-textures)]
+    (assoc state
+      :checkers checkers
+      :view view)))
 
-(defn reshape [x y width height]
+(defn reshape [_ state]
   (load-identity)
   (scale 1 1 -1)
-  (translate 0 0 2))
+  (translate 0 0 2)
+  state)
 
-(defn mouse-drag [[dx dy] [x y]]
-  (let [[_ _ w h] @view-bounds]
+(defn mouse-drag [mouse state]
+  (let [[delta pos] mouse
+        [dx dy] delta
+        [x y] pos
+        [w h] (get-canvas-size)]
     (if (< x (int (/ w 2)))
-      (dosync
-        (ref-set left-rot-x (- @left-rot-x dy))
-        (ref-set left-rot-y (- @left-rot-y dx)))
-      (dosync
-        (ref-set right-rot-x (- @right-rot-x dy))
-        (ref-set right-rot-y (- @right-rot-y dx))))))
+      (let [[lx ly] (:left state)]
+        (assoc state :left [(- lx dy) (- ly dx)]))
+      (let [[rx ry] (:right state)]
+        (assoc state :right [(- rx dy) (- ry dx)])))))
 
-(defn display [delta time]
-  (bind-texture @checkers)
-  (enable :texture-2d)
+(defn display [[delta time] state]
+  (let [[lx ly] (:left state)
+        [rx ry] (:right state)
+        checkers (:checkers state)
+        view (:view state)
+        [w h] (get-canvas-size)]
 
-  (set-light-position 0 [-1 -1 1 0])
-  (material 0.8 0.1 0.1 1)
+    (enable :texture-2d)
 
-  ;render the checkered cube to a texture
-  (clear-color 0.5 0.5 0.5 1)
-  (render-to-texture @view
-    (with-projection (frustum-view 50 1 0.1 10)
-      (push-matrix
-        (rotate @left-rot-x 1 0 0) (rotate @left-rot-y 0 1 0)
-        (textured-cube))))
+    (set-light-position 0 [-1 -1 1 0])
+    (material 0.8 0.1 0.1 1)
+    (bind-texture checkers)
 
-  (clear-color 0 0 0 1)
-  (clear)
+    ;render the checkered cube to a texture
+    (clear-color 0.5 0.5 0.5 1)
+    (render-to-texture view
+      (with-projection (frustum-view 50 1 0.1 10)
+        (push-matrix
+          (rotate lx 1 0 0) (rotate ly 0 1 0)
+          (textured-cube))))
 
-  (let [[_ _ w h] @view-bounds]
+    (clear-color 0 0 0 1)
+    (clear)
+
     (with-projection (frustum-view 90 (float (/ w 2.0 h)) 0.1 10)
       ;render the checkered cube to the window
-      (bind-texture @checkers)
+      (bind-texture checkers)
       (with-viewport [0 0 (/ w 2.0) h]
         (push-matrix
-          (rotate @left-rot-x 1 0 0) (rotate @left-rot-y 0 1 0)
+          (rotate lx 1 0 0) (rotate ly 0 1 0)
           (textured-cube)))
       ;render a cube with the checkered cube texture
-      (bind-texture @view)
+      (bind-texture view)
       (with-viewport [(/ w 2.0) 0 (/ w 2.0) h]
         (push-matrix
-          (rotate @right-rot-x 1 0 0) (rotate @right-rot-y 0 1 0)
+          (rotate rx 1 0 0) (rotate ry 0 1 0)
           (textured-cube))))
 
     ;draw a dividing line
@@ -118,7 +122,9 @@
     (with-projection (ortho-view 0 0 1 1 0 10)
       (draw-lines (vertex 0.5 0 5) (vertex 0.5 1 5)))))
 
-(start {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init})
+(start
+  {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init}
+  {:left [0 0], :right [0 0], :checkers nil, :view nil})
 
 
 

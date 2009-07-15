@@ -11,7 +11,8 @@
 (import '(javax.media.opengl GL)
         '(javax.media.opengl.glu GLU))
 
-(use 'penumbra.opengl.core 'clojure.contrib.def)
+(use 'penumbra.opengl.core
+     'clojure.contrib.def)
 
 (def transform-matrix (atom nil))
 

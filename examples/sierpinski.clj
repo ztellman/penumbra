@@ -45,37 +45,37 @@
     (get-display-list (draw-pyramid))))
 
 ;;;;;;;;;;;;;;;;;
-(def rot-x (ref 9))
-(def rot-y (ref 202))
-(def pyramid (atom nil))
 
-(defn init []
+(defn init [state]
   (enable :normalize)
   (enable :depth-test)
   (enable :multisample)
   (enable :cull-face)
   (shade-model :flat)
-  (reset! pyramid (nth (sierpinski) 6)))
+  (assoc state :pyramid (nth (sierpinski) 6)))
 
-(defn reshape [x y width height]
+(defn reshape [[x y width height] state]
   (frustum-view 50 (/ (double width) height) 0.1 100)
   (load-identity)
   (translate 0 -0.35 -1.75)
   (set-light-position 0 [1 1 1 0])
-  (setup-fog :exp 0.75 0 10 [0 0 0 0]))
+  (setup-fog :exp 0.75 0 10 [0 0 0 0])
+  state)
 
-(defn mouse-drag [[dx dy] _]
-  (dosync
-    (ref-set rot-x (- @rot-x dy))
-    (ref-set rot-y (- @rot-y dx))))
+(defn mouse-drag [[[dx dy] _] state]
+  (assoc state
+    :rot-x (- (:rot-x state) dy)
+    :rot-y (- (:rot-y state) dx)))
 
-(defn display [delta time]
+(defn display [[delta time] state]
   (write (format "%d fps" (int (/ 1 delta))) 0 1)
-  (rotate @rot-x 1 0 0)
-  (rotate @rot-y 0 1 0)
-  (call-display-list @pyramid))
+  (rotate (:rot-x state) 1 0 0)
+  (rotate (:rot-y state) 0 1 0)
+  (call-display-list (:pyramid state)))
 
-(start {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init})
+(start
+  {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init}
+  {:rot-x 0, :rot-y 0, :pyramid nil})
 
 
 
