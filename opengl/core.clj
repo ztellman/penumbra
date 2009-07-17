@@ -9,13 +9,15 @@
 (ns penumbra.opengl.core)
 
 (import '(javax.media.opengl GLCanvas GL)
-        '(javax.media.opengl.glu GLU))
+        '(javax.media.opengl.glu GLU)
+        '(com.sun.opengl.util GLUT))
 
 (set! *warn-on-reflection* true)
 (def inside-begin-end false)
 
 (def #^GL *gl* nil)
 (def #^GLU *glu* (new GLU))
+(def #^GLUT *glut* (new GLUT))
 
 (defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & body]
   `(binding [*gl* (.getGL ~drawable)]
@@ -56,6 +58,11 @@
 (defmacro glu-import [import-from import-as]
   `(defmacro ~import-as [& args#]
       `(. *glu* ~'~import-from ~@(map translate-keyword args#))))
+
+
+(defmacro glut-import [import-from import-as]
+  `(defmacro ~import-as [& args#]
+      `(. *glut* ~'~import-from ~@(map translate-keyword args#))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 

@@ -179,3 +179,7 @@
 
 (defn call-display-list [display-list]
   (gl-call-list display-list))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(glut-import glutSolidTeapot teapot)
