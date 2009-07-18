@@ -68,7 +68,6 @@
     :rot-y (- (:rot-y state) dx)))
 
 (defn display [[delta time] state]
-  (write (format "%d fps" (int (/ 1 delta))) 0 1)
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   (call-display-list (:pyramid state)))

@@ -109,7 +109,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn init [state]
-  (println state)
   (enable :cull-face)
   (enable :auto-normal)
   (enable :normalize)
@@ -135,7 +134,8 @@
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
-  (call-display-list (:gear state)))
+  (call-display-list (:gear state))
+  (repaint))
 
 (start
   {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}

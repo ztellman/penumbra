@@ -54,6 +54,7 @@
   (enable :normalize)
   (enable :multisample)
   (enable :depth-test)
+  (line-width 3)
   (let [[checkers view] (init-textures)]
     (assoc state
       :checkers checkers
@@ -114,13 +115,9 @@
           (rotate rx 1 0 0) (rotate ry 0 1 0)
           (textured-cube))))
 
-    (write (format "%d fps" (int (/ 1 delta))) 0 1)
-    
     ;draw a dividing line
     (disable :lighting)
     (disable :texture-2d)
-    (color 1 1 1)
-    (line-width 3)
     (with-projection (ortho-view 0 0 1 1 0 10)
       (draw-lines (vertex 0.5 0 5) (vertex 0.5 1 5)))))
 

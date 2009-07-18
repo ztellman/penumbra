@@ -10,9 +10,9 @@
 
 (import '(javax.media.opengl GLCanvas GL)
         '(javax.media.opengl.glu GLU)
-        '(com.sun.opengl.util GLUT))
+        '(com.sun.opengl.util GLUT)
+        '(java.lang.reflect Field))
 
-(set! *warn-on-reflection* true)
 (def inside-begin-end false)
 
 (def #^GL *gl* nil)
@@ -33,7 +33,7 @@
   (if (= 0 enum-value)
     "NONE"
     (let [fields (seq (.. *gl* (getClass) (getFields)))]
-      (.getName (some #(if (= enum-value (.get % *gl*)) % nil) fields)))))
+      (.getName #^Field (some #(if (= enum-value (.get #^Field % *gl*)) % nil) fields)))))
 
 (defn check-error []
   (let [error (.glGetError *gl*)]
