@@ -47,13 +47,21 @@
 ;;;;;;;;;;;;;;;;;;;;;
 
 (defn- update-state [state new-value]
-  (if (not (= @state new-value)) (repaint))
+  (if (not (= @state new-value)) (repaint)) ;we want to redraw if the state has been altered
   (dosync (ref-set state new-value)))
 
 (defmacro- try-call [state fns k & args]
   `(if (~k ~fns)
     (update-state ~state
       ((~k ~fns) ~@args (deref ~state)))))
+
+(defmacro- mouse-motion [state fns event k]
+  `(let [x# (. ~event getX), y# (. ~event getY)
+         [last-x# last-y#] @last-pos
+         delta# [(- x# last-x#) (- y# last-y#)]]
+    (dosync (ref-set last-pos [x# y#]))
+    (try-call ~state ~fns
+      ~k [delta# [x# y#]])))
 
 (defn start [fns initial-state]
   (let
@@ -92,14 +100,12 @@
               (bind-gl drawable
                 (viewport 0 0 width height)
                 (try-call state fns
-                  :reshape [x y width height]))
-              (repaint))
+                  :reshape [x y width height])))
 
             (init [#^GLAutoDrawable drawable]
               (bind-gl drawable
                 (try-call state fns
-                  :init))
-              (repaint))))
+                  :init)))))
 
         (.addMouseListener
           (proxy [MouseAdapter] []
@@ -120,20 +126,12 @@
           (proxy [MouseMotionAdapter] []
 
             (mouseDragged [#^MouseEvent event]
-              (let [x (. event getX), y (. event getY)
-                    [last-x last-y] @last-pos
-                    delta [(- x last-x) (- y last-y)]]
-                (dosync (ref-set last-pos [x y]))
-                (try-call state fns
-                  :mouse-drag [delta [x y]])))
+              (mouse-motion state fns
+                event :mouse-drag))
 
             (mouseMoved [#^MouseEvent event]
-              (let [x (. event getX), y (. event getY)
-                    [last-x last-y] @last-pos
-                    delta [(- x last-x) (- y last-y)]]
-                (dosync (ref-set last-pos [x y]))
-                (try-call state fns
-                  :mouse-move [delta [x y]]))))))
+              (mouse-motion state fns
+                event :mouse-move)))))
 
       (doto frame
         (.addWindowListener

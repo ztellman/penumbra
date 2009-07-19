@@ -64,8 +64,8 @@
     (throw (Exception. (str "Error compiling shader: " (get-shader-log shader))))))
 
 (defn- get-program-log [program]
-  (let [buf (make-array Byte/TYPE 1024)]
-    (gl-get-program-info-log program 1024 (int-array 1) 0 buf 0)
+  (let [buf (make-array Byte/TYPE 4096)]
+    (gl-get-program-info-log program 4096 (int-array 1) 0 buf 0)
     (.trim (apply str (map #(char %) buf)))))
 
 (defn create-program [vertex-source fragment-source]
@@ -90,4 +90,81 @@
 
 ;;;;;;;;;;;;;;;;;;;;
 
+(defn third [expr] (-> expr next second))
+
+(defn first? [val expr] (= (first expr) val))
+
+(defn indent [lst]
+  (apply str (map #(str "  " %) lst)))
+
+(defn swizzle? [expr]
+  (= \. (-> expr first name first)))
+
+(defn translate-assignment [expr]
+  (if (swizzle? expr)
+    (str (apply str (interpose " " (map name (rest expr)))) (-> expr first name))
+    (apply str (interpose " " (map name expr)))))
+
+(defmacro infix-test [symbol expr]
+  `(and (= 3 (count ~expr)) (first? ~symbol ~expr)))
+
+(defmacro infix-translation [s expr]
+  `(str "(" (-> ~expr second translate-expr) " " ~s " " (-> ~expr third translate-expr) ")"))
+
+(defmacro unary-test [symbol expr]
+  `(and (= 2 (count ~expr)) (first? ~symbol ~expr)))
+
+(defmacro unary-translation [s expr]
+  `(str "(" ~s (-> ~expr second translate-expr) ")"))
+
+(defmacro assignment-test [symbol expr]
+  `(and (= 3 (count ~expr)) (first? ~symbol ~expr)))
+
+'(defmacro assignment-translation [s expr]
+  `(str (-> ~expr second translate-assignment) " " ~s " " (-> ~expr third translate-expr)))
+
+(defmacro assignment-translation [s expr]
+  `(str (-> ~expr second translate-expr) " " ~s " " (-> ~expr third translate-expr)))
+   
+(defn translate-expr [expr]
+  (cond
+    (not (seq? expr))           (str expr)
+    (unary-test '- expr)        (unary-translation "-" expr)
+    (unary-test 'not expr)      (unary-translation "!" expr)
+    (assignment-test '<- expr)  (assignment-translation "=" expr)
+    (assignment-test '+= expr)  (assignment-translation "+=" expr)
+    (assignment-test '-= expr)  (assignment-translation "+=" expr)
+    (assignment-test '*= expr)  (assignment-translation "*=" expr)
+    (infix-test '+ expr)        (infix-translation "+" expr)
+    (infix-test '- expr)        (infix-translation "-" expr)
+    (infix-test '/ expr)        (infix-translation "/" expr)
+    (infix-test '* expr)        (infix-translation "*" expr)
+    (infix-test '= expr)        (infix-translation "==" expr)
+    (infix-test 'and expr)      (infix-translation "&&" expr)
+    (infix-test 'or expr)       (infix-translation "||" expr)
+    (infix-test 'xor expr)      (infix-translation "^^" expr)
+
+    ;Swizzling
+    (and
+      (= 2 (count expr))
+      (swizzle? expr))          (str (-> expr second translate-expr) (-> expr first str))
+    
+    ;Function calls
+    :else                       (str
+                                  (first expr)
+                                  "(" (apply str (interpose ", " (map translate-expr (rest expr)))) ")")))
+
+(defn translate-exprs [exprs]
+  (apply str (apply concat (map #(str (translate-expr %) ";\n") exprs))))
+
+(defn translate-main-fn [e]
+  (str
+    "void main()\n{\n"
+    (if (seq? (first e))
+      (translate-exprs e)
+      (str (translate-expr e) ";"))
+    "\n}"))
+
+(defn translate-program [exprs]
+  (translate-main-fn exprs))
 

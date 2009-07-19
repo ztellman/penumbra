@@ -28,20 +28,12 @@
       (texture 1 0) (vertex 1 0 0))))
 
 (def vertex-shader
-  "
-  void main()
-  {
-    gl_Position = ftransform();
-  }
-  ")
+  (translate-program
+    '(<- gl_Position (ftransform))))
 
 (def fragment-shader
-  "
-  void main()
-  {
-    gl_FragColor = vec4(1, .5, 0, 1);
-  }
-  ")
+  (translate-program
+    '(<- gl_FragColor (vec4 1 0.5 0 1))))
 
 ;;;;;;;;;;;;;;;;;
 
