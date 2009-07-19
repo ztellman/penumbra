@@ -182,6 +182,5 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(glut-import glutSolidTeapot glut-teapot)
-
-(defn teapot [] (glut-teapot 1))
+(glut-import glutSolidTeapot glut-solid-teapot)
+(defn teapot [] (glut-solid-teapot 1))

@@ -11,31 +11,43 @@
 (use 'penumbra.opengl.core
      'penumbra.opengl.geometry
      'penumbra.opengl.view
-     'penumbra.opengl.texture
      'penumbra.opengl.shader
      'penumbra.interface.window)
 
 ;;;;;;;;;;;;;;;;;
 
-(defn textured-quad []
+(defn quad []
   (push-matrix
-    (translate -0.5 -0.5 0.5)
     (normal 0 0 -1)
+    (translate -0.5 -0.5 0)
     (draw-quads
-      (texture 1 1) (vertex 1 1 0)
-      (texture 0 1) (vertex 0 1 0)
-      (texture 0 0) (vertex 0 0 0)
-      (texture 1 0) (vertex 1 0 0))))
+      (vertex 1 1 0)
+      (vertex 0 1 0)
+      (vertex 0 0 0)
+      (vertex 1 0 0))))
 
 (def declarations
-  '(varying vec4 pos))
+  '((varying float noise)
+    (varying vec4 pos)))
 
 (def vertex-shader
-  '((= pos :vertex)
+  '((= noise (noise1 :vertex))
+    (= pos :vertex)
     (= :position (ftransform))))
 
 (def fragment-shader
-  '(= :frag-color (vec4 (abs (.x pos)) (abs (.y pos)) 0 1)))
+  '(
+    ;marble coloration
+    (=
+      (float intensity)
+      (abs
+        (+
+          (sin (+ (* (.x pos) 2.0) (/ noise 2.0)))
+          (cos (+ (.x pos) noise)))))
+    (= (vec4 marble-color) (vec4 0.8 0.7 0.7 1))
+    (= (vec4 vein-color) (vec4 0.2 0.15 0.1 1))
+    (= (vec4 color) (mix vein-color marble-color (clamp intensity 0.0 1.0)))
+    (= :frag-color color)))
 
 ;;;;;;;;;;;;;;;;;
 
@@ -46,9 +58,9 @@
   state)
 
 (defn reshape [[x y w h] state]
-  (frustum-view 90 (/ w (float h)) 0.1 10)
+  (frustum-view 60 (/ w (float h)) 0.1 10)
   (load-identity)
-  (translate 0 0 -2)
+  (translate 0 0 -3)
   state)
 
 (defn mouse-drag [[[dx dy] _] state]

@@ -58,7 +58,7 @@
     (gl-shader-source shader 1 a nil))
   (gl-compile-shader shader)
   (if *verbose*
-    (println source))
+    (println (str "-------------" source)))
   (if (shader-compiled? shader)
     (if *verbose* (println "Compiled."))
     (throw (Exception. (str "Error compiling shader: " (get-shader-log shader))))))
@@ -98,7 +98,7 @@
   (apply str (map #(str "  " %) exprs)))
 
 (defn swizzle? [expr]
-  (= \. (-> expr first name first)))
+  (and (seq? expr) (= \. (-> expr first name first))))
 
 (defn translate-shader-keyword [k]
   (str
@@ -109,9 +109,11 @@
         (seq (.split (name k) "-"))))))
 
 (defn translate-assignment [expr]
-  (if (swizzle? expr)
-    (str (apply str (interpose " " (map name (rest expr)))) (-> expr first name))
-    (apply str (interpose " " (map name expr)))))
+  (cond
+    (keyword? expr) (translate-shader-keyword expr)
+    (not (seq? expr)) (str expr)
+    (swizzle? expr) (str (apply str (interpose " " (map name (rest expr)))) (-> expr first name))
+    :else (apply str (interpose " " (map #(.replace (name %) \- \_) expr)))))
 
 (defmacro infix-test [symbol expr]
   `(and (= 3 (count ~expr)) (first? ~symbol ~expr)))
@@ -132,12 +134,12 @@
   `(str (-> ~expr second translate-assignment) " " ~s " " (-> ~expr third translate-expr)))
 
 (defmacro assignment-translation [s expr]
-  `(str (-> ~expr second translate-expr) " " ~s " " (-> ~expr third translate-expr)))
+  `(str (-> ~expr second translate-assignment) " " ~s " " (-> ~expr third translate-expr)))
    
 (defn translate-expr [expr]
   (cond
     (keyword? expr)             (translate-shader-keyword expr)
-    (not (seq? expr))           (str expr)
+    (not (seq? expr))           (.replace (str expr) \- \_)
     (unary-test '- expr)        (unary-translation "-" expr)
     (unary-test 'not expr)      (unary-translation "!" expr)
     (assignment-test '= expr)   (assignment-translation "=" expr)
@@ -156,6 +158,7 @@
     (infix-test '<= expr)       (infix-translation "<=" expr)
     (infix-test '>= expr)       (infix-translation ">=" expr)
     (infix-test '> expr)        (infix-translation ">" expr)
+    (infix-test 'nth expr)      (str (-> expr second translate-expr) "[" (-> expr third translate-expr) "]")
 
     ;Swizzling
     (and
