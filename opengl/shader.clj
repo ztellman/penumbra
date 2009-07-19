@@ -68,7 +68,7 @@
     (gl-get-program-info-log program 4096 (int-array 1) 0 buf 0)
     (.trim (apply str (map #(char %) buf)))))
 
-(defn create-program [vertex-source fragment-source]
+(defn create-program-from-source [vertex-source fragment-source]
   (let [vertex-shader (gl-create-shader :vertex-shader)
         fragment-shader (gl-create-shader :fragment-shader)
         program (gl-create-program)]
@@ -94,11 +94,19 @@
 
 (defn first? [val expr] (= (first expr) val))
 
-(defn indent [lst]
-  (apply str (map #(str "  " %) lst)))
+(defn indent [exprs]
+  (apply str (map #(str "  " %) exprs)))
 
 (defn swizzle? [expr]
   (= \. (-> expr first name first)))
+
+(defn translate-shader-keyword [k]
+  (str
+    "gl_"
+    (apply str
+      (map
+        #(str (.. % (substring 0 1) (toUpperCase)) (. % substring 1 (count %)))
+        (seq (.split (name k) "-"))))))
 
 (defn translate-assignment [expr]
   (if (swizzle? expr)
@@ -128,10 +136,11 @@
    
 (defn translate-expr [expr]
   (cond
+    (keyword? expr)             (translate-shader-keyword expr)
     (not (seq? expr))           (str expr)
     (unary-test '- expr)        (unary-translation "-" expr)
     (unary-test 'not expr)      (unary-translation "!" expr)
-    (assignment-test '<- expr)  (assignment-translation "=" expr)
+    (assignment-test '= expr)   (assignment-translation "=" expr)
     (assignment-test '+= expr)  (assignment-translation "+=" expr)
     (assignment-test '-= expr)  (assignment-translation "+=" expr)
     (assignment-test '*= expr)  (assignment-translation "*=" expr)
@@ -139,10 +148,14 @@
     (infix-test '- expr)        (infix-translation "-" expr)
     (infix-test '/ expr)        (infix-translation "/" expr)
     (infix-test '* expr)        (infix-translation "*" expr)
-    (infix-test '= expr)        (infix-translation "==" expr)
+    (infix-test '== expr)       (infix-translation "==" expr)
     (infix-test 'and expr)      (infix-translation "&&" expr)
     (infix-test 'or expr)       (infix-translation "||" expr)
     (infix-test 'xor expr)      (infix-translation "^^" expr)
+    (infix-test '< expr)        (infix-translation "<" expr)
+    (infix-test '<= expr)       (infix-translation "<=" expr)
+    (infix-test '>= expr)       (infix-translation ">=" expr)
+    (infix-test '> expr)        (infix-translation ">" expr)
 
     ;Swizzling
     (and
@@ -155,16 +168,29 @@
                                   "(" (apply str (interpose ", " (map translate-expr (rest expr)))) ")")))
 
 (defn translate-exprs [exprs]
-  (apply str (apply concat (map #(str (translate-expr %) ";\n") exprs))))
+  (map #(str (translate-expr %) ";\n") exprs))
 
-(defn translate-main-fn [e]
+(defn translate-main-fn [expr]
   (str
     "void main()\n{\n"
-    (if (seq? (first e))
-      (translate-exprs e)
-      (str (translate-expr e) ";"))
-    "\n}"))
+    (if (seq? (first expr))
+      (apply str (indent (translate-exprs expr)))
+      (str "  " (translate-expr expr) ";\n"))
+    "}\n"))
 
-(defn translate-program [exprs]
-  (translate-main-fn exprs))
+(defn translate-shader [decl exprs]
+  (str
+    "\n"
+    (if (seq? (first decl))
+      (apply str (map #(str (translate-assignment %) ";\n") decl))
+      (str (translate-assignment decl) ";\n"))
+    "\n"
+    (translate-main-fn exprs)))
+
+(defn create-program [decl vertex fragment]
+  (let [vertex-source (translate-shader decl vertex)
+        fragment-source (translate-shader decl fragment)]
+    (create-program-from-source vertex-source fragment-source)))
+
+
 

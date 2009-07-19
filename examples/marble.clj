@@ -27,18 +27,21 @@
       (texture 0 0) (vertex 0 0 0)
       (texture 1 0) (vertex 1 0 0))))
 
+(def declarations
+  '(varying vec4 pos))
+
 (def vertex-shader
-  (translate-program
-    '(<- gl_Position (ftransform))))
+  '((= pos :vertex)
+    (= :position (ftransform))))
 
 (def fragment-shader
-  (translate-program
-    '(<- gl_FragColor (vec4 1 0.5 0 1))))
+  '(= :frag-color (vec4 (abs (.x pos)) (abs (.y pos)) 0 1)))
 
 ;;;;;;;;;;;;;;;;;
 
 (defn init [state]
-  (let [program (create-program vertex-shader fragment-shader)]
+  (enable :depth-test)
+  (let [program (create-program declarations vertex-shader fragment-shader)]
     (bind-program program))
   state)
 
@@ -48,7 +51,16 @@
   (translate 0 0 -2)
   state)
 
-(defn display [[delta time] state]
-  (textured-quad))
+(defn mouse-drag [[[dx dy] _] state]
+  (assoc state
+    :rot-x (- (:rot-x state) dy)
+    :rot-y (- (:rot-y state) dx)))
 
-(start {:reshape reshape, :display display, :init init} {})
+(defn display [[delta time] state]
+  (rotate (:rot-x state) 1 0 0)
+  (rotate (:rot-y state) 0 1 0)
+  (teapot))
+
+(start
+  {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
+  {:rot-x 0 :rot-y 0})
