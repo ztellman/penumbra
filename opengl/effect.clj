@@ -6,14 +6,13 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.opengl.view)
+(ns penumbra.opengl.effect)
 
-(use 'penumbra.opengl.core 'penumbra.opengl.geometry)
+(use 'penumbra.opengl.core
+     'penumbra.opengl.geometry)
 
 (import '(java.awt Font)
         '(com.sun.opengl.util.j2d TextRenderer))
-
-(def view-bounds (ref [0 0 0 0]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -22,30 +21,12 @@
 (glu-import gluPerspective glu-perspective)
 (gl-import glCullFace gl-cull-face)
 (gl-import glPolygonMode gl-polygon-mode)
-(gl-import glClear gl-clear)
 (gl-import glClearColor clear-color)
 (gl-import glLightfv set-light)
 (gl-import glMaterialfv set-material)
 (gl-import glFogfv gl-fog)
 (gl-import glShadeModel shade-model)
-(gl-import glViewport gl-viewport)
 (gl-import glLineWidth line-width)
-
-;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn clear []
-  (gl-clear :depth-buffer-bit)
-  (gl-clear :color-buffer-bit))
-
-(defn viewport [x y w h]
-  (dosync (ref-set view-bounds [x y w h]))
-  (gl-viewport x y w h))
-
-(defmacro with-viewport [[x y w h] & body]
-  `(let [[x# y# w# h#] @view-bounds]
-    (gl-viewport ~x ~y ~w ~h)
-    ~@body
-    (gl-viewport x# y# w# h#)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 

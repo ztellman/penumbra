@@ -6,15 +6,9 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.opengl.geometry)
-
-(import '(javax.media.opengl GL)
-        '(javax.media.opengl.glu GLU))
-
-(use 'penumbra.opengl.core
-     'clojure.contrib.def)
-
-(def transform-matrix (atom nil))
+(ns penumbra.opengl.geometry
+  (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [penumbra.opengl.core]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -148,12 +142,6 @@
 (gl-import glEndList gl-end-list)
 (gl-import glDeleteLists gl-delete-lists)
 (gl-import glIsList gl-is-list)
-
-(defmacro push-matrix [& body]
-  `(binding [transform-matrix (if inside-begin-end (atom @transform-matrix) transform-matrix)]
-    (if (not inside-begin-end) (gl-push-matrix))
-    ~@body
-    (if (not inside-begin-end) (gl-pop-matrix))))
 
 (defmacro get-display-list [& body]
   `(let [list# (gl-gen-lists 1)]

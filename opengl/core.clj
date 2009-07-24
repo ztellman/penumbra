@@ -6,22 +6,29 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.opengl.core)
-
-(import '(javax.media.opengl GLCanvas GL)
-        '(javax.media.opengl.glu GLU)
-        '(com.sun.opengl.util GLUT)
-        '(java.lang.reflect Field))
-
-(def inside-begin-end false)
+(ns penumbra.opengl.core
+  (:import (javax.media.opengl GLCanvas GL))
+  (:import (javax.media.opengl.glu GLU))
+  (:import (com.sun.opengl.util GLUT))
+  (:import (java.lang.reflect Field)))
 
 (def #^GL *gl* nil)
 (def #^GLU *glu* (new GLU))
 (def #^GLUT *glut* (new GLUT))
 
+(def inside-begin-end false)
+(def transform-matrix (atom nil))
+(def view-bounds (ref [0 0 0 0]))
+
 (defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & body]
   `(binding [*gl* (.getGL ~drawable)]
     ~@body))
+
+(defmacro push-matrix [& body]
+  `(binding [transform-matrix (if inside-begin-end (atom @transform-matrix) transform-matrix)]
+    (if (not inside-begin-end) (gl-push-matrix))
+    ~@body
+    (if (not inside-begin-end) (gl-pop-matrix))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
@@ -80,3 +87,22 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
+(gl-import glClear gl-clear)
+
+(defn clear []
+  (gl-clear :depth-buffer-bit)
+  (gl-clear :color-buffer-bit))
+
+(gl-import glViewport gl-viewport)
+
+(defn viewport [x y w h]
+  (dosync (ref-set view-bounds [x y w h]))
+  (gl-viewport x y w h))
+
+(defmacro with-viewport [[x y w h] & body]
+  `(let [[x# y# w# h#] @view-bounds]
+    (gl-viewport ~x ~y ~w ~h)
+    ~@body
+    (gl-viewport x# y# w# h#)))
+
+;;;;;;;;;;;;;;;;;;;;;

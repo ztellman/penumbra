@@ -6,19 +6,16 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.interface.window)
-
-(import '(java.awt Frame Dimension)
-	      '(java.awt.event MouseAdapter MouseListener
-                         MouseEvent MouseMotionListener MouseMotionAdapter
-                         WindowListener WindowAdapter)
-	      '(javax.media.opengl GLCanvas GLEventListener GLCapabilities GL GLAutoDrawable)
-	      '(com.sun.opengl.util Animator))
-
-(use 'penumbra.opengl.core
-     'penumbra.opengl.view
-     'penumbra.opengl.geometry
-     'clojure.contrib.def)
+(ns penumbra.interface.window
+  (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [penumbra.opengl.core])
+  (:use [penumbra.opengl.geometry])
+  (:import (java.awt Frame Dimension))
+  (:import (java.awt.event
+              MouseAdapter MouseListener MouseEvent
+              MouseMotionListener MouseMotionAdapter
+              WindowListener WindowAdapter))
+  (:import (javax.media.opengl GLCanvas GLEventListener GLCapabilities GL GLAutoDrawable)))
 
 ;;;;;;;;;;;;;;;;;;;;;
 

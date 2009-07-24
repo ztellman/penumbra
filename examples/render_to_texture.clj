@@ -10,7 +10,7 @@
 
 (use 'penumbra.opengl.core
      'penumbra.opengl.geometry
-     'penumbra.opengl.view
+     'penumbra.opengl.effect
      'penumbra.opengl.texture
      'penumbra.interface.window)
 

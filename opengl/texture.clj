@@ -6,14 +6,13 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.opengl.texture)
-
-(use 'penumbra.opengl.core 'penumbra.opengl.geometry 'penumbra.opengl.view 'clojure.contrib.def)
-
-(import '(java.nio ByteBuffer)
-        '(com.sun.opengl.util BufferUtil)
-        '(com.sun.opengl.util.texture TextureIO)
-        '(java.io File))
+(ns penumbra.opengl.texture
+  (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [penumbra.opengl.core])
+  (:import (java.nio ByteBuffer))
+  (:import (com.sun.opengl.util BufferUtil))
+  (:import (com.sun.opengl.util.texture TextureIO))
+  (:import (java.io File)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 

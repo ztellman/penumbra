@@ -10,7 +10,7 @@
 
 (use 'penumbra.opengl.core
      'penumbra.opengl.geometry
-     'penumbra.opengl.view
+     'penumbra.opengl.effect
      'penumbra.opengl.shader
      'penumbra.interface.window)
 
@@ -31,23 +31,16 @@
     (varying vec4 pos)))
 
 (def vertex-shader
-  '((= noise (noise1 :vertex))
-    (= pos :vertex)
-    (= :position (ftransform))))
+  '(let [noise       (noise1 :vertex)
+          pos         :vertex
+          :position   (ftransform)]))
 
 (def fragment-shader
-  '(
-    ;marble coloration
-    (=
-      (float intensity)
-      (abs
-        (+
-          (sin (+ (* (.x pos) 2.0) (/ noise 2.0)))
-          (cos (+ (.x pos) noise)))))
-    (= (vec4 marble-color) (vec4 0.8 0.7 0.7 1))
-    (= (vec4 vein-color) (vec4 0.2 0.15 0.1 1))
-    (= (vec4 color) (mix vein-color marble-color (clamp intensity 0.0 1.0)))
-    (= :frag-color color)))
+  '(let [(float intensity)   (abs (+ (sin (+ (* (.x pos) 2.0) (/ noise 2.0))) (cos (+ (.x pos) noise))))
+          (vec4 marble-color) (vec4 0.8 0.7 0.7 1.0)
+          (vec4 vein-color)   (vec4 0.2 0.15 0.1 1.0)
+          (vec4 color)        (mix vein-color marble-color (pow (clamp intensity 0.0 1.0) 0.75))
+          :frag-color         color]))
 
 ;;;;;;;;;;;;;;;;;
 
