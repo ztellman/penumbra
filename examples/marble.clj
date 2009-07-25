@@ -26,21 +26,29 @@
       (vertex 0 0 0)
       (vertex 1 0 0))))
 
+(def test-fn
+  '(defn void test [(vec3 a)]
+    (+ 1 1)))
+
 (def declarations
   '((varying float noise)
-    (varying vec4 pos)))
+    (varying vec4 pos)
+    (uniform vec4 a)
+    (attribute vec4 b)))
+
 
 (def vertex-shader
-  '(let [noise       (noise1 :vertex)
-          pos         :vertex
-          :position   (ftransform)]))
+  '((import (penumbra.examples.marble test-fn))
+    (let [noise       (noise1 :vertex)
+         pos         :vertex
+         :position   (ftransform)])))
 
 (def fragment-shader
   '(let [(float intensity)   (abs (+ (sin (+ (* (.x pos) 2.0) (/ noise 2.0))) (cos (+ (.x pos) noise))))
-          (vec4 marble-color) (vec4 0.8 0.7 0.7 1.0)
-          (vec4 vein-color)   (vec4 0.2 0.15 0.1 1.0)
-          (vec4 color)        (mix vein-color marble-color (pow (clamp intensity 0.0 1.0) 0.75))
-          :frag-color         color]))
+         (vec4 marble-color) (vec4 0.8 0.7 0.7 1.0)
+         (vec4 vein-color)   (vec4 0.2 0.15 0.1 1.0)
+         (vec4 color)        (mix vein-color marble-color (pow (clamp intensity 0.0 1.0) 0.75))
+         :frag-color         color]))
 
 ;;;;;;;;;;;;;;;;;
 
