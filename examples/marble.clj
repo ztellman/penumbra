@@ -19,15 +19,13 @@
 (def declarations
   '((varying float noise)
     (varying vec4 pos)
-    (varying vec3 normal)
     (varying vec4 intensity)))
 
 (def vertex-shader
   '((import (penumbra.opengl.effect lighting directional-light))
     (let [pos         :vertex ;(* :model-view-matrix :vertex)
           noise       (* 1.5 (noise1 pos)) ;(* 8.0 (noise1 pos))
-          normal      (normalize (* :normal-matrix :normal))
-          intensity   (lighting 0 normal)]
+          intensity   (lighting 0 (* :normal-matrix :normal))]
       (set! :position (* :model-view-projection-matrix :vertex)))))
 
 (def fragment-shader
@@ -110,6 +108,6 @@
   (rotate (:rot-y state) 0 1 0)
   (teapot))
 
-'(start
+(start
   {:reshape reshape-teapot, :display display-teapot, :init init-teapot, :mouse-drag mouse-drag-teapot}
   {:rot-x 0 :rot-y 0})
