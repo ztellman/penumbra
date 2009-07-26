@@ -69,7 +69,7 @@
 
 (defn translate-shader
   [decl exprs]
-  (let [parsed-decl (parse-lines ";" (map #(list 'declare %) decl))
+  (let [parsed-decl (if (empty? decl) "" (parse-lines ";" (map #(list 'declare %) decl)))
         body        (list 'main exprs)
         transformed (transform body)
         generated   (reverse (generate transformed))]

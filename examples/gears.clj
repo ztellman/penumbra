@@ -133,7 +133,7 @@
     :rot-y (- (:rot-y state) dx)))
 
 (defn display [[delta time] state]
-  (write (format "%d fps" (int (/ 1 delta))) 0 1)
+  (write-to-screen (format "%d fps" (int (/ 1 delta))) 0 1)
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)

@@ -131,7 +131,7 @@
 
 (def #^TextRenderer *text* (TextRenderer. (Font. "Tahoma" java.awt.Font/PLAIN 20) true true))
 
-(defn write
+(defn write-to-screen
   "writes string at normalized coordinates (x,y)"
   [string x y]
   (let [[_ _ w h] @view-bounds

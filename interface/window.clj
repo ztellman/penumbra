@@ -101,6 +101,7 @@
 
             (init [#^GLAutoDrawable drawable]
               (bind-gl drawable
+                (. *gl* setSwapInterval 1) ;turn on v-sync
                 (try-call state fns
                   :init)))))
 
