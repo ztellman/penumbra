@@ -90,7 +90,7 @@
 (defn bind-program
   [program]
   (gl-use-program (if (nil? program) 0 (:program program))))
-
+                     
 (defn create-program
   "Creates a program from s-exprssions.  Declarations are specified first, and shared between both shaders."
   [decl vertex fragment]

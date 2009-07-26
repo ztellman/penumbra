@@ -90,7 +90,8 @@
           (vertex 0 radius 1))))))
 
 (defn draw-gear [num-teeth low mid high width]
-  (material 0.8 0.2 0.2 1)
+  (material :front-and-back
+    :ambient-and-diffuse [1 0.25 0.25 1])
   (push-matrix
     (scale 1 1 width)
     (translate 0 0 -0.5)
@@ -113,6 +114,8 @@
   (enable :auto-normal)
   (enable :normalize)
   (enable :depth-test)
+  (enable :lighting)
+  (enable :light0)
   (shade-model :flat)
   (assoc state
     :gear (get-display-list (draw-gear 30 0.5 3 4 2))))
@@ -121,7 +124,7 @@
   (frustum-view 60 (/ (double width) height) 1 100)
   (load-identity)
   (translate 0 0 -10)
-  (set-light-position 0 [1 1 1 0])
+  (light 0 :position [1 1 1 0])
   state)
 
 (defn mouse-drag [[[dx dy] _] state]

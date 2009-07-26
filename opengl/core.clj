@@ -47,29 +47,32 @@
     (if (not (zero? error))
       (throw (Exception. (str "OpenGL error: " (get-name error)))))))
 
-(defn translate-keyword [k]
+(defn translate-keyword-macro [k]
  (if (keyword? k)
    (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
-   `(. GL ~(symbol gl)))
+    `(. GL ~(symbol gl)))
    k))
+
+(defn translate-keyword [k]
+  (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
+    (eval `(. GL ~(symbol gl)))))
 
 (defmacro gl-import
   "Imports an OpenGL function, transforming all :keywords into GL_KEYWORDS"
   [import-from import-as]
   `(defmacro ~import-as [& args#]
     `(do
-      (let [~'value# (. *gl* ~'~import-from ~@(map translate-keyword args#))]
+      (let [~'value# (. *gl* ~'~import-from ~@(map translate-keyword-macro args#))]
         (if (and *check-errors* (not inside-begin-end)) (check-error))
         ~'value#))))
 
 (defmacro glu-import [import-from import-as]
   `(defmacro ~import-as [& args#]
-      `(. *glu* ~'~import-from ~@(map translate-keyword args#))))
-
+      `(. *glu* ~'~import-from ~@(map translate-keyword-macro args#))))
 
 (defmacro glut-import [import-from import-as]
   `(defmacro ~import-as [& args#]
-      `(. *glut* ~'~import-from ~@(map translate-keyword args#))))
+      `(. *glut* ~'~import-from ~@(map translate-keyword-macro args#))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
@@ -81,6 +84,7 @@
 (gl-import glMatrixMode gl-matrix-mode)
 (gl-import glPushMatrix gl-push-matrix)
 (gl-import glPopMatrix gl-pop-matrix)
+(gl-import glLoadIdentity gl-load-identity-matrix)
 
 (gl-import glBegin gl-begin)
 (gl-import glEnd gl-end)
@@ -106,3 +110,28 @@
     (gl-viewport x# y# w# h#)))
 
 ;;;;;;;;;;;;;;;;;;;;;
+
+(gl-import glOrtho gl-ortho)
+(glu-import gluPerspective glu-perspective)
+
+(defmacro with-projection [projection & body]
+  `(do
+    (gl-matrix-mode :projection) (gl-push-matrix) ~projection (gl-matrix-mode :modelview)
+    ~@body
+    (gl-matrix-mode :projection) (gl-pop-matrix) (gl-matrix-mode :modelview)))
+
+(defn ortho-view
+  "Create orthographic view, where distant objects don't get smaller."
+  [left top right bottom near far]
+  (gl-matrix-mode :projection)
+  (gl-load-identity-matrix)
+  (gl-ortho left right bottom top near far)
+  (gl-matrix-mode :modelview))
+
+(defn frustum-view [fovx aspect near far]
+  "Create a standard perspective view."
+  (gl-matrix-mode :projection)
+  (gl-load-identity-matrix)
+  (glu-perspective fovx aspect near far)
+  (gl-matrix-mode :modelview))
+

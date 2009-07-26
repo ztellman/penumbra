@@ -119,7 +119,7 @@
   `(defmacro ~(symbol (str "draw-" (name primitive-type))) [& body#]
     `(binding [inside-begin-end true
                transform-matrix (atom (identity-matrix))]
-      (gl-begin ~'~(translate-keyword primitive-type))
+      (gl-begin ~'~(translate-keyword-macro primitive-type))
       ~@body#
       (gl-end))))
 

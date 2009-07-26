@@ -14,7 +14,8 @@
      'penumbra.interface.window)
 
 (defn draw-pyramid []
-  (material 1 0.25 0.25 1)
+  (material :front-and-back
+    :ambient-and-diffuse [1 0.25 0.25 1])
   (draw-triangle-fan
     (vertex 0 1 0)
     (dotimes [_ 5]
@@ -51,6 +52,9 @@
   (enable :depth-test)
   (enable :multisample)
   (enable :cull-face)
+  (enable :lighting)
+  (enable :light0)
+  (enable :fog)
   (shade-model :flat)
   (assoc state :pyramid (nth (sierpinski) 6)))
 
@@ -58,8 +62,14 @@
   (frustum-view 50 (/ (double width) height) 0.1 100)
   (load-identity)
   (translate 0 -0.35 -1.75)
-  (set-light-position 0 [1 1 1 0])
-  (setup-fog :exp 0.75 0 10 [0 0 0 0])
+  (light 0
+    :position [1 1 1 0])
+  (fog
+    :fog-mode :exp
+    :fog-density 0.75
+    :fog-start 0
+    :fog-end 10
+    :fog-color [0 0 0 0])
   state)
 
 (defn mouse-drag [[[dx dy] _] state]

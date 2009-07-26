@@ -85,9 +85,13 @@
         [w h] (get-canvas-size)]
 
     (enable :texture-2d)
+    (enable :light0)
+    (enable :lighting)
+    (light 0
+      :position [-1 -1 1 0])
+    (material :front-and-back
+      :ambient-and-diffuse [0.8 0.1 0.1 1])
 
-    (set-light-position 0 [-1 -1 1 0])
-    (material 0.8 0.1 0.1 1)
     (bind-texture checkers)
 
     ;render the checkered cube to a texture

@@ -8,6 +8,7 @@
 
 (ns penumbra.opengl.translate
   (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [clojure.contrib.pprint])
   (:use [penumbra.opengl.core])
   (:require [clojure.zip :as zip]))
 
@@ -29,46 +30,36 @@
 
 ;;;;;;;;;;;;;;;;;;;;
 
-(defn- semi-flatten
-  "Within the base list, ensures no first element is also a list."
-  [body]
-  (reduce
-    (fn [lines expr]
-      (if (and (seq? expr) (seq? (first expr)))
-        (concat lines (semi-flatten expr))
-        (concat lines (list expr))))
-    '() body))
-
 (defn- transform
   "Maps glsl-macro over the entire source tree."
   [expr]
   (if (empty? expr)
     ()
-    (semi-flatten
-      (loop [z (zip/seq-zip expr)]
-        (if (zip/end? z)
-          (zip/root z)
-          (recur (zip/next (zip/replace z (glsl-macro (zip/node z))))))))))
+    (loop [z (zip/seq-zip expr)]
+      (if (zip/end? z)
+        (zip/root z)
+        (recur (zip/next (zip/replace z (glsl-macro (zip/node z)))))))))
 
 (defn- generate [expr]
-  (semi-flatten
-    (loop [body expr tail (transform (glsl-generator expr))]
-      (if (empty? tail)
-        body
-        (recur (list body tail) (transform (glsl-generator tail)))))))
+  (loop [body (list expr) tail (transform (glsl-generator expr))]
+    (if (empty? tail)
+     body
+     (recur
+       (concat body tail)
+       (transform (glsl-generator tail))))))
 
 (defn- parse-lines
   "Maps glsl-parser over a list of s-expressions, filters out empty lines,
   and optionally adds a terminating character."
   ([exprs] (parse-lines "" exprs))
-  ([terminate-string exprs]
-    (str
-      (apply str
-        (map
-          #(str % terminate-string "\n")
-          (filter
-            #(not= % "")
-            (map #(glsl-parser %) exprs)))))))
+  ([termination exprs]
+    (if (and (seq? exprs) (= 1 (count exprs)) (seq? (first exprs)))
+      (parse-lines termination (first exprs))
+      (let [exprs (if (seq? (first exprs)) exprs (list exprs))
+            parsed-exprs (map #(glsl-parser %) exprs)
+            filtered-exprs (filter #(not= (.trim %) "") parsed-exprs)
+            terminated-exprs (map #(if (.endsWith % "\n") % (str % termination "\n")) filtered-exprs)]
+        (apply str terminated-exprs)))))
 
 (defn- indent
   "Indents every line two spaces."
@@ -78,9 +69,11 @@
 
 (defn translate-shader
   [decl exprs]
-  (str
-    (parse-lines ";" (semi-flatten (map #(list 'declare %) (semi-flatten (list decl))))) "\n"
-    (-> (list (list 'main exprs)) transform generate parse-lines)))
+  (let [parsed-decl (parse-lines ";" (map #(list 'declare %) decl))
+        body        (list 'main exprs)
+        transformed (transform body)
+        generated   (reverse (generate transformed))]
+    (str parsed-decl (parse-lines generated))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;shader macros
@@ -90,7 +83,21 @@
 
 (defmethod glsl-macro 'let
   [expr]
-  (map #(list 'set! (first %) (second %)) (partition 2 (second expr))))
+  (concat
+    '(do)
+    (map #(list 'set! (first %) (second %)) (partition 2 (second expr)))
+    (nnext expr)))
+
+(defn- combine [term expr]
+  (if (seq? expr)
+    `(~(first expr) ~term ~@(rest expr))
+    `(~expr ~term)))
+
+(defmethod glsl-macro '->
+  [expr]
+  (let [term  (second expr)
+        expr  (nnext expr)]
+    (reduce combine term expr)))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;shader generators
@@ -98,14 +105,15 @@
 (defmethod glsl-generator :none [expr]
   (if (seq? expr)
     (apply concat (map glsl-generator expr))
-    ()))
+    nil))
 
 (defmethod glsl-generator 'import [expr]
-  (map
-    (fn [lst]
-      (let [namespace (first lst)]
-        (map #(var-get (intern namespace %)) (next lst))))
-    (next expr)))
+  (apply concat
+    (map
+      (fn [lst]
+        (let [namespace (first lst)]
+          (map #(var-get (intern namespace %)) (next lst))))
+    (next expr))))
 
 (defmethod glsl-parser 'import [expr] "")
 
@@ -150,15 +158,17 @@
   ;handle base cases
   [expr]
   (cond
-    (keyword? expr)   (parse-keyword expr)
-    (swizzle? expr)   (str (-> expr second glsl-parser) (-> expr first str))
-    (not (seq? expr)) (.replace (str expr) \- \_)
-    :else             ""))
+    (keyword? expr)           (parse-keyword expr)
+    (swizzle? expr)           (str (-> expr second glsl-parser) (-> expr first str))
+    (not (seq? expr))  (.replace (str expr) \- \_)
+    :else                     ""))
 
 (defmethod glsl-parser :function
   ;transforms (a b c d) into a(b, c, d)
   [expr]
-  (str (first expr) "(" (apply str (interpose ", " (map glsl-parser (next expr)))) ")"))
+  (str
+    (.replace (name (first expr)) \- \_)
+    "(" (apply str (interpose ", " (map glsl-parser (next expr)))) ")"))
 
 (defn- concat-operators
   "Interposes operators between two or more operands, enforcing left-to-right evaluation.
@@ -197,7 +207,7 @@
   [scope-symbol scope-fn]
   `(defmethod glsl-parser ~scope-symbol [expr#]
     (let [[header# body#] (~scope-fn expr#)]
-      (str header# "\n{\n" (indent (parse-lines ";" (semi-flatten body#))) "}\n"))))
+      (str header# "\n{\n" (indent (parse-lines ";" body#)) "}\n"))))
 
 (def-infix-parser '+ "+")
 (def-infix-parser '/ "/")
@@ -211,6 +221,8 @@
 (def-infix-parser '> ">")
 (def-infix-parser '>= ">=")
 (def-unary-parser 'not "!")
+(def-unary-parser '++ "++")
+(def-unary-parser '-- "--")
 (def-assignment-parser 'declare "")
 (def-assignment-parser 'set! "=")
 (def-assignment-parser '+= "+=")
@@ -224,17 +236,33 @@
     (str "-" (glsl-parser (second expr)))
     (concat-operators "-" (reverse (next expr)))))
 
+(defmethod glsl-parser 'nth
+  [expr]
+  (str (glsl-parser (second expr)) "[" (third expr) "]"))
+
 (defn- main-header [expr] ["void main()" (next expr)])
 (def-scope-parser 'main main-header)
 
-(defn- if-header [expr]
-  [(str "if (" (glsl-parser (second expr)) ")")
-   (drop 2 expr)])
-(def-scope-parser 'if if-header)
+(defmethod glsl-parser 'do
+  [expr]
+  (parse-lines ";" (next expr)))
+
+(defmethod glsl-parser 'if
+  [expr]
+  (str
+    "if (" (glsl-parser (second expr)) ")"
+    "\n{\n" (indent (parse-lines ";" (third expr))) "}\n"
+    (if (< 3 (count expr))
+      (str "else\n{\n" (indent (parse-lines ";" (fourth expr))) "}\n")
+      "")))
+
+(defmethod glsl-parser 'return
+  [expr]
+  (str "return " (glsl-parser (second expr))))
 
 (defn- fn-header [expr]
   [(str
-     (second expr) " " (third expr)
+     (second expr) " " (.replace (name (third expr)) \- \_)
      "(" (apply str (interpose ", " (map parse-assignment (fourth expr)))) ")")
    (drop 4 expr)])
 (def-scope-parser 'defn fn-header)

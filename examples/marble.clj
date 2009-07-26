@@ -26,34 +26,33 @@
       (vertex 0 0 0)
       (vertex 1 0 0))))
 
-(def test-fn
-  '(defn void test [(vec3 a)]
-    (+ 1 1)))
-
 (def declarations
   '((varying float noise)
     (varying vec4 pos)
-    (uniform vec4 a)
-    (attribute vec4 b)))
-
+    (varying vec3 normal)
+    (varying vec4 intensity)))
 
 (def vertex-shader
-  '((import (penumbra.examples.marble test-fn))
+  '((import (penumbra.opengl.effect lighting directional-light))
     (let [noise       (noise1 :vertex)
-         pos         :vertex
-         :position   (ftransform)])))
+          pos         :vertex
+          normal      (normalize (* :normal-matrix :normal))
+          intensity   (lighting 0 normal)]
+      (set! :position (* :model-view-projection-matrix :vertex)))))
 
 (def fragment-shader
-  '(let [(float intensity)   (abs (+ (sin (+ (* (.x pos) 2.0) (/ noise 2.0))) (cos (+ (.x pos) noise))))
-         (vec4 marble-color) (vec4 0.8 0.7 0.7 1.0)
-         (vec4 vein-color)   (vec4 0.2 0.15 0.1 1.0)
-         (vec4 color)        (mix vein-color marble-color (pow (clamp intensity 0.0 1.0) 0.75))
-         :frag-color         color]))
+  '(let [(float marble)      (abs (+ (sin (+ (* (.x pos) 2.0) noise)) (cos (+ (.x pos) noise))))
+          (vec4 marble-color) (vec4 0.8 0.7 0.7 1.0)
+          (vec4 vein-color)   (vec4 0.2 0.15 0.1 1.0)
+          (vec4 color)        (mix vein-color marble-color (pow (clamp marble 0.0 1.0) 0.75))]
+      (set! :frag-color (* intensity color))))
 
 ;;;;;;;;;;;;;;;;;
 
 (defn init [state]
   (enable :depth-test)
+  (enable :lighting)
+  (enable :light0)
   (let [program (create-program declarations vertex-shader fragment-shader)]
     (bind-program program))
   state)
@@ -62,6 +61,12 @@
   (frustum-view 60 (/ w (float h)) 0.1 10)
   (load-identity)
   (translate 0 0 -3)
+  (light 0
+    :position [1 1 1 0])
+  (material :front-and-back
+    :ambient-and-diffuse [1 1 1 1]
+    :specular            [0.3 0.3 0.3 1]
+    :shininess           64)
   state)
 
 (defn mouse-drag [[[dx dy] _] state]
