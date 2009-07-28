@@ -30,15 +30,19 @@
 
 ;;;;;;;;;;;;;;;;;;;;
 
-(defn- transform
-  "Maps glsl-macro over the entire source tree."
-  [expr]
+(defn tree-map
+  "Map fun over the entire tree structure"
+  [fun expr]
   (if (empty? expr)
     ()
     (loop [z (zip/seq-zip expr)]
       (if (zip/end? z)
         (zip/root z)
-        (recur (zip/next (zip/replace z (glsl-macro (zip/node z)))))))))
+        (recur (zip/next (zip/replace z (fun (zip/node z)))))))))
+
+(defn- transform
+  [expr]
+  (tree-map glsl-macro expr))
 
 (defn- generate [expr]
   (loop [body (list expr) tail (transform (glsl-generator expr))]
@@ -53,7 +57,10 @@
   and optionally adds a terminating character."
   ([exprs] (parse-lines "" exprs))
   ([termination exprs]
-    (if (and (seq? exprs) (= 1 (count exprs)) (seq? (first exprs)))
+     (if (and
+          (seq? exprs)
+          (= 1 (count exprs))
+          (seq? (first exprs)))
       (parse-lines termination (first exprs))
       (let [exprs (if (seq? (first exprs)) exprs (list exprs))
             parsed-exprs (map #(glsl-parser %) exprs)
@@ -67,13 +74,16 @@
   (let [lines (seq (.split s "\n"))]
     (str (apply str (interpose "\n" (map #(str "  " %) lines))) "\n")))
 
+(defn translate [expr] (parse-lines (reverse (generate (transform expr)))))
+
 (defn translate-shader
-  [decl exprs]
-  (let [parsed-decl (if (empty? decl) "" (parse-lines ";" (map #(list 'declare %) decl)))
-        body        (list 'main exprs)
-        transformed (transform body)
-        generated   (reverse (generate transformed))]
-    (str parsed-decl (parse-lines generated))))
+  ([exprs] (translate-shader '() exprs))
+  ([decl exprs]
+     (let [parsed-decl
+           (if (empty? decl)
+             ""
+             (parse-lines ";" (map #(list 'declare %) decl)))]
+       (str parsed-decl (translate (list 'main exprs))))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;shader macros
