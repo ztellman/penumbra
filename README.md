@@ -48,7 +48,7 @@ rather than this:
             		(Math/sin (* Math/PI (/ angle 180.)))
             		0)))
 
-Shaders are supported, via an s-expression representation of GLSL.  It mimics Clojure where possible, and generally follows the principle of least surprise, but is constrained by the limitations of the target language (GLSL is imperative rather than functional, variables must be typed, etc.).
+Shaders are supported, via an s-expression representation of GLSL.  It mimics Clojure where possible, and generally follows the principle of least surprise, but is constrained by the limitations of the target language (it's imperative rather than functional, variables must have explicit types, etc.).
 
 	=> (use 'penumbra.opengl.translate)
 	
@@ -58,9 +58,22 @@ Shaders are supported, via an s-expression representation of GLSL.  It mimics Cl
 	=> (translate '(-> a (+ 2) (/ 3) sin))
 	sin(((a + 2) / 3))
 	
-	=> (translate '(let [(float b) 3.0 (vec3 a) (vec3 1.0 2.0 3.0)]))
-	float b = 3.0;
+	=> (translate '(let [(vec2i b) [1 2] (vec3 a) [1.0 2.0 3.0] ]))
+	float b = vec2i(1, 2);
 	vec3 a = vec3(1.0, 2.0, 3.0);
+	
+	=> (translate '(if (< a b) (+= a 1) (+= b 1)))
+	if ((a < b))
+	{
+	  a += 1;
+	}
+	else
+	{
+	  b += 1;
+	}
+	
+	=> (translate '(set! a (if (< a b) (+ a 1) (+ b 1))))
+	a = ((a < b) ? (a + 1) : (b + 1))
 	
 	=> (translate-shader '(set! :frag-color (fract :frag-coord)))
 	void main()
