@@ -59,7 +59,7 @@ Shaders are supported, via an s-expression representation of GLSL.  It mimics Cl
 	sin(((a + 2) / 3))
 	
 	=> (translate '(let [(vec2i b) [1 2] (vec3 a) [1.0 2.0 3.0] ]))
-	float b = vec2i(1, 2);
+	vec2i b = vec2i(1, 2);
 	vec3 a = vec3(1.0, 2.0, 3.0);
 	
 	=> (translate '(if (< a b) (+= a 1) (+= b 1)))
