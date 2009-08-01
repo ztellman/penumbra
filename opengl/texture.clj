@@ -8,6 +8,7 @@
 
 (ns penumbra.opengl.texture
   (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [clojure.contrib.combinatorics :only (cartesian-product)])
   (:use [penumbra.opengl.core])
   (:import (java.nio ByteBuffer))
   (:import (com.sun.opengl.util BufferUtil))
@@ -18,23 +19,35 @@
 
 (gl-import glTexCoord1d gl-tex-1)
 (gl-import glTexCoord2d gl-tex-2)
+(gl-import glTexCoord3d gl-tex-3)
+
 (gl-import glBindTexture gl-bind-texture)
 (gl-import glGenTextures gl-gen-textures)
 (gl-import glTexParameteri tex-parameter)
 (gl-import glTexEnvf tex-env)
 (gl-import glPixelStorei gl-pixel-store)
 
+(gl-import glGetTexParameteriv gl-get-tex-parameter)
+
+(gl-import glTexImage1D gl-tex-image-1d)
+(gl-import glTexSubImage1D gl-tex-sub-image-1d)
+
 (gl-import glTexImage2D gl-tex-image-2d)
 (gl-import glTexSubImage2D gl-tex-sub-image-2d)
 (gl-import glCopyTexSubImage2D gl-copy-tex-sub-image-2d)
-(gl-import glGetTexParameteriv gl-get-tex-parameter)
 (glu-import gluBuild2DMipmaps glu-build-2d-mipmaps)
+
+(gl-import glTexImage3D gl-tex-image-3d)
+(gl-import glTexSubImage3D gl-tex-sub-image-3d)
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct tex-struct :width :height :id :type)
+(defstruct tex-struct :width :height :depth :id :type)
 
-(defn texture [u v] (gl-tex-2 u v))
+(defn texture
+  ([u] (gl-tex-1 u))
+  ([u v] (gl-tex-2 u v))
+  ([u v w] (gl-tex-3 u v w)))
 
 (defn bind-texture [t]
  (gl-bind-texture :texture-2d (:id t)))
@@ -49,59 +62,92 @@
     (gl-get-tex-parameter ~dim ~param ary# 0)
     (get-name (nth ary# 0))))
 
+(defn dimensions [texture]
+  (count (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])))
+
 ;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn init-texture-1d []
+  (tex-parameter :texture-1d :texture-wrap-s :clamp)
+  (tex-parameter :texture-1d :texture-min-filter :linear)
+  (tex-parameter :texture-1d :texture-mag-filter :linear))
+
+(defn init-texture-2d []
+  (tex-parameter :texture-2d :texture-wrap-s :clamp)
+  (tex-parameter :texture-2d :texture-wrap-t :clamp)
+  (tex-parameter :texture-2d :texture-min-filter :linear)
+  (tex-parameter :texture-2d :texture-mag-filter :linear))
+
+(defn init-texture-3d []
+  (tex-parameter :texture-3d :texture-wrap-s :clamp)
+  (tex-parameter :texture-3d :texture-wrap-t :clamp)
+  (tex-parameter :texture-3d :texture-wrap-r :clamp)
+  (tex-parameter :texture-3d :texture-min-filter :linear)
+  (tex-parameter :texture-3d :texture-mag-filter :linear))
+
 (defn create-texture
-  "Creates a new byte texture"
-  ([width height]
-  (let [id (gen-texture)]
-    (gl-bind-texture :texture-2d id)
-    (gl-tex-image-2d :texture-2d 0 :rgba width height 0 :rgba :unsigned-byte (ByteBuffer/allocate (* width height 4)))
-    (tex-parameter :texture-2d :texture-wrap-s :clamp)
-    (tex-parameter :texture-2d :texture-wrap-t :clamp)
-    (tex-parameter :texture-2d :texture-min-filter :nearest)
-    (tex-parameter :texture-2d :texture-mag-filter :nearest)
-    (struct-map tex-struct :width width :height height :id id :type :byte))))
+  ([w]
+     (let [id (gen-texture)]
+       (gl-bind-texture :texture-1d id)
+       (gl-tex-image-1d :texture-1d 0 :rgba w 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w 4)))
+       (init-texture-1d)
+       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :4-bytes)))
+  ([w h]
+     (let [id (gen-texture)]
+       (gl-bind-texture :texture-2d id)
+       (gl-tex-image-2d :texture-2d 0 :rgba w h 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h 4)))
+       (init-texture-2d)
+       (struct-map tex-struct :width w :height h :depth 1 :id id :type :4-bytes)))
+  ([w h d]
+     (let [id (gen-texture)]
+       (gl-bind-texture :texture-3d id)
+       (gl-tex-image-3d :texture-3d 0 :rgba w h d 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h d 4)))
+       (init-texture-3d)
+       (struct-map tex-struct :width w :height h :depth d :id id :type :4-bytes))))
 
 (defn load-texture-from-file [filename]
   (let [tex (TextureIO/newTexture (File. filename) false)]
-    (struct-map tex-struct :width (.getWidth tex) :height (.getHeight tex) :id (.getTextureObject tex) :type :byte)))
+    (struct-map tex-struct :width (.getWidth tex) :height (.getHeight tex) :id (.getTextureObject tex) :type :4-bytes)))
+
+(defn load-texture-from-image [image]
+  (TextureIO/newTexture (TextureIO/newTextureData image (translate-keyword :rgba) (translate-keyword :rgba) false)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro- to-byte [num] `(byte (* 255 (double ~num)))) ;this is a macro for performance reasons
 
-(defn populate-2d-texture [w h fun]
-  (let [#^ByteBuffer buf (ByteBuffer/allocate (* w h 4))]
-    (dotimes [j w]
-      (dotimes [i h]
-        (let [[r g b a] (fun [i j] [(/ i (double w)) (/ j (double h))])]
-          (doto buf
-            (.put (to-byte r))
-            (.put (to-byte g))
-            (.put (to-byte b))
-            (.put (to-byte a))))))
+(defn- put-color [#^ByteBuffer buf color]
+  (doseq [b color] (.put buf (to-byte b))))
+
+(defn populate-buffer [fun texture]
+  (let [dims (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])
+        origin (take (count dims) (repeat 0))
+        buf-size (count (apply fun [origin origin]))
+        #^ByteBuffer buf (ByteBuffer/allocate (* (apply * dims) buf-size))
+        indices (apply cartesian-product (map range dims))
+        divide (fn [[a b]] (/ a (double b)))
+        params (map #(list % (map divide (partition 2 (interleave % dims)))) indices)]
+    (doseq [p params] (put-color buf (apply fun p)))
     (.rewind buf)
     buf))
 
 (defn draw-to-subsampled-texture
-  "Takes a function that returns normalized RGBA values for all texel coordinates, and applies it to the texture"
   [tex fun]
   (bind-texture tex)
-  (tex-parameter :texture-2d :texture-wrap-s :clamp)
-  (tex-parameter :texture-2d :texture-wrap-t :clamp)
   (tex-parameter :texture-2d :texture-min-filter :linear-mipmap-linear)
-  (tex-parameter :texture-2d :texture-mag-filter :linear)
-  (glu-build-2d-mipmaps :texture-2d :rgba (:width tex) (:height tex) :rgba :unsigned-byte (populate-2d-texture (:width tex) (:height tex) fun)))
+  (glu-build-2d-mipmaps :texture-2d :rgba (:width tex) (:height tex) :rgba :unsigned-byte (populate-buffer fun tex)))
 
 (defn draw-to-texture
   [tex fun]
   (bind-texture tex)
-  (tex-parameter :texture-2d :texture-wrap-s :clamp)
-  (tex-parameter :texture-2d :texture-wrap-t :clamp)
-  (tex-parameter :texture-2d :texture-min-filter :linear)
-  (tex-parameter :texture-2d :texture-mag-filter :linear)
-  (gl-tex-sub-image-2d :texture-2d 0 0 0 (:width tex) (:height tex) :rgba :unsigned-byte (populate-2d-texture (:width tex) (:height tex) fun)))
+  (let [dims (dimensions tex)]
+    (cond
+      (= 1 dims)
+      (gl-tex-sub-image-1d :texture-1d 0 0 (:width tex) :rgba :unsigned-byte (populate-buffer fun texture))
+      (= 2 dims)
+      (gl-tex-sub-image-2d :texture-2d 0 0 0 (:width tex) (:height tex) :rgba :unsigned-byte (populate-buffer fun texture))
+      :else
+      (gl-tex-sub-image-3d :texture-3d 0 0 0 0 (:width tex) (:height tex) (:depth tex) :rgba :unsigned-byte (populate-buffer fun texture)))))
 
 (defmacro render-to-texture
   "Renders a scene to a texture."

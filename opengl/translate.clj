@@ -181,7 +181,9 @@
   "Parses the r-value in an assignment expressions."
   [expr]
   (cond
-    (first= expr 'if) (str "(" (glsl-parser (second expr)) " ? " (glsl-parser (third expr)) " : " (glsl-parser (fourth expr)) ")")
+    (first= expr 'if) (str "(" (glsl-parser (second expr))
+                           " ? " (glsl-parser (third expr))
+                           " : " (glsl-parser (fourth expr)) ")")
     :else             (glsl-parser expr)))
 
 (defn- special-parse-case? [expr]
