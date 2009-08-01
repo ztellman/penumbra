@@ -38,12 +38,12 @@
 (defn init-textures []
   (let [view (create-texture 256 256)
         checkers (create-texture 128 128)]
-  (draw-to-subsampled-texture
-    checkers
-    (fn [[x y] _]
-      (if (xor (even? (int (/ x 16))) (even? (int (/ y 16))))
-        [1 0 0 1]
-        [0 0 0 1])))
+    (time (draw-to-subsampled-texture
+      checkers
+      (fn [[x y] _]
+        (if (xor (even? (bit-shift-right x 4)) (even? (bit-shift-right y 4)))
+          [1 0 0 1]
+          [0 0 0 1]))))
     [checkers view]))
 
 ;;;;;;;;;;;;;;;;;
@@ -76,6 +76,7 @@
         (assoc state :left [(- lx dy) (- ly dx)]))
       (let [[rx ry] (:right state)]
         (assoc state :right [(- rx dy) (- ry dx)])))))
+
 
 (defn display [[delta time] state]
   (let [[lx ly] (:left state)

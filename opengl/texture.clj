@@ -44,13 +44,20 @@
 
 (defstruct tex-struct :width :height :depth :id :type)
 
+(defn dimensions [texture]
+  (count (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])))
+
 (defn texture
   ([u] (gl-tex-1 u))
   ([u v] (gl-tex-2 u v))
   ([u v w] (gl-tex-3 u v w)))
 
 (defn bind-texture [t]
- (gl-bind-texture :texture-2d (:id t)))
+  (let [dims (dimensions t)]
+   (cond
+    (= 1 dims) (gl-bind-texture :texture-1d (:id t))
+    (= 2 dims) (gl-bind-texture :texture-2d (:id t))
+    (= 3 dims) (gl-bind-texture :texture-3d (:id t)))))
 
 (defn gen-texture []
   (let [a (int-array 1)]
@@ -61,9 +68,6 @@
   `(let [ary# (int-array 1)]
     (gl-get-tex-parameter ~dim ~param ary# 0)
     (get-name (nth ary# 0))))
-
-(defn dimensions [texture]
-  (count (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -91,43 +95,55 @@
        (gl-bind-texture :texture-1d id)
        (gl-tex-image-1d :texture-1d 0 :rgba w 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w 4)))
        (init-texture-1d)
-       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :4-bytes)))
+       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :bytes)))
   ([w h]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-2d id)
        (gl-tex-image-2d :texture-2d 0 :rgba w h 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h 4)))
        (init-texture-2d)
-       (struct-map tex-struct :width w :height h :depth 1 :id id :type :4-bytes)))
+       (struct-map tex-struct :width w :height h :depth 1 :id id :type :bytes)))
   ([w h d]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-3d id)
        (gl-tex-image-3d :texture-3d 0 :rgba w h d 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h d 4)))
        (init-texture-3d)
-       (struct-map tex-struct :width w :height h :depth d :id id :type :4-bytes))))
+       (struct-map tex-struct :width w :height h :depth d :id id :type :bytes))))
 
-(defn load-texture-from-file [filename]
-  (let [tex (TextureIO/newTexture (File. filename) false)]
-    (struct-map tex-struct :width (.getWidth tex) :height (.getHeight tex) :id (.getTextureObject tex) :type :4-bytes)))
+(defn load-texture-from-file [filename subsample]
+  (let [tex (TextureIO/newTexture (TextureIO/newTextureData (File. filename) (translate-keyword :rgba) (translate-keyword :rgba) subsample ""))]
+    (struct-map tex-struct :width (.getWidth tex) :height (.getHeight tex) :id (.getTextureObject tex) :type :bytes)))
 
-(defn load-texture-from-image [image]
-  (TextureIO/newTexture (TextureIO/newTextureData image (translate-keyword :rgba) (translate-keyword :rgba) false)))
+(defn load-texture-from-image [image subsample]
+  (let [tex (TextureIO/newTexture (TextureIO/newTextureData image (translate-keyword :rgba) (translate-keyword :rgba) subsample))]
+    (struct-map tex-struct :width (.getWidth tex) :height (.getHeight tex) :id (.getTextureObject tex) :type :bytes)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro- to-byte [num] `(byte (* 255 (double ~num)))) ;this is a macro for performance reasons
+(defmacro to-byte [num] `(byte (* 255 (double ~num)))) ;this is a macro for performance reasons
 
-(defn- put-color [#^ByteBuffer buf color]
-  (doseq [b color] (.put buf (to-byte b))))
+(defn put [#^ByteBuffer buf [r g b a]]
+  (doto buf
+    (.put (to-byte r))
+    (.put (to-byte g))
+    (.put (to-byte b))
+    (.put (to-byte a))))
 
 (defn populate-buffer [fun texture]
-  (let [dims (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])
-        origin (take (count dims) (repeat 0))
-        buf-size (count (apply fun [origin origin]))
-        #^ByteBuffer buf (ByteBuffer/allocate (* (apply * dims) buf-size))
-        indices (apply cartesian-product (map range dims))
-        divide (fn [[a b]] (/ a (double b)))
-        params (map #(list % (map divide (partition 2 (interleave % dims)))) indices)]
-    (doseq [p params] (put-color buf (apply fun p)))
+  (let [dim (dimensions texture)
+        w (:width texture)
+        h (:height texture)
+        d (:depth texture)
+        #^ByteBuffer buf (ByteBuffer/allocate (* 4 w h d))]
+    (cond
+      (= 1 dim)
+      (dotimes [x w]
+        (put buf (fun [x] [(/ x (double h))])))
+      (= 2 dim)
+      (dotimes [x w] (dotimes [y h]
+        (put buf (fun [x y] [(/ x (double w)) (/ y (double h))]))))
+      (= 3 dim)
+      (dotimes [x w] (dotimes [y h] (dotimes [z d]
+        (put buf (fun [x y z] [(/ x (double w)) (/ y (double h)) (/ z (double d))]))))))
     (.rewind buf)
     buf))
 
@@ -135,7 +151,8 @@
   [tex fun]
   (bind-texture tex)
   (tex-parameter :texture-2d :texture-min-filter :linear-mipmap-linear)
-  (glu-build-2d-mipmaps :texture-2d :rgba (:width tex) (:height tex) :rgba :unsigned-byte (populate-buffer fun tex)))
+  (let [buf (populate-buffer fun tex)]
+    (glu-build-2d-mipmaps :texture-2d :rgba (:width tex) (:height tex) :rgba :unsigned-byte buf)))
 
 (defn draw-to-texture
   [tex fun]

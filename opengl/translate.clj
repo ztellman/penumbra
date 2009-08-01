@@ -231,7 +231,7 @@
 
 (defmacro- def-assignment-parser
   "Defines an assignment operator, making use of parse-assignment for the l-value
-  (set a b) -> a = b"
+  (set! a b) -> a = b"
   [op-symbol op-string]
   `(defmethod glsl-parser ~op-symbol [expr#]
     (if (= 2 (count expr#))
@@ -267,7 +267,7 @@
 (def-assignment-parser '*= "*=")
 
 (defmethod glsl-parser '-
-  ;the '-' symbol can either be a infix or unary operator
+  ;the - symbol can either be a infix or unary operator
   [expr]
   (if (>= 2 (count expr))
     (str "-" (glsl-parser (second expr)))
