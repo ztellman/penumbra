@@ -6,10 +6,9 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.examples.gears)
-
-(use '(penumbra.opengl core geometry effect)
-     'penumbra.interface.window)
+(ns penumbra.examples.gears
+  (:use [penumbra.opengl core geometry effect])
+  (:use [penumbra.interface.window]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;Gear building functions
