@@ -8,10 +8,7 @@
 
 (ns penumbra.examples.marble)
 
-(use 'penumbra.opengl.core
-     'penumbra.opengl.geometry
-     'penumbra.opengl.effect
-     'penumbra.opengl.shader
+(use '(penumbra.opengl core geometry effect shader)
      'penumbra.interface.window)
 
 ;;;;;;;;;;;;;;;;;

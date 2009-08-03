@@ -6,13 +6,10 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.opengl.effect)
-
-(use 'penumbra.opengl.core
-     'penumbra.opengl.geometry)
-
-(import '(java.awt Font)
-        '(com.sun.opengl.util.j2d TextRenderer))
+(ns penumbra.opengl.effect
+  (:use [penumbra.opengl core geometry])
+  (:import (java.awt Font))
+  (:import (com.sun.opengl.util.j2d TextRenderer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 

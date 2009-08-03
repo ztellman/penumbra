@@ -23,7 +23,6 @@
 
 (def last-render (ref (clock)))
 (def last-pos (ref [0 0]))
-(def actions (ref []))
 
 (def *canvas* (ref nil))
 
@@ -32,14 +31,6 @@
 (defn get-canvas-size [] [(.getWidth #^GLCanvas @*canvas*) (.getHeight #^GLCanvas @*canvas*)])
 (defn set-canvas-size [w h] (.setSize #^GLCanvas @*canvas* (Dimension. w h)))
 (defn repaint [] (.repaint #^GLCanvas @*canvas*))
-
-(defn enqueue
-  ([fun] (enqueue fun actions))
-  ([fun list-ref] (dosync (alter list-ref #(conj % fun)))))
-
-(defn execute
-  ([] (execute actions))
-  ([list-ref] (dosync (alter list-ref #(do (doseq [a %] (apply a)) [])))))
 
 ;;;;;;;;;;;;;;;;;;;;;
 
@@ -85,7 +76,6 @@
                 (dosync (ref-set last-render current))
                 (bind-gl drawable
                   (clear)
-                  (execute)
                   (try-call state fns
                     :update time)
                   (push-matrix

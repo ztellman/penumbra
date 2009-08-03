@@ -7,12 +7,12 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.translate
-  (:use [clojure.contrib.def :only (defmacro-)])
-  (:use [clojure.contrib.pprint])
+  (:use [clojure.contrib (def :only (defmacro-)) pprint])
   (:use [penumbra.opengl.core])
   (:require [clojure.zip :as zip]))
 
 ;;;;;;;;;;;;;;;;;;;
+
 
 (defmulti glsl-macro
   #(if (seq? %) (first %) nil)
@@ -91,13 +91,15 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;;shader macros
 
-(defn- transform-vec [v]
+(defn- transform-vec
+  "implicitly transforms [a b] into (vec* a b)"
+  [v]
   (let [num (count v)
         cls (class (first v))]
     (cond
-     (and (<= num 4) (= Integer cls)) `(~(symbol (str "vec" num "i")) ~@v)
-     (and (= Boolean cls)) `(~(symbol (str "vec" num "b")) ~@v)
-     :else `(~(symbol (str "vec" (count v))) ~@(map #(float %) v)))))
+     (and (<= num 4) (= Integer cls))  `(~(symbol (str "vec" num "i")) ~@v)
+     (and (= Boolean cls))             `(~(symbol (str "vec" num "b")) ~@v)
+     :else                             `(~(symbol (str "vec" (count v))) ~@(map #(float %) v)))))
 
 (defmethod glsl-macro :none [expr]
   (cond

@@ -8,10 +8,7 @@
 
 (ns penumbra.examples.render-to-texture)
 
-(use 'penumbra.opengl.core
-     'penumbra.opengl.geometry
-     'penumbra.opengl.effect
-     'penumbra.opengl.texture
+(use '(penumbra.opengl core geometry effect texture)
      'penumbra.interface.window)
 
 (defn textured-quad []
@@ -38,12 +35,12 @@
 (defn init-textures []
   (let [view (create-texture 256 256)
         checkers (create-texture 128 128)]
-    (time (draw-to-subsampled-texture
+    (draw-to-subsampled-texture
       checkers
       (fn [[x y] _]
         (if (xor (even? (bit-shift-right x 4)) (even? (bit-shift-right y 4)))
           [1 0 0 1]
-          [0 0 0 1]))))
+          [0 0 0 1])))
     [checkers view]))
 
 ;;;;;;;;;;;;;;;;;

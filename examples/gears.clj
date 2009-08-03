@@ -8,9 +8,7 @@
 
 (ns penumbra.examples.gears)
 
-(use 'penumbra.opengl.core
-     'penumbra.opengl.geometry
-     'penumbra.opengl.effect
+(use '(penumbra.opengl core geometry effect)
      'penumbra.interface.window)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;

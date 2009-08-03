@@ -8,9 +8,8 @@
 
 (ns penumbra.opengl.texture
   (:use [clojure.contrib.def :only (defmacro-)])
-  (:use [clojure.contrib.combinatorics :only (cartesian-product)])
   (:use [penumbra.opengl.core])
-  (:import (java.nio ByteBuffer))
+  (:import (java.nio ByteBuffer FloatBuffer))
   (:import (com.sun.opengl.util BufferUtil))
   (:import (com.sun.opengl.util.texture TextureIO))
   (:import (java.io File)))
@@ -42,7 +41,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct tex-struct :width :height :depth :id :type)
+(defstruct tex-struct :width :height :depth :id :type :pixel)
 
 (defn dimensions [texture]
   (count (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])))
@@ -89,33 +88,62 @@
   (tex-parameter :texture-3d :texture-min-filter :linear)
   (tex-parameter :texture-3d :texture-mag-filter :linear))
 
+(defn init-texture-float []
+  (tex-parameter :texture-rectangle-arb :texture-min-filter :nearest)
+  (tex-parameter :texture-rectangle-arb :texture-mag-filter :nearest)
+  (tex-parameter :texture-rectangle-arb :texture-wrap-s :clamp)
+  (tex-parameter :texture-rectangle-arb :texture-wrap-t :clamp))
+
 (defn create-texture
   ([w]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-1d id)
        (gl-tex-image-1d :texture-1d 0 :rgba w 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w 4)))
        (init-texture-1d)
-       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :bytes)))
+       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :unsigned-byte)))
   ([w h]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-2d id)
        (gl-tex-image-2d :texture-2d 0 :rgba w h 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h 4)))
        (init-texture-2d)
-       (struct-map tex-struct :width w :height h :depth 1 :id id :type :bytes)))
+       (struct-map tex-struct :width w :height h :depth 1 :id id :type :unsigned-byte)))
   ([w h d]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-3d id)
        (gl-tex-image-3d :texture-3d 0 :rgba w h d 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h d 4)))
        (init-texture-3d)
-       (struct-map tex-struct :width w :height h :depth d :id id :type :bytes))))
+       (struct-map tex-struct :width w :height h :depth d :id :type :unsigned-byte))))
 
-(defn load-texture-from-file [filename subsample]
-  (let [tex (TextureIO/newTexture (TextureIO/newTextureData (File. filename) (translate-keyword :rgba) (translate-keyword :rgba) subsample ""))]
-    (struct-map tex-struct :width (.getWidth tex) :height (.getHeight tex) :id (.getTextureObject tex) :type :bytes)))
+(def rgba (translate-keyword :rgba))
 
-(defn load-texture-from-image [image subsample]
-  (let [tex (TextureIO/newTexture (TextureIO/newTextureData image (translate-keyword :rgba) (translate-keyword :rgba) subsample))]
-    (struct-map tex-struct :width (.getWidth tex) :height (.getHeight tex) :id (.getTextureObject tex) :type :bytes)))
+(defn- texture-from-texture-io [tex]
+  (struct-map tex-struct
+    :width (.getWidth tex)
+    :height (.getHeight tex)
+    :id (.getTextureObject tex)
+    :type :unsigned-byte
+    :pixel :rgba))
+
+(defn texture-from-file [filename subsample]
+  (let [data (TextureIO/newTextureData (File. filename) rgba rgba subsample "")
+        tex  (TextureIO/newTexture data)]
+    (texture-from-texture-io tex)))
+
+(defn texture-from-image [image subsample]
+  (let [data (TextureIO/newTextureData image rgba rgba subsample)
+        tex  (TextureIO/newTexture data)]
+    (texture-from-texture-io tex)))
+
+(defn texture-from-floats [s]
+  (let [tex (gen-texture)
+        w (-> s Math/sqrt Math/floor int)
+        h (-> s Math/sqrt Math/ceil int)
+        diff (- (count s) (* w h))
+        coll (conj s (take diff (repeat 0.0)))]
+    (gl-bind-texture :texture-rectangle-arb tex)
+    (init-texture-float)
+    (gl-tex-image-2d :texture-rectangle-arb 0 :float-r-nv w h 0 :luminance :float (FloatBuffer/wrap (float-array coll)))
+    (struct-map texture :id tex :width h :height h :type :float :pixel :luminance)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -157,14 +185,15 @@
 (defn draw-to-texture
   [tex fun]
   (bind-texture tex)
-  (let [dims (dimensions tex)]
+  (let [dims (dimensions tex)
+        buf (populate-buffer fun tex)]
     (cond
       (= 1 dims)
-      (gl-tex-sub-image-1d :texture-1d 0 0 (:width tex) :rgba :unsigned-byte (populate-buffer fun texture))
+      (gl-tex-sub-image-1d :texture-1d 0 0 (:width tex) :rgba :unsigned-byte buf)
       (= 2 dims)
-      (gl-tex-sub-image-2d :texture-2d 0 0 0 (:width tex) (:height tex) :rgba :unsigned-byte (populate-buffer fun texture))
+      (gl-tex-sub-image-2d :texture-2d 0 0 0 (:width tex) (:height tex) :rgba :unsigned-byte buf)
       :else
-      (gl-tex-sub-image-3d :texture-3d 0 0 0 0 (:width tex) (:height tex) (:depth tex) :rgba :unsigned-byte (populate-buffer fun texture)))))
+      (gl-tex-sub-image-3d :texture-3d 0 0 0 0 (:width tex) (:height tex) (:depth tex) :rgba :unsigned-byte buf))))
 
 (defmacro render-to-texture
   "Renders a scene to a texture."

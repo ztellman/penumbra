@@ -8,9 +8,8 @@
 
 (ns penumbra.opengl.shader
   (:use [clojure.contrib.def :only (defmacro-)])
-  (:use [penumbra.opengl.core])
-  (:use [penumbra.opengl.translate])
-  (:import (java.nio ByteBuffer IntBuffer))
+  (:use [penumbra.opengl core translate])
+  (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
   (:import (com.sun.opengl.util BufferUtil)))
 
 ;;;;;;;;;;;;;;;;;;
