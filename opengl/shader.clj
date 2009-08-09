@@ -59,8 +59,8 @@
   (if *verbose*
     (println source))
   (if (shader-compiled? shader)
-    (if *verbose* (println "Compiled."))
-    (throw (Exception. (str "Error compiling shader: " (get-shader-log shader))))))
+    (if *verbose* (println "*** Compiled ***"))
+    (throw (Exception. (str "*** Error compiling shader: " (get-shader-log shader))))))
 
 (defn- get-program-log [program]
   (let [buf (make-array Byte/TYPE 4096)]
@@ -79,11 +79,11 @@
     (gl-attach-shader program fragment-shader)
     (gl-link-program program)
     (if (not (program-linked? program))
-      (throw (Exception. (str "Error linking program: " (get-program-log program)))))
+      (throw (Exception. (str "*** Error linking program: " (get-program-log program)))))
     (gl-validate-program program)
     (if (not (program-valid? program))
-      (throw (Exception. (str "Error validating program: "(get-program-log program)))))
-    (if *verbose* (println "Linked."))
+      (throw (Exception. (str "*** Error validating program: "(get-program-log program)))))
+    (if *verbose* (println "*** Linked ***"))
     (struct-map gpu-program :vertex vertex-shader :fragment fragment-shader :program program)))
 
 (defn bind-program

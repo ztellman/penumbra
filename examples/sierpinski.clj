@@ -8,7 +8,7 @@
 
 (ns penumbra.examples.sierpinski)
 
-(use '(penumbra.opengl core geometry effect)
+(use '(penumbra.opengl core geometry effects)
      'penumbra.interface.window)
 
 (defn draw-pyramid []

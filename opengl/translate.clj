@@ -9,51 +9,80 @@
 (ns penumbra.opengl.translate
   (:use [clojure.contrib (def :only (defmacro-)) pprint])
   (:use [penumbra.opengl.core])
-  (:require [clojure.zip :as zip]))
+  (:require [clojure.zip :as zip])
+  (:import (java.text ParseException))
+  (:import (java.io StringWriter)))
 
 ;;;;;;;;;;;;;;;;;;;
 
+(defn realize [s]
+  (if (seq? s) (doall s) s))
 
-(defmulti glsl-macro
+(defn- str-pprint [expr]
+  (let [s (new StringWriter)]
+    (pprint expr s)
+    (str s)))
+
+;;;;;;;;;;;;;;;;;;;
+
+(defmulti shader-macro
   #(if (seq? %) (first %) nil)
   :default :none)
 
-(defmulti glsl-generator
+(defmulti shader-generator
   #(if (seq? %) (first %) nil)
   :default :none)
 
 (declare special-parse-case?)
 
-(defmulti glsl-parser
+(defmulti shader-parser
   #(if (special-parse-case? %) nil (first %))
   :default :function)
 
+(defn parse [expr]
+  (try
+    (realize (shader-parser expr))
+    (catch ParseException e
+      (throw e))
+    (catch Exception e
+      (throw (ParseException. (str "\nError while parsing:\n" (str-pprint expr) (.getMessage e)) 0)))))
+
 ;;;;;;;;;;;;;;;;;;;;
 
-(defn tree-map
-  "Map fun over the entire tree structure"
-  [fun expr]
-  (if (empty? expr)
+(defn- try-apply [fun expr]
+  (try
+    (realize (fun expr))
+    (catch Exception e
+      (throw (ParseException. (str "\nError while transforming:\n" (str-pprint expr) (.getMessage e)) 0)))))
+
+(defn tree-map [fun tree]
+  (if (empty? tree)
     ()
-    (loop [z (zip/seq-zip expr)]
+    (loop [z (zip/seq-zip tree)]
       (if (zip/end? z)
         (zip/root z)
-        (recur (zip/next (zip/replace z (fun (zip/node z)))))))))
+        (recur (zip/next (zip/replace z (try-apply fun (zip/node z)))))))))
 
-(defn- transform
-  [expr]
-  (tree-map glsl-macro expr))
+(defn- transform-exprs [expr]
+  (tree-map shader-macro expr))  
 
-(defn- generate [expr]
-  (loop [body (list expr) tail (transform (glsl-generator expr))]
+(defn- try-generate [expr]
+  (try
+    (realize (shader-generator expr))
+    (catch Exception e
+      (throw (ParseException. (str "\nError while generating:\n" (str-pprint expr) (.getMessage e)) 0)))))
+
+(defn- generate-exprs [expr]
+  (loop [body (list expr)
+         tail (transform-exprs (try-generate expr))]
     (if (empty? tail)
      body
      (recur
-       (concat body tail)
-       (transform (glsl-generator tail))))))
+       (concat body (if (seq? (ffirst tail)) (apply concat tail) tail))
+       (transform-exprs (try-generate tail))))))
 
 (defn- parse-lines
-  "Maps glsl-parser over a list of s-expressions, filters out empty lines,
+  "Maps shader-parser over a list of s-expressions, filters out empty lines,
   and optionally adds a terminating character."
   ([exprs] (parse-lines "" exprs))
   ([termination exprs]
@@ -63,7 +92,7 @@
           (seq? (first exprs)))
       (parse-lines termination (first exprs))
       (let [exprs (if (seq? (first exprs)) exprs (list exprs))
-            parsed-exprs (map #(glsl-parser %) exprs)
+            parsed-exprs (map #(parse %) exprs)
             filtered-exprs (filter #(not= (.trim %) "") parsed-exprs)
             terminated-exprs (map #(if (.endsWith % "\n") % (str % termination "\n")) filtered-exprs)]
         (apply str terminated-exprs)))))
@@ -77,7 +106,7 @@
 (defn translate
   "Core function for translate-shader.  Useful for testing phrases."
   [expr]
-  (parse-lines (reverse (generate (transform expr)))))
+  (parse-lines (reverse (generate-exprs (transform-exprs expr)))))
 
 (defn translate-shader
   ([exprs] (translate-shader '() exprs))
@@ -101,7 +130,7 @@
      (and (= Boolean cls))             `(~(symbol (str "vec" num "b")) ~@v)
      :else                             `(~(symbol (str "vec" (count v))) ~@(map #(float %) v)))))
 
-(defmethod glsl-macro :none [expr]
+(defmethod shader-macro :none [expr]
   (cond
     (and
      (vector? expr)
@@ -110,7 +139,7 @@
            (symbol? (first expr))))) (transform-vec expr)
     :else expr))
 
-(defmethod glsl-macro 'let
+(defmethod shader-macro 'let
   [expr]
   (concat
     '(do)
@@ -122,7 +151,7 @@
     `(~(first expr) ~term ~@(rest expr))
     `(~expr ~term)))
 
-(defmethod glsl-macro '->
+(defmethod shader-macro '->
   [expr]
   (let [term  (second expr)
         expr  (nnext expr)]
@@ -131,20 +160,20 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;shader generators
 
-(defmethod glsl-generator :none [expr]
+(defmethod shader-generator :none [expr]
   (if (seq? expr)
-    (apply concat (map glsl-generator expr))
+    (apply concat (map try-generate expr))
     nil))
 
-(defmethod glsl-generator 'import [expr]
+(defmethod shader-generator 'import [expr]
   (apply concat
     (map
       (fn [lst]
         (let [namespace (first lst)]
           (map #(var-get (intern namespace %)) (next lst))))
-    (next expr))))
+      (next expr))))
 
-(defmethod glsl-parser 'import [expr] "")
+(defmethod shader-parser 'import [expr] "")
 
 ;;;;;;;;;;;;;;;;;;;;
 ;shader parser
@@ -166,7 +195,7 @@
     "gl_"
     (apply str
       (map
-        #(str (.. % (substring 0 1) (toUpperCase)) (. % substring 1 (count %)))
+        #(str (.. % (substring 0 1) toUpperCase) (. % substring 1 (count %)))
         (seq (.split (name k) "-"))))))
 
 (defn- parse-assignment-left
@@ -183,59 +212,60 @@
   "Parses the r-value in an assignment expressions."
   [expr]
   (cond
-    (first= expr 'if) (str "(" (glsl-parser (second expr))
-                           " ? " (glsl-parser (third expr))
-                           " : " (glsl-parser (fourth expr)) ")")
-    :else             (glsl-parser expr)))
+    (first= expr 'if) (str "(" (parse (second expr))
+                           " ? " (parse (third expr))
+                           " : " (parse (fourth expr)) ")")
+    :else             (parse expr)))
 
 (defn- special-parse-case? [expr]
   (or
     (swizzle? expr)
     (not (seq? expr))))
 
-(defmethod glsl-parser nil
+(defmethod shader-parser nil
   ;handle base cases
   [expr]
   (cond
     (keyword? expr)    (parse-keyword expr)
-    (swizzle? expr)    (str (-> expr second glsl-parser) (-> expr first str))
+    (swizzle? expr)    (str (-> expr second parse) (-> expr first str))
     (not (seq? expr))  (.replace (str expr) \- \_)
     :else              ""))
 
-(defmethod glsl-parser :function
+(defmethod shader-parser :function
   ;transforms (a b c d) into a(b, c, d)
   [expr]
   (str
     (.replace (name (first expr)) \- \_)
-    "(" (apply str (interpose ", " (map glsl-parser (next expr)))) ")"))
+    "(" (apply str (interpose ", " (map parse (next expr)))) ")"))
 
 (defn- concat-operators
   "Interposes operators between two or more operands, enforcing left-to-right evaluation.
   (- a b c) -> ((a - b) - c)"
   [op expr]
+  (if (> 2 (count expr)) (throw (Exception. "Must be at least two operands.")))
   (if (= 2 (count expr))
-    (str "(" (glsl-parser (second expr)) " " op " " (glsl-parser (first expr)) ")")
-    (str "(" (concat-operators op (rest expr)) " " op " " (glsl-parser (first expr)) ")")))
+    (str "(" (parse (second expr)) " " op " " (parse (first expr)) ")")
+    (str "(" (concat-operators op (rest expr)) " " op " " (parse (first expr)) ")")))
 
 (defmacro- def-infix-parser
   "Defines an infix operator
   (+ a b) -> a + b"
   [op-symbol op-string]
-  `(defmethod glsl-parser ~op-symbol [expr#]
+  `(defmethod shader-parser ~op-symbol [expr#]
     (concat-operators ~op-string (reverse (next expr#)))))
 
 (defmacro- def-unary-parser
   "Defines a unary operator
   (not a) -> !a"
   [op-symbol op-string]
-  `(defmethod glsl-parser ~op-symbol [expr#]
-    (str ~op-string (glsl-parser (second expr#)))))
+  `(defmethod shader-parser ~op-symbol [expr#]
+    (str ~op-string (parse (second expr#)))))
 
 (defmacro- def-assignment-parser
   "Defines an assignment operator, making use of parse-assignment for the l-value
   (set! a b) -> a = b"
   [op-symbol op-string]
-  `(defmethod glsl-parser ~op-symbol [expr#]
+  `(defmethod shader-parser ~op-symbol [expr#]
     (if (= 2 (count expr#))
       (str (parse-assignment-left (second expr#)))
       (str (parse-assignment-left (second expr#)) " " ~op-string " " (parse-assignment-right (third expr#))))))
@@ -244,7 +274,7 @@
   "Defines a wrapper for any keyword that wraps a scope
   (if a b) -> if (a) { b }"
   [scope-symbol scope-fn]
-  `(defmethod glsl-parser ~scope-symbol [expr#]
+  `(defmethod shader-parser ~scope-symbol [expr#]
     (let [[header# body#] (~scope-fn expr#)]
       (str header# "\n{\n" (indent (parse-lines ";" body#)) "}\n"))))
 
@@ -268,36 +298,36 @@
 (def-assignment-parser '-= "-=")
 (def-assignment-parser '*= "*=")
 
-(defmethod glsl-parser '-
+(defmethod shader-parser '-
   ;the - symbol can either be a infix or unary operator
   [expr]
   (if (>= 2 (count expr))
-    (str "-" (glsl-parser (second expr)))
+    (str "-" (parse (second expr)))
     (concat-operators "-" (reverse (next expr)))))
 
-(defmethod glsl-parser 'nth
+(defmethod shader-parser 'nth
   [expr]
-  (str (glsl-parser (second expr)) "[" (third expr) "]"))
+  (str (parse (second expr)) "[" (third expr) "]"))
 
 (def-scope-parser 'main
   (fn [expr] ["void main()" (next expr)]))
 
-(defmethod glsl-parser 'do
+(defmethod shader-parser 'do
   [expr]
   (parse-lines ";" (next expr)))
 
-(defmethod glsl-parser 'if
+(defmethod shader-parser 'if
   [expr]
   (str
-    "if (" (glsl-parser (second expr)) ")"
+    "if (" (parse (second expr)) ")"
     "\n{\n" (indent (parse-lines ";" (third expr))) "}\n"
     (if (< 3 (count expr))
       (str "else\n{\n" (indent (parse-lines ";" (fourth expr))) "}\n")
       "")))
 
-(defmethod glsl-parser 'return
+(defmethod shader-parser 'return
   [expr]
-  (str "return " (glsl-parser (second expr))))
+  (str "return " (parse (second expr))))
 
 (def-scope-parser
   'defn

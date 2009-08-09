@@ -7,7 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.examples.gears
-  (:use [penumbra.opengl core geometry effect])
+  (:use [penumbra.opengl core geometry effects])
   (:use [penumbra.interface.window]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -118,7 +118,7 @@
     :gear (get-display-list (draw-gear 30 0.5 3 4 2))))
 
 (defn reshape [[x y width height] state]
-  (frustum-view 60 (/ (double width) height) 1 100)
+  (frustum-view 60.0 (/ (double width) height) 1.0 100.0)
   (load-identity)
   (translate 0 0 -10)
   (light 0 :position [1 1 1 0])

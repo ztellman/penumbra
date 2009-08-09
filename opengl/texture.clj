@@ -41,7 +41,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct tex-struct :width :height :depth :id :type :pixel)
+(defstruct tex-struct :width :height :depth :id :type :tuple :persistant :attach-point)
 
 (defn dimensions [texture]
   (count (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])))
@@ -88,31 +88,25 @@
   (tex-parameter :texture-3d :texture-min-filter :linear)
   (tex-parameter :texture-3d :texture-mag-filter :linear))
 
-(defn init-texture-float []
-  (tex-parameter :texture-rectangle-arb :texture-min-filter :nearest)
-  (tex-parameter :texture-rectangle-arb :texture-mag-filter :nearest)
-  (tex-parameter :texture-rectangle-arb :texture-wrap-s :clamp)
-  (tex-parameter :texture-rectangle-arb :texture-wrap-t :clamp))
-
 (defn create-texture
   ([w]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-1d id)
        (gl-tex-image-1d :texture-1d 0 :rgba w 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w 4)))
        (init-texture-1d)
-       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :unsigned-byte)))
+       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :unsigned-byte :tuple 4 :persistent true)))
   ([w h]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-2d id)
        (gl-tex-image-2d :texture-2d 0 :rgba w h 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h 4)))
        (init-texture-2d)
-       (struct-map tex-struct :width w :height h :depth 1 :id id :type :unsigned-byte)))
+       (struct-map tex-struct :width w :height h :depth 1 :id id :type :unsigned-byte :tuple 4 :persistent true)))
   ([w h d]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-3d id)
        (gl-tex-image-3d :texture-3d 0 :rgba w h d 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h d 4)))
        (init-texture-3d)
-       (struct-map tex-struct :width w :height h :depth d :id :type :unsigned-byte))))
+       (struct-map tex-struct :width w :height h :depth d :id id :type :unsigned-byte :tuple 4 :persistent true))))
 
 (def rgba (translate-keyword :rgba))
 
@@ -122,28 +116,17 @@
     :height (.getHeight tex)
     :id (.getTextureObject tex)
     :type :unsigned-byte
-    :pixel :rgba))
+    :tuple 4))
 
-(defn texture-from-file [filename subsample]
+(defn load-texture-from-file [filename subsample]
   (let [data (TextureIO/newTextureData (File. filename) rgba rgba subsample "")
         tex  (TextureIO/newTexture data)]
     (texture-from-texture-io tex)))
 
-(defn texture-from-image [image subsample]
-  (let [data (TextureIO/newTextureData image rgba rgba subsample)
+(defn load-texture-from-image [image subsample]
+  (let [data (TextureIO/newTextureData image rgba rgba subsample "")
         tex  (TextureIO/newTexture data)]
     (texture-from-texture-io tex)))
-
-(defn texture-from-floats [s]
-  (let [tex (gen-texture)
-        w (-> s Math/sqrt Math/floor int)
-        h (-> s Math/sqrt Math/ceil int)
-        diff (- (count s) (* w h))
-        coll (conj s (take diff (repeat 0.0)))]
-    (gl-bind-texture :texture-rectangle-arb tex)
-    (init-texture-float)
-    (gl-tex-image-2d :texture-rectangle-arb 0 :float-r-nv w h 0 :luminance :float (FloatBuffer/wrap (float-array coll)))
-    (struct-map texture :id tex :width h :height h :type :float :pixel :luminance)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 

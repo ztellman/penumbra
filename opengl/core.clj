@@ -7,13 +7,14 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.core
-  (:import (javax.media.opengl GLCanvas GL))
-  (:import (javax.media.opengl.glu GLU))
-  (:import (com.sun.opengl.util GLUT))
+  (:import (javax.media.opengl GL2))
+  (:import (javax.media.opengl.awt GLCanvas))
+  (:import (javax.media.opengl.glu.gl2 GLUgl2))
+  (:import (com.sun.opengl.util.gl2 GLUT))
   (:import (java.lang.reflect Field)))
 
-(def #^GL *gl* nil)
-(def #^GLU *glu* (new GLU))
+(def #^GL2 *gl* nil)
+(def #^GLUgl2 *glu* (new GLUgl2))
 (def #^GLUT *glut* (new GLUT))
 
 (def inside-begin-end false)
@@ -21,7 +22,7 @@
 (def view-bounds (ref [0 0 0 0]))
 
 (defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & body]
-  `(binding [*gl* (.getGL ~drawable)]
+  `(binding [*gl* (.. ~drawable getGL getGL2)]
     ~@body))
 
 (defmacro push-matrix [& body]
@@ -50,12 +51,12 @@
 (defn translate-keyword-macro [k]
  (if (keyword? k)
    (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
-    `(. GL ~(symbol gl)))
+    `(. GL2 ~(symbol gl)))
    k))
 
 (defn translate-keyword [k]
   (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
-    (eval `(. GL ~(symbol gl)))))
+    (eval `(. GL2 ~(symbol gl)))))
 
 (defmacro gl-import
   "Imports an OpenGL function, transforming all :keywords into GL_KEYWORDS"
@@ -132,6 +133,6 @@
   "Create a standard perspective view."
   (gl-matrix-mode :projection)
   (gl-load-identity-matrix)
-  (glu-perspective fovx aspect near far)
+  (glu-perspective (double fovx) (double aspect) (double near) (double far))
   (gl-matrix-mode :modelview))
 

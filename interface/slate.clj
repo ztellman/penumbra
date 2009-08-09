@@ -8,32 +8,68 @@
 
 (ns penumbra.interface.slate
   (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [clojure.contrib.lazy-seqs :only (primes)])
   (:use [penumbra.opengl core geometry])
   (:import (java.util.concurrent Semaphore))
   (:import (javax.media.opengl
               GLPbuffer GLDrawableFactory GLEventListener
-              GLCapabilities GL GLAutoDrawable)))
+              GLCapabilities GLProfile GLAutoDrawable)))
+
+;;;;;;;;;;;;;;;;
+
+(gl-import glGenFramebuffers gl-gen-frame-buffers)
+(gl-import glBindFramebuffer gl-bind-frame-buffer)
+(gl-import glCheckFramebufferStatus gl-check-frame-buffer-status)
+
+(defn gen-frame-buffer []
+  (let [a (int-array 1)]
+    (gl-gen-frame-buffers 1 a 0)
+    (nth a 0)))
+
+(defn bind-frame-buffer [fb]
+  (gl-bind-frame-buffer :framebuffer fb))
+
+;;;;;;;;;;;;;;;;;
+
+(defn- prime-factors
+  "returns prime factors of a number"
+  ([n] (prime-factors primes [] n))
+  ([primes factors n]
+	 (let [p (first primes)]
+	   (cond
+		 (= n 1) factors
+		 (zero? (rem n p)) (recur primes (conj factors p) (/ n p))
+		 :else (recur (rest primes) factors n)))))
+
+(defn rectangle [n]
+  (let [factors   (prime-factors n)
+        reordered (take (count factors) (interleave factors (reverse factors)))
+        sqrt      (int (Math/sqrt n))
+        divisor   (reduce #(if (>= sqrt (* %1 %2)) (* %1 %2) %1) 1 reordered)]
+    [divisor (/ n divisor)]))
+
+;;;;;;;;;;;;;;;;;
 
 (defstruct slate-struct :p-buffer :queue)
 
-(defn repaint [s]
-  (.repaint #^GLPbuffer (:p-buffer s)))
+(defn repaint [slate]
+  (.repaint #^GLPbuffer (:p-buffer slate)))
 
-(defn destruct [s]
-  (.destroy #^GLPbuffer (:p-buffer s)))
+(defn destruct [slate]
+  (.destroy #^GLPbuffer (:p-buffer slate)))
 
-(defn enqueue [s f]
+(defn enqueue [slate f]
   (dosync
-    (alter (:queue s)
+    (alter (:queue slate)
       #(concat % (list f))))
-  (repaint s))
+  (repaint slate))
 
-(defn execute [s]
-  (let [coll @(:queue s)]
+(defn execute [slate]
+  (let [coll @(:queue slate)]
     (doseq [f coll]
       (push-matrix (f)))
     (dosync
-      (alter (:queue s)
+      (alter (:queue slate)
         #(drop (count coll) %)))))
 
 (defn invoke [slate f]
@@ -43,18 +79,19 @@
     (.acquire s)))
 
 (defn create-slate
-  ([size]
-    (create-slate
-      (-> size Math/sqrt Math/floor int)
-      (-> size Math/sqrt Math/ceil int)))
+  ([size-or-tex]
+    (if (number? size-or-tex)
+      (apply create-slate (rectangle size-or-tex))
+      (create-slate (:width size-or-tex) (:height size-or-tex))))
   ([width height]
     (let
-      [cap (GLCapabilities.)]
+      [profile (GLProfile/get GLProfile/GL2GL3)
+       cap (GLCapabilities. profile)]
 
       ;cap stuff goes here
 
-      (let [p-buffer  (.. (GLDrawableFactory/getFactory) (createGLPbuffer cap nil width height nil))
-            slt       (struct-map slate-struct :p-buffer p-buffer :queue (ref '()))]
+      (let [p-buffer  (.. (GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
+            slate     (struct-map slate-struct :p-buffer p-buffer :queue (ref '()))]
 
         (doto p-buffer
           (.addGLEventListener
@@ -62,9 +99,7 @@
 
               (display [drawable]
                 (bind-gl drawable
-                  (execute slt)))
-
-              (displayChanged [drawable mode-change device-changed])
+                  (execute slate)))
 
               (reshape [#^GLAutoDrawable drawable x y width height]
                 (bind-gl drawable
@@ -72,8 +107,16 @@
                   (ortho-view 0 0 width height)))
 
               (init [#^GLAutoDrawable drawable]
-                ))))
-        slt))))
+                (bind-gl drawable
+                  (bind-frame-buffer (gen-frame-buffer)))))))
+        slate))))
 
-(defmacro with-slate [slate & body]
-  `(invoke ~slate (fn [] ~@body)))
+(defmacro with-slate
+  [slate & body]
+    `(invoke ~slate (fn [] ~@body)))
+
+(defmacro with-blank-slate
+  [& body]
+  `(with-slate (create-slate 1 1)
+    ~@body))
+

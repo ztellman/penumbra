@@ -9,13 +9,9 @@
 (ns penumbra.examples.gpgpu
   (:use [penumbra.interface.slate])
   (:use [penumbra.opengl.core])
-  (:use [penumbra.compute.core]))
+  (:use [penumbra.compute.data]))
 
-(def slate (create-slate 100 100))
+(with-blank-slate
+  (def data (tex (float-array (range 10)))))
 
-(println "Thread: " (.. (Thread/currentThread) getName))
-
-(with-slate slate
-  (println "Thread: " (.. (Thread/currentThread) getName))
-  (println "hello")
-  (println "goodbye"))
+(println data)

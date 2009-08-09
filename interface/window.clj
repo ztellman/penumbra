@@ -15,7 +15,8 @@
               MouseAdapter MouseListener MouseEvent
               MouseMotionListener MouseMotionAdapter
               WindowListener WindowAdapter))
-  (:import (javax.media.opengl GLCanvas GLEventListener GLCapabilities GL GLAutoDrawable)))
+  (:import (javax.media.opengl GLEventListener GLCapabilities GLAutoDrawable GLProfile))
+  (:import (javax.media.opengl.awt GLCanvas)))
 
 ;;;;;;;;;;;;;;;;;;;;;
 
@@ -54,7 +55,8 @@
 (defn start [fns initial-state]
   (let
     [frame (new Frame)
-     cap (new GLCapabilities)
+     profile (GLProfile/get GLProfile/GL2)
+     cap (new GLCapabilities profile)
      state (ref initial-state)]
 
     (doto cap
@@ -80,8 +82,6 @@
                     :update time)
                   (push-matrix
                     ((:display fns) time @state)))))
-
-            (displayChanged [drawable mode-change device-changed])
 
             (reshape [#^GLAutoDrawable drawable x y width height]
               (bind-gl drawable

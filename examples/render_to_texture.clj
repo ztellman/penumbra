@@ -8,7 +8,7 @@
 
 (ns penumbra.examples.render-to-texture)
 
-(use '(penumbra.opengl core geometry effect texture)
+(use '(penumbra.opengl core geometry effects texture)
      'penumbra.interface.window)
 
 (defn textured-quad []
@@ -95,7 +95,7 @@
     ;render the checkered cube to a texture
     (clear-color 0.5 0.5 0.5 1)
     (render-to-texture view
-      (with-projection (frustum-view 50 1 0.1 10)
+      (with-projection (frustum-view 50. 1. 0.1 10.)
         (push-matrix
           (rotate lx 1 0 0) (rotate ly 0 1 0)
           (textured-cube))))
@@ -103,7 +103,7 @@
     (clear-color 0 0 0 1)
     (clear)
 
-    (with-projection (frustum-view 90 (float (/ w 2.0 h)) 0.1 10)
+    (with-projection (frustum-view 90. (double (/ w 2.0 h)) 0.1 10.)
       ;render the checkered cube to the window
       (bind-texture checkers)
       (with-viewport [0 0 (/ w 2.0) h]

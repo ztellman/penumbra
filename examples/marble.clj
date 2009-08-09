@@ -8,7 +8,7 @@
 
 (ns penumbra.examples.marble)
 
-(use '(penumbra.opengl core geometry effect shader)
+(use '(penumbra.opengl core geometry effects shader)
      'penumbra.interface.window)
 
 ;;;;;;;;;;;;;;;;;
@@ -18,8 +18,11 @@
     (varying vec4 pos)
     (varying vec4 intensity)))
 
+'(def vertex-shader
+  '(let a b))
+
 (def vertex-shader
-  '((import (penumbra.opengl.effect lighting directional-light))
+  '((import (penumbra.opengl.effects lighting))
     (let [pos         :vertex 
           noise       (* 1.5 (noise1 pos)) 
           intensity   (lighting 0 (normalize (* :normal-matrix :normal)))]
@@ -36,7 +39,7 @@
 ;teapot
 
 (defn reshape [[x y w h] state]
-  (frustum-view 60 (/ w (float h)) 0.1 10)
+  (frustum-view 60. (/ w (double h)) 0.1 10.)
   (load-identity)
   (translate 0 0 -3)
   (light 0
