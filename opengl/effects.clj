@@ -90,41 +90,6 @@
       (+= diffuse (-> :light-source (nth i) .diffuse (* n-dot-vp)))
       (+= specular (-> :light-source (nth i) .specular (* pf))))))
 
-(def point-light
-  '(defn void point-light
-    [(in int i)
-     (in vec3 eye)
-     (in vec3 ec-position)
-     (in vec3 normal)
-     (inout vec4 ambient)
-     (inout vec4 diffuse)
-     (inout vec4 specular)]
-    (let [(vec3 vp)
-            (-> :light-source (nth i) .position vec3 (- ec-position))
-          (float d)
-            (length vp)
-          vp
-            (normalize vp)
-          (float attenuation)
-            (/ 1.0
-              (+
-                (-> :light-source (nth i) .constantAttenuation)
-                (-> :light-source (nth i) .linearAttenuation (* d))
-                (-> :light-source (nth i) .quadraticAttenuation (* d d))))
-          (vec3 half-vector)
-            (normalize (+ vp eye))
-          (float n-dot-vp)
-            (max 0.0 (dot normal vp))
-          (float n-dot-hv)
-            (max 0.0 (dot normal half-vector))]
-      (declare (float pf))
-      (if (= 0.0 n-dot-vp)
-        (set! pf 0.0)
-        (set! pf (pow n-dot-hv (-> :front-material .shininess))))
-      (+= ambient (-> :light-source (nth i) .ambient (* attenuation)))
-      (+= diffuse (-> :light-source (nth i) .diffuse (* n-dot-vp attenuation)))
-      (+= specular (-> :light-source (nth i) .specular (* pf attenuation))))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def #^TextRenderer *text* (TextRenderer. (Font. "Tahoma" java.awt.Font/PLAIN 20) true true))

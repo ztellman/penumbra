@@ -29,6 +29,9 @@
 (defn bind-frame-buffer [fb]
   (gl-bind-frame-buffer :framebuffer fb))
 
+(defn verify-frame-buffer []
+  (get-name (gl-check-frame-buffer-status :framebuffer)))
+
 ;;;;;;;;;;;;;;;;;
 
 (defn- prime-factors
@@ -50,12 +53,14 @@
 
 ;;;;;;;;;;;;;;;;;
 
-(defstruct slate-struct :p-buffer :queue)
+(defstruct slate-struct :p-buffer :queue :width :height)
+
+(def *slate* nil)
 
 (defn repaint [slate]
   (.repaint #^GLPbuffer (:p-buffer slate)))
 
-(defn destruct [slate]
+(defn destroy [slate]
   (.destroy #^GLPbuffer (:p-buffer slate)))
 
 (defn enqueue [slate f]
@@ -91,7 +96,7 @@
       ;cap stuff goes here
 
       (let [p-buffer  (.. (GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
-            slate     (struct-map slate-struct :p-buffer p-buffer :queue (ref '()))]
+            slate     (struct-map slate-struct :p-buffer p-buffer :queue (ref '()) :width width :height height)]
 
         (doto p-buffer
           (.addGLEventListener
@@ -99,16 +104,16 @@
 
               (display [drawable]
                 (bind-gl drawable
-                  (execute slate)))
+                  (binding [*slate* slate]
+                    (execute slate))))
 
-              (reshape [#^GLAutoDrawable drawable x y width height]
-                (bind-gl drawable
-                  (viewport 0 0 width height)
-                  (ortho-view 0 0 width height)))
+              (reshape [#^GLAutoDrawable drawable x y width height])
 
               (init [#^GLAutoDrawable drawable]
                 (bind-gl drawable
-                  (bind-frame-buffer (gen-frame-buffer)))))))
+                  (bind-frame-buffer (gen-frame-buffer))
+                  (viewport 0 0 width height)
+                  (ortho-view 0 0 width height 0 1))))))
         slate))))
 
 (defmacro with-slate
@@ -117,6 +122,8 @@
 
 (defmacro with-blank-slate
   [& body]
-  `(with-slate (create-slate 1 1)
-    ~@body))
+  `(let [slate# (create-slate 1 1)]
+    (with-slate slate#
+      ~@body)
+    (destroy slate#)))
 

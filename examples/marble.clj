@@ -54,9 +54,8 @@
   (enable :depth-test)
   (enable :lighting)
   (enable :light0)
-  (let [program (create-program declarations vertex-shader fragment-shader)]
-    (bind-program program))
-  state)
+  (assoc state
+    :program (create-program declarations vertex-shader fragment-shader)))
 
 (defn mouse-drag [[[dx dy] _] state]
   (assoc state
@@ -66,8 +65,9 @@
 (defn display [[delta time] state]
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
-  (teapot))
+  (with-program (:program state)
+    (teapot)))
 
 (start
   {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
-  {:rot-x 0 :rot-y 0})
+  {:rot-x 0, :rot-y 0, :program nil})

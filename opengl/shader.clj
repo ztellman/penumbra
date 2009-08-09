@@ -28,6 +28,18 @@
 (gl-import glGetProgramInfoLog gl-get-program-info-log)
 (gl-import glGetProgramiv gl-get-program)
 
+(gl-import glUniform1iARB uniform-1i)
+(gl-import glUniform2iARB uniform-2i)
+(gl-import glUniform3iARB uniform-3i)
+(gl-import glUniform4iARB uniform-4i)
+
+(gl-import glUniform1fARB uniform-1f)
+(gl-import glUniform2fARB uniform-2f)
+(gl-import glUniform3fARB uniform-3f)
+(gl-import glUniform4fARB uniform-4f)
+
+(gl-import glGetUniformLocation get-uniform-location)
+
 (defstruct gpu-program :vertex :fragment :program)
 
 ;;;;;;;;;;;;;;;;;;;;
@@ -92,7 +104,35 @@
                      
 (defn create-program
   "Creates a program from s-exprssions.  Declarations are specified first, and shared between both shaders."
-  [decl vertex fragment]
-  (let [vertex-source (translate-shader decl vertex)
-        fragment-source (translate-shader (filter #(not= 'attribute (first %)) decl) fragment)]
-    (create-program-from-source vertex-source fragment-source)))
+  ([declarations vertex fragment]
+    (create-program "" declarations vertex fragment))
+  ([extensions declarations vertex fragment]
+    (let [vertex-source (translate-shader declarations vertex)
+          fragment-source (translate-shader (filter #(not= 'attribute (first %)) declarations) fragment)]
+      (create-program-from-source
+        (str extensions "\n" vertex-source)
+        (str extensions "\n" fragment-source)))))
+
+;;;;;;;;;;;;;;;;;;;;
+
+(def *program* 0)
+
+(defn- or= [cmp & args] (some #(= cmp %) args))
+
+(defmacro with-program [program & body]
+  `(binding [*program* (:program ~program)]
+    (bind-program ~program)
+    ~@body))
+
+(defn uniform-location [n]
+  (get-uniform-location *program* n))
+
+'(defn param [variable & args]
+  (if (and (number? (first args)) (= 1 (count args)))
+    (uniform-1i (uni-loc *program* (name variable)) (:id (first args)))
+    (let [type  (if (or= (class (second args)) Integer Integer/TYPE) "i" "f")
+          count (count args)]
+      (eval
+        `(~(symbol (str "uniform-" count type))
+          (uni-loc ~*program* ~(name variable))
+          ~@args)))))

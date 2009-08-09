@@ -8,10 +8,24 @@
 
 (ns penumbra.examples.gpgpu
   (:use [penumbra.interface.slate])
-  (:use [penumbra.opengl.core])
-  (:use [penumbra.compute.data]))
+  (:use [penumbra.opengl core shader texture])
+  (:use [penumbra.compute data operators]))
 
-(with-blank-slate
-  (def data (tex (float-array (range 10)))))
+(def tuple 4)
+(def dim 4)
 
-(println data)
+(with-slate (create-slate dim)
+  (def data (tex (float-array (range (* tuple dim))) tuple))
+  (def operator
+    (create-operator
+      '[(sampler2DRect tex)]
+      '(* (texture2DRect tex coord) 8.)))
+  (with-program operator
+    (let [target (attach (create-tex data) 0)]
+      (gl-active-texture :texture0)
+      (gl-bind-texture :texture-rectangle (:id data))
+      (uniform-1i (uniform-location "tex") 0)
+      (draw-buffers [0])
+      (println (verify-frame-buffer))
+      (draw)
+      (println (seq (array target))))))

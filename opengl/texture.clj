@@ -21,6 +21,7 @@
 (gl-import glTexCoord3d gl-tex-3)
 
 (gl-import glBindTexture gl-bind-texture)
+(gl-import glActiveTexture gl-active-texture)
 (gl-import glGenTextures gl-gen-textures)
 (gl-import glTexParameteri tex-parameter)
 (gl-import glTexEnvf tex-env)
@@ -41,7 +42,9 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct tex-struct :width :height :depth :id :type :tuple :persistant :attach-point)
+(defstruct tex-struct
+  :width :height :depth :id                     ;required
+  :type :tuple :persistent :attach-point :size) ;optional
 
 (defn dimensions [texture]
   (count (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])))

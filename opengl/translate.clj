@@ -202,11 +202,12 @@
   "Parses the l-value in an assignment expression."
   [expr]
   (cond
-    (keyword? expr)   (parse-keyword expr)
-    (swizzle? expr)   (str (apply str (interpose " " (map name (next expr)))) (-> expr first name))
-    (symbol? expr)    (.replace (name expr) \- \_)
-    (empty? expr)     ""
-    :else             (apply str (interpose " " (map parse-assignment-left expr)))))
+    (keyword? expr)         (parse-keyword expr)
+    (swizzle? expr)         (str (apply str (interpose " " (map name (next expr)))) (-> expr first name))
+    (symbol? expr)          (.replace (name expr) \- \_)
+    (first= expr 'nth)      (str (parse-assignment-left (second expr)) "[" (parse (third expr)) "]")
+    (empty? expr)           ""
+    :else                   (apply str (interpose " " (map parse-assignment-left expr)))))
 
 (defn- parse-assignment-right
   "Parses the r-value in an assignment expressions."

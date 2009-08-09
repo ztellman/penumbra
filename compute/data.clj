@@ -8,7 +8,8 @@
 
 (ns penumbra.compute.data
   (:use [penumbra.opengl core geometry texture])
-  (:use [penumbra.interface.slate :only (rectangle)])
+  (:use [penumbra.interface.slate :only (rectangle *slate*)])
+  (:use [clojure.contrib.seq-utils :only (indexed)])
   (:import (java.nio FloatBuffer IntBuffer ByteBuffer))
   (:import (com.sun.opengl.util.texture TextureData)))
 
@@ -16,12 +17,13 @@
 
 (gl-import glFramebufferTexture2D gl-frame-buffer-texture-2d)
 (gl-import glDrawBuffers gl-draw-buffers)
+(gl-import glDrawBuffer draw-buffer)
 (gl-import glReadBuffer gl-read-buffer)
 (gl-import glReadPixels gl-read-pixels)
 
 ;;;;;;;;;;;;;;;;;;;
 
-(defn- attachment [point]
+(defn attachment [point]
   (translate-keyword (keyword (str "color-attachment" point))))
 
 (defn attach [tex point]
@@ -30,7 +32,7 @@
     (gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle (:id tex) 0)
     (assoc tex :attach-point p)))
 
-(defn draw-targets [bufs]
+(defn draw-buffers [bufs]
   (gl-draw-buffers (count bufs) (int-array (map attachment bufs)) 0))
 
 ;;;;;;;;;;;;;;;;;;
@@ -95,10 +97,11 @@
   (tex-parameter :texture-rectangle :texture-wrap-t :clamp))
 
 (defn create-tex
-  ([t] (:width t) (:height t) (internal-format t) (pixel-format t) (:tuple t) (:type t))
+  ([t] (create-tex (:width t) (:height t) (internal-format t) (pixel-format t) (:tuple t) (:type t)))
   ([w h internal pixel tuple type]
     (let [id (gen-texture)]
       (gl-bind-texture :texture-rectangle id)
+      (init-texture)
       (gl-tex-image-2d
         :texture-rectangle 0
         (translate-keyword internal)
@@ -106,7 +109,9 @@
         (translate-keyword pixel)
         (translate-keyword type)
         nil)
-      (struct-map tex-struct :id id :width w :height h :depth 1 :type type :tuple tuple))))
+      (struct-map tex-struct
+        :id id :width w :height h :depth 1
+        :type type :tuple tuple :size (* w h tuple)))))
 
 (defn write-tex [tex ary]
   (gl-tex-sub-image-2d
@@ -125,20 +130,22 @@
           internal  (internal-format tuple type)
           pixel     (pixel-format tuple)
           ary       (if (array? s) s (create-array s type))
-          [w h]     (rectangle (count ary))
+          [w h]     (rectangle (/ (count ary) tuple))
           tex       (create-tex w h internal pixel tuple type)]
       (write-tex tex ary)
-      tex)))
+      (assoc tex
+        :size (count s)))))
 
-(defn tex [s]
-  (seq-to-tex s))
+(defn tex
+  ([s] (seq-to-tex s))
+  ([s tuple] (seq-to-tex s tuple)))
 
-(defn ptex [s]
-  (assoc (tex s) :persistent true))
+(defn ptex [& args]
+  (assoc (apply tex args) :persistent true))
 
 (defn array
   ([tex]
-    (array tex (* (:width tex) (:height tex))))
+    (array tex (* (:width tex) (:height tex) (:tuple tex))))
   ([tex size]
     (if (nil? (:attach-point tex)) (throw (Exception. "Cannot read from unattached texture.")))
     (gl-read-buffer (:attach-point tex))
@@ -153,10 +160,13 @@
 
 ;;;;;;;;;;;;;;;;;;
 
-(defn draw-quad [w h]
-  (draw-quads
-    (texture 0 0) (vertex 0 0)
-    (texture w 0) (vertex 1 0)
-    (texture w h) (vertex 1 1)
-    (texture 0 h) (vertex 0 1)))
+(defn draw []
+  (let [w (:width *slate*)
+        h (:height *slate*)]
+    (push-matrix
+      (draw-quads
+        (texture 0 h) (vertex 0 0 0)
+        (texture w h) (vertex w 0 0)
+        (texture w 0) (vertex w h 0)
+        (texture 0 0) (vertex 0 h 0)))))
 
