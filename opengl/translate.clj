@@ -126,8 +126,8 @@
   (let [num (count v)
         cls (class (first v))]
     (cond
-     (and (<= num 4) (= Integer cls))  `(~(symbol (str "vec" num "i")) ~@v)
-     (and (= Boolean cls))             `(~(symbol (str "vec" num "b")) ~@v)
+     (and (<= num 4) (= Integer cls))  `(~(symbol (str "ivec" num)) ~@v)
+     (and (= Boolean cls))             `(~(symbol (str "bvec" num)) ~@v)
      :else                             `(~(symbol (str "vec" (count v))) ~@(map #(float %) v)))))
 
 (defmethod shader-macro :none [expr]
