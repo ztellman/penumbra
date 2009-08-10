@@ -8,7 +8,8 @@
 
 (ns penumbra.opengl.shader
   (:use [clojure.contrib.def :only (defmacro-)])
-  (:use [penumbra.opengl core translate])
+  (:use [clojure.contrib.seq-utils :only (indexed)])
+  (:use [penumbra.opengl core translate texture])
   (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
   (:import (com.sun.opengl.util BufferUtil)))
 
@@ -38,9 +39,9 @@
 (gl-import glUniform3fARB uniform-3f)
 (gl-import glUniform4fARB uniform-4f)
 
-(gl-import glGetUniformLocation get-uniform-location)
+(gl-import glGetUniformLocation gl-get-uniform-location)
 
-(defstruct gpu-program :vertex :fragment :program)
+(defstruct program-struct :vertex :fragment :program)
 
 ;;;;;;;;;;;;;;;;;;;;
 ;OpenGL shader functions
@@ -69,9 +70,9 @@
     (gl-shader-source shader 1 a nil))
   (gl-compile-shader shader)
   (if *verbose*
-    (println source))
+    (println (indent source)))
   (if (shader-compiled? shader)
-    (if *verbose* (println "*** Compiled ***"))
+    (if *verbose* (println "Compiled.\n"))
     (throw (Exception. (str "*** Error compiling shader: " (get-shader-log shader))))))
 
 (defn- get-program-log [program]
@@ -82,9 +83,9 @@
 (defn create-program-from-source
   "Takes translated source (in GLSL, not s-expressions) for two shaders, and combines them into a program"
   [vertex-source fragment-source]
-  (let [vertex-shader (gl-create-shader :vertex-shader)
-        fragment-shader (gl-create-shader :fragment-shader)
-        program (gl-create-program)]
+  (let [vertex-shader     (gl-create-shader :vertex-shader)
+        fragment-shader   (gl-create-shader :fragment-shader)
+        program           (gl-create-program)]
     (load-source vertex-shader vertex-source)
     (load-source fragment-shader fragment-source)
     (gl-attach-shader program vertex-shader)
@@ -95,8 +96,9 @@
     (gl-validate-program program)
     (if (not (program-valid? program))
       (throw (Exception. (str "*** Error validating program: "(get-program-log program)))))
-    (if *verbose* (println "*** Linked ***"))
-    (struct-map gpu-program :vertex vertex-shader :fragment fragment-shader :program program)))
+    (if *verbose* (println "Linked.\n"))
+    (struct-map program-struct
+      :vertex vertex-shader :fragment fragment-shader :program program)))
 
 (defn bind-program
   [program]
@@ -124,15 +126,10 @@
     (bind-program ~program)
     ~@body))
 
-(defn uniform-location [n]
-  (get-uniform-location *program* n))
-
-'(defn param [variable & args]
-  (if (and (number? (first args)) (= 1 (count args)))
-    (uniform-1i (uni-loc *program* (name variable)) (:id (first args)))
-    (let [type  (if (or= (class (second args)) Integer Integer/TYPE) "i" "f")
-          count (count args)]
-      (eval
-        `(~(symbol (str "uniform-" count type))
-          (uni-loc ~*program* ~(name variable))
-          ~@args)))))
+(defn uniform [variable & args]
+  (let [type  (if (or= (class (second args)) Integer Integer/TYPE) "i" "f")
+        count (count args)]
+    (eval
+      `(~(symbol (str "uniform-" count type))
+        (gl-get-uniform-location ~*program* ~(name variable))
+        ~@args))))

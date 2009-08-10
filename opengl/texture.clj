@@ -23,6 +23,7 @@
 (gl-import glBindTexture gl-bind-texture)
 (gl-import glActiveTexture gl-active-texture)
 (gl-import glGenTextures gl-gen-textures)
+(gl-import glDeleteTextures gl-delete-textures)
 (gl-import glTexParameteri tex-parameter)
 (gl-import glTexEnvf tex-env)
 (gl-import glPixelStorei gl-pixel-store)
@@ -43,11 +44,29 @@
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 (defstruct tex-struct
-  :width :height :depth :id                     ;required
-  :type :tuple :persistent :attach-point :size) ;optional
+  :width :height :depth :id
+  :type :tuple :attach-point :size
+  :persistent :refs)
 
 (defn dimensions [texture]
   (count (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])))
+
+(defn sizeof [t]
+  (* (:width t) (:height t) (:tuple t) (if (= :unsigned-byte (:type t)) 0.25 1.0)))
+
+(defn persistent? [t]
+  (or (nil? t) @(:persistent t)))
+
+(defn persistent! [t]
+  (dosync (ref-set (:persistent t) true)))
+
+(defn refer! [t]
+  (dosync (alter (:refs t) inc)))
+
+(defn release! [t]
+  (dosync (alter (:refs t) dec)))
+
+;;;;;;;;;;;;;;;;;;;;;;
 
 (defn texture
   ([u] (gl-tex-1 u))
@@ -65,6 +84,10 @@
   (let [a (int-array 1)]
     (gl-gen-textures 1 a 0)
     (nth a 0)))
+
+(defn destroy-textures [textures]
+  (let [a (int-array (map #(:id %) textures))]
+    (gl-delete-textures (count textures) a 0)))
 
 (defmacro get-tex-parameter [dim param]
   `(let [ary# (int-array 1)]
@@ -97,19 +120,19 @@
        (gl-bind-texture :texture-1d id)
        (gl-tex-image-1d :texture-1d 0 :rgba w 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w 4)))
        (init-texture-1d)
-       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :unsigned-byte :tuple 4 :persistent true)))
+       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :unsigned-byte :tuple 4)))
   ([w h]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-2d id)
        (gl-tex-image-2d :texture-2d 0 :rgba w h 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h 4)))
        (init-texture-2d)
-       (struct-map tex-struct :width w :height h :depth 1 :id id :type :unsigned-byte :tuple 4 :persistent true)))
+       (struct-map tex-struct :width w :height h :depth 1 :id id :type :unsigned-byte :tuple 4)))
   ([w h d]
      (let [id (gen-texture)]
        (gl-bind-texture :texture-3d id)
        (gl-tex-image-3d :texture-3d 0 :rgba w h d 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h d 4)))
        (init-texture-3d)
-       (struct-map tex-struct :width w :height h :depth d :id id :type :unsigned-byte :tuple 4 :persistent true))))
+       (struct-map tex-struct :width w :height h :depth d :id id :type :unsigned-byte :tuple 4))))
 
 (def rgba (translate-keyword :rgba))
 

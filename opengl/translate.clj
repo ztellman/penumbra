@@ -55,7 +55,7 @@
     (catch Exception e
       (throw (ParseException. (str "\nError while transforming:\n" (str-pprint expr) (.getMessage e)) 0)))))
 
-(defn tree-map [fun tree]
+(defn tree-map [tree fun]
   (if (empty? tree)
     ()
     (loop [z (zip/seq-zip tree)]
@@ -64,7 +64,7 @@
         (recur (zip/next (zip/replace z (try-apply fun (zip/node z)))))))))
 
 (defn- transform-exprs [expr]
-  (tree-map shader-macro expr))  
+  (tree-map expr shader-macro))  
 
 (defn- try-generate [expr]
   (try
@@ -97,7 +97,7 @@
             terminated-exprs (map #(if (.endsWith % "\n") % (str % termination "\n")) filtered-exprs)]
         (apply str terminated-exprs)))))
 
-(defn- indent
+(defn indent
   "Indents every line two spaces."
   [s]
   (let [lines (seq (.split s "\n"))]

@@ -7,9 +7,11 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.interface.slate
-  (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [clojure.contrib.def :only (defmacro- defn-memo)])
+  (:use [clojure.contrib.pprint])
   (:use [clojure.contrib.lazy-seqs :only (primes)])
-  (:use [penumbra.opengl core geometry])
+  (:use [clojure.contrib.seq-utils :only (separate)])
+  (:use [penumbra.opengl core geometry texture])
   (:import (java.util.concurrent Semaphore))
   (:import (javax.media.opengl
               GLPbuffer GLDrawableFactory GLEventListener
@@ -29,7 +31,7 @@
 (defn bind-frame-buffer [fb]
   (gl-bind-frame-buffer :framebuffer fb))
 
-(defn verify-frame-buffer []
+(defn frame-buffer-status []
   (get-name (gl-check-frame-buffer-status :framebuffer)))
 
 ;;;;;;;;;;;;;;;;;
@@ -53,15 +55,13 @@
 
 ;;;;;;;;;;;;;;;;;
 
-(defstruct slate-struct :p-buffer :queue :width :height)
+(defstruct slate-struct :p-buffer :queue :width :height :textures)
 
 (def *slate* nil)
+(def *memory-limit* 5e6)
 
 (defn repaint [slate]
   (.repaint #^GLPbuffer (:p-buffer slate)))
-
-(defn destroy [slate]
-  (.destroy #^GLPbuffer (:p-buffer slate)))
 
 (defn enqueue [slate f]
   (dosync
@@ -83,11 +83,35 @@
     (enqueue slate (fn [] (f) (.release s)))
     (.acquire s)))
 
+(defn destroy [slate]
+  (enqueue slate
+    (fn []
+      (destroy-textures @(:textures slate))
+      (.destroy #^GLPbuffer (:p-buffer slate)))))
+
+(defn- separate-textures [textures]
+  (separate #(and (not (persistent? %)) (>= 0 @(:refs %))) textures))
+
+(defn cleanup-textures [slate]
+  (let [[discard keep] (separate-textures @(:textures slate))]
+    (println "discard:" (map #(:id %) discard))
+    (println "keep:" (map #(:id %) keep))
+    (if (< 0 (count discard))
+      (destroy-textures discard))
+    (dosync
+      (alter (:textures slate)
+        #(let [[d k] (separate-textures %)]
+          (concat (drop (count discard) d) k))))))
+
+(defn add-texture [slate t]
+  (let [contents (apply + (map sizeof @(:textures slate)))]
+    (if (> contents *memory-limit*) (cleanup-textures slate)))
+  (dosync
+    (alter (:textures slate)
+      #(concat % (list t)))))
+
 (defn create-slate
-  ([size-or-tex]
-    (if (number? size-or-tex)
-      (apply create-slate (rectangle size-or-tex))
-      (create-slate (:width size-or-tex) (:height size-or-tex))))
+  ([] (create-slate 4096 4096))
   ([width height]
     (let
       [profile (GLProfile/get GLProfile/GL2GL3)
@@ -96,7 +120,9 @@
       ;cap stuff goes here
 
       (let [p-buffer  (.. (GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
-            slate     (struct-map slate-struct :p-buffer p-buffer :queue (ref '()) :width width :height height)]
+            slate     (struct-map slate-struct
+                        :p-buffer p-buffer :queue (ref '()) :textures (ref '())
+                        :width width :height height)]
 
         (doto p-buffer
           (.addGLEventListener
@@ -116,14 +142,14 @@
                   (ortho-view 0 0 width height 0 1))))))
         slate))))
 
-(defmacro with-slate
+(defmacro with-slate*
   [slate & body]
     `(invoke ~slate (fn [] ~@body)))
 
-(defmacro with-blank-slate
+(defmacro with-slate
   [& body]
-  `(let [slate# (create-slate 1 1)]
-    (with-slate slate#
+  `(let [slate# (create-slate)]
+    (with-slate* slate#
       ~@body)
     (destroy slate#)))
 

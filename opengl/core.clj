@@ -7,6 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.core
+  (:use [clojure.contrib.def :only (defn-memo)])
   (:import (javax.media.opengl GL2))
   (:import (javax.media.opengl.awt GLCanvas))
   (:import (javax.media.opengl.glu.gl2 GLUgl2))
@@ -54,7 +55,7 @@
     `(. GL2 ~(symbol gl)))
    k))
 
-(defn translate-keyword [k]
+(defn-memo translate-keyword [k]
   (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
     (eval `(. GL2 ~(symbol gl)))))
 
@@ -100,9 +101,11 @@
 
 (gl-import glViewport gl-viewport)
 
-(defn viewport [x y w h]
-  (dosync (ref-set view-bounds [x y w h]))
-  (gl-viewport x y w h))
+(defn viewport
+  ([w h] (viewport 0 0 w h))
+  ([x y w h]
+    (dosync (ref-set view-bounds [x y w h]))
+    (gl-viewport x y w h)))
 
 (defmacro with-viewport [[x y w h] & body]
   `(let [[x# y# w# h#] @view-bounds]

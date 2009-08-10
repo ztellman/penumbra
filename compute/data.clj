@@ -7,8 +7,8 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.compute.data
-  (:use [penumbra.opengl core geometry texture])
-  (:use [penumbra.interface.slate :only (rectangle *slate*)])
+  (:use [penumbra.opengl core geometry texture shader])
+  (:use [penumbra.interface.slate :only (add-texture rectangle *slate*)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:import (java.nio FloatBuffer IntBuffer ByteBuffer))
   (:import (com.sun.opengl.util.texture TextureData)))
@@ -23,20 +23,6 @@
 
 ;;;;;;;;;;;;;;;;;;;
 
-(defn attachment [point]
-  (translate-keyword (keyword (str "color-attachment" point))))
-
-(defn attach [tex point]
-  (let [p (attachment point)]
-    (gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle 0 0)
-    (gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle (:id tex) 0)
-    (assoc tex :attach-point p)))
-
-(defn draw-buffers [bufs]
-  (gl-draw-buffers (count bufs) (int-array (map attachment bufs)) 0))
-
-;;;;;;;;;;;;;;;;;;
-
 (defn- array? [a] (.isArray (class a)))
 (defn- flat? [s] (not (or (array? s) (sequential? s))))
 (defn- or= [cmp & args] (some #(= cmp %) args))
@@ -49,7 +35,7 @@
         (if (empty? s)
           a
           (do
-            (aset a idx (byte (first s)))
+            (aset-byte a idx (byte (first s)))
             (recur (inc idx) (next s))))))))
 
 (defn- create-array [size-or-seq type]
@@ -109,9 +95,12 @@
         (translate-keyword pixel)
         (translate-keyword type)
         nil)
-      (struct-map tex-struct
-        :id id :width w :height h :depth 1
-        :type type :tuple tuple :size (* w h tuple)))))
+      (let [tex (struct-map tex-struct
+                  :id id :width w :height h :depth 1
+                  :type type :tuple tuple :size (* w h tuple)
+                  :refs (ref 1) :persistent (ref false))]
+        (add-texture *slate* tex)
+        tex))))
 
 (defn write-tex [tex ary]
   (gl-tex-sub-image-2d
@@ -140,14 +129,12 @@
   ([s] (seq-to-tex s))
   ([s tuple] (seq-to-tex s tuple)))
 
-(defn ptex [& args]
-  (assoc (apply tex args) :persistent true))
-
 (defn array
   ([tex]
     (array tex (* (:width tex) (:height tex) (:tuple tex))))
   ([tex size]
-    (if (nil? (:attach-point tex)) (throw (Exception. "Cannot read from unattached texture.")))
+    (if (nil? (:attach-point tex))
+      (throw (Exception. "Cannot read from unattached texture.")))
     (gl-read-buffer (:attach-point tex))
     (let [dim   (* (:width tex) (:height tex) (:tuple tex))
           a     (create-array size (:type tex))]
@@ -160,9 +147,36 @@
 
 ;;;;;;;;;;;;;;;;;;
 
+(defn attachment [point]
+  (translate-keyword (keyword (str "color-attachment" point))))
+
+(defn attach [tex point]
+  (let [p (attachment point)]
+    ;(gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle 0 0)
+    (gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle (:id tex) 0)
+    (assoc tex :attach-point p)))
+
+(defn bind-read [variable tex point]
+  (let [loc (gl-get-uniform-location *program* (name variable))]
+    (gl-active-texture (translate-keyword (keyword (str "texture" point))))
+    (gl-bind-texture :texture-rectangle (:id tex))
+    (uniform-1i loc point)))
+
+(defn bind-write [start end]
+  (gl-draw-buffers (- end start) (int-array (map attachment (range start end))) 0))
+
+(defn attach-textures [read write]
+  (let [read-textures (map #(last %) (partition 2 read))
+        textures (map (fn [[idx tex]] (attach tex idx)) (indexed (concat read-textures write)))]
+    (doseq [[idx [vr tex]] (indexed (partition 2 read))]
+      (bind-read vr tex idx))
+    (bind-write (dec (count read)) (dec (+ (count read) (count write))))
+    textures))
+
 (defn draw []
   (let [w (:width *slate*)
         h (:height *slate*)]
+    (gl-active-texture :texture0)
     (push-matrix
       (draw-quads
         (texture 0 h) (vertex 0 0 0)
