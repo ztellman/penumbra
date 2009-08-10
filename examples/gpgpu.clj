@@ -11,7 +11,7 @@
   (:use [penumbra.opengl core shader texture])
   (:use [penumbra.compute data operators]))
 
-(def dim 1e5)
+(def dim 1e2)
 (def tuple 4)
 (def source (float-array (range (* tuple dim))))
 
@@ -34,5 +34,6 @@
         '(* (texture2DRect tex pn-coord) 8.)))
   '(time (dotimes [_ 50]
     (doall (map #(* 8 (int %)) (seq source)))))
-  (time (dotimes [_ 500]
-    (op operator))))
+  (binding [*tex-count-threshold* 2]
+    (time (dotimes [_ 500]
+      (op operator)))))

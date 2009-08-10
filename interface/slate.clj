@@ -58,7 +58,8 @@
 (defstruct slate-struct :p-buffer :queue :width :height :textures)
 
 (def *slate* nil)
-(def *memory-limit* 5e6)
+(def *tex-mem-threshold* 5e6)
+(def *tex-count-threshold* 100)
 
 (defn repaint [slate]
   (.repaint #^GLPbuffer (:p-buffer slate)))
@@ -86,6 +87,7 @@
 (defn destroy [slate]
   (enqueue slate
     (fn []
+      (println "cleaning up" (count @(:textures slate)) "textures")
       (destroy-textures @(:textures slate))
       (.destroy #^GLPbuffer (:p-buffer slate)))))
 
@@ -94,8 +96,8 @@
 
 (defn cleanup-textures [slate]
   (let [[discard keep] (separate-textures @(:textures slate))]
-    (println "discard:" (map #(:id %) discard))
-    (println "keep:" (map #(:id %) keep))
+    ;(println "discard:" (map #(:id %) discard))
+    ;(println "keep:" (map #(:id %) keep))
     (if (< 0 (count discard))
       (destroy-textures discard))
     (dosync
@@ -104,8 +106,10 @@
           (concat (drop (count discard) d) k))))))
 
 (defn add-texture [slate t]
-  (let [contents (apply + (map sizeof @(:textures slate)))]
-    (if (> contents *memory-limit*) (cleanup-textures slate)))
+  (let [textures @(:textures slate)]
+    (if (or (> (count textures) *tex-count-threshold*)
+            (> (reduce + (map sizeof textures)) *tex-mem-threshold*))
+      (cleanup-textures slate)))
   (dosync
     (alter (:textures slate)
       #(concat % (list t)))))
