@@ -64,7 +64,7 @@
   [import-from import-as]
   `(defmacro ~import-as [& args#]
     `(do
-      (let [~'value# (. *gl* ~'~import-from ~@(map translate-keyword-macro args#))]
+      (let [~'value# (. #^GL2 *gl* ~'~import-from ~@(map translate-keyword-macro args#))]
         (if (and *check-errors* (not inside-begin-end)) (check-error))
         ~'value#))))
 

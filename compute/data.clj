@@ -10,8 +10,10 @@
   (:use [penumbra.opengl core geometry texture shader])
   (:use [penumbra.interface.slate :only (add-texture rectangle *slate*)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
-  (:import (java.nio FloatBuffer IntBuffer ByteBuffer))
+  (:import (java.nio Buffer FloatBuffer IntBuffer ByteBuffer))
   (:import (com.sun.opengl.util.texture TextureData)))
+
+(set! *warn-on-reflection* true)
 
 ;;;;;;;;;;;;;;;;;;;
 
@@ -90,10 +92,10 @@
       (init-texture)
       (gl-tex-image-2d
         :texture-rectangle 0
-        (translate-keyword internal)
-        w h 0
-        (translate-keyword pixel)
-        (translate-keyword type)
+        (int (translate-keyword internal))
+        (int w) (int h) 0
+        (int (translate-keyword pixel))
+        (int (translate-keyword type))
         nil)
       (let [tex (struct-map tex-struct
                   :id id :width w :height h :depth 1
@@ -106,10 +108,10 @@
   (gl-tex-sub-image-2d
     :texture-rectangle
     0 0 0
-    (:width tex) (:height tex)
-    (translate-keyword (pixel-format tex))
-    (translate-keyword (:type tex))
-    (wrap-array ary (:type tex)))
+    (int (:width tex)) (int (:height tex))
+    (int (translate-keyword (pixel-format tex)))
+    (int (translate-keyword (:type tex)))
+    #^Buffer (wrap-array ary (:type tex)))
   tex)
 
 (defn seq-to-tex
@@ -139,10 +141,10 @@
     (let [dim   (* (:width tex) (:height tex) (:tuple tex))
           a     (create-array size (:type tex))]
       (gl-read-pixels
-        0 0 (:width tex) (:height tex)
-        (translate-keyword (pixel-format tex))
-        (translate-keyword (:type tex))
-        (wrap-array a (:type tex)))
+        0 0 (int (:width tex)) (int (:height tex))
+        (int (translate-keyword (pixel-format tex)))
+        (int (translate-keyword (:type tex)))
+        #^Buffer (wrap-array a (:type tex)))
        a)))
 
 ;;;;;;;;;;;;;;;;;;

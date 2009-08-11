@@ -55,11 +55,11 @@
 
 ;;;;;;;;;;;;;;;;;
 
-(defstruct slate-struct :p-buffer :queue :width :height :textures)
+(defstruct slate-struct :p-buffer :queue :width :height :textures :texture-size)
 
 (def *slate* nil)
-(def *tex-mem-threshold* 5e6)
-(def *tex-count-threshold* 100)
+(def *tex-mem-threshold* 20e6)
+(def *tex-count-threshold* 0)
 
 (defn repaint [slate]
   (.repaint #^GLPbuffer (:p-buffer slate)))
@@ -101,18 +101,22 @@
     (if (< 0 (count discard))
       (destroy-textures discard))
     (dosync
-      (alter (:textures slate)
-        #(let [[d k] (separate-textures %)]
-          (concat (drop (count discard) d) k))))))
+      (let [textures (alter (:textures slate)
+                        #(let [[d k] (separate-textures %)]
+                          (vec (concat (drop (count discard) d) k))))]
+        (ref-set (:texture-size slate) (reduce + (map sizeof textures)))))))
 
 (defn add-texture [slate t]
-  (let [textures @(:textures slate)]
+  (let [textures @(:textures slate)
+        texture-size @(:texture-size slate)]
     (if (or (> (count textures) *tex-count-threshold*)
-            (> (reduce + (map sizeof textures)) *tex-mem-threshold*))
+            (> texture-size *tex-mem-threshold*))
       (cleanup-textures slate)))
   (dosync
+    (alter (:texture-size slate)
+      #(+ % (sizeof t)))
     (alter (:textures slate)
-      #(concat % (list t)))))
+      #(conj % t))))
 
 (defn create-slate
   ([] (create-slate 4096 4096))
@@ -125,7 +129,7 @@
 
       (let [p-buffer  (.. (GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
             slate     (struct-map slate-struct
-                        :p-buffer p-buffer :queue (ref '()) :textures (ref '())
+                        :p-buffer p-buffer :queue (ref '()) :textures (ref []) :texture-size (ref 0.)
                         :width width :height height)]
 
         (doto p-buffer
