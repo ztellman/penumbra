@@ -52,17 +52,17 @@ Shaders are supported, via an s-expression representation of GLSL.  It mimics Cl
 
 	=> (use 'penumbra.opengl.translate)
 	
-	=> (translate '(+ a 1 (- b 2)))
+	=> (translate-expr '(+ a 1 (- b 2)))
 	((a + 1) + (b - 2))
 	
-	=> (translate '(-> a (+ 2) (/ 3) sin))
+	=> (translate-expr '(-> a (+ 2) (/ 3) sin))
 	sin(((a + 2) / 3))
 	
-	=> (translate '(let [(ivec2 b) [1 2] (vec3 a) [1.0 2.0 3.0] ]))
+	=> (translate-expr '(let [(ivec2 b) [1 2] (vec3 a) [1.0 2.0 3.0] ]))
 	ivec2 b = ivec2(1, 2);
 	vec3 a = vec3(1.0, 2.0, 3.0);
 	
-	=> (translate '(if (< a b) (+= a 1) (+= b 1)))
+	=> (translate-expr '(if (< a b) (+= a 1) (+= b 1)))
 	if ((a < b))
 	{
 	  a += 1;
@@ -72,7 +72,7 @@ Shaders are supported, via an s-expression representation of GLSL.  It mimics Cl
 	  b += 1;
 	}
 	
-	=> (translate '(set! a (if (< a b) (+ a 1) (+ b 1))))
+	=> (translate-expr '(set! a (if (< a b) (+ a 1) (+ b 1))))
 	a = ((a < b) ? (a + 1) : (b + 1))
 	
 	=> (translate-shader '(set! :frag-color (fract :frag-coord)))

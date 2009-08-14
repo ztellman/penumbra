@@ -9,25 +9,25 @@
 (ns penumbra.opengl.shader
   (:use [clojure.contrib.def :only (defmacro-)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
-  (:use [penumbra.opengl core translate texture])
+  (:use [penumbra.opengl.core])
+  (:use [penumbra.glsl.translate])
   (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
   (:import (com.sun.opengl.util BufferUtil)))
 
 ;;;;;;;;;;;;;;;;;;
 
-(gl-import glCreateShader gl-create-shader)
-(gl-import glShaderSource gl-shader-source)
-(gl-import glCompileShader gl-compile-shader)
-(gl-import glAttachShader gl-attach-shader)
-(gl-import glGetShaderInfoLog gl-get-shader-info-log)
-(gl-import glGetShaderiv gl-get-shader)
+(gl-import- glCreateShader gl-create-shader)
+(gl-import- glShaderSource gl-shader-source)
+(gl-import- glCompileShader gl-compile-shader)
+(gl-import- glAttachShader gl-attach-shader)
+(gl-import- glGetShaderInfoLog gl-get-shader-info-log)
+(gl-import- glGetShaderiv gl-get-shader)
 
-(gl-import glCreateProgram gl-create-program)
-(gl-import glLinkProgram gl-link-program)
-(gl-import glValidateProgram gl-validate-program)
-(gl-import glUseProgram gl-use-program)
-(gl-import glGetProgramInfoLog gl-get-program-info-log)
-(gl-import glGetProgramiv gl-get-program)
+(gl-import- glCreateProgram gl-create-program)
+(gl-import- glLinkProgram gl-link-program)
+(gl-import- glValidateProgram gl-validate-program)
+(gl-import- glGetProgramInfoLog gl-get-program-info-log)
+(gl-import- glGetProgramiv gl-get-program)
 
 (gl-import glUniform1iARB uniform-1i)
 (gl-import glUniform2iARB uniform-2i)
@@ -38,8 +38,6 @@
 (gl-import glUniform2fARB uniform-2f)
 (gl-import glUniform3fARB uniform-3f)
 (gl-import glUniform4fARB uniform-4f)
-
-(gl-import glGetUniformLocation gl-get-uniform-location)
 
 (defstruct program-struct :vertex :fragment :program)
 
@@ -100,36 +98,3 @@
     (struct-map program-struct
       :vertex vertex-shader :fragment fragment-shader :program program)))
 
-(defn bind-program
-  [program]
-  (gl-use-program (if (nil? program) 0 (:program program))))
-                     
-(defn create-program
-  "Creates a program from s-exprssions.  Declarations are specified first, and shared between both shaders."
-  ([declarations vertex fragment]
-    (create-program "" declarations vertex fragment))
-  ([extensions declarations vertex fragment]
-    (let [vertex-source (translate-shader declarations vertex)
-          fragment-source (translate-shader (filter #(not= 'attribute (first %)) declarations) fragment)]
-      (create-program-from-source
-        (str extensions "\n" vertex-source)
-        (str extensions "\n" fragment-source)))))
-
-;;;;;;;;;;;;;;;;;;;;
-
-(def *program* 0)
-
-(defn- or= [cmp & args] (some #(= cmp %) args))
-
-(defmacro with-program [program & body]
-  `(binding [*program* (:program ~program)]
-    (bind-program ~program)
-    ~@body))
-
-(defn uniform [variable & args]
-  (let [type  (if (or= (class (second args)) Integer Integer/TYPE) "i" "f")
-        count (count args)]
-    (eval
-      `(~(symbol (str "uniform-" count type))
-        (gl-get-uniform-location ~*program* ~(name variable))
-        ~@args))))

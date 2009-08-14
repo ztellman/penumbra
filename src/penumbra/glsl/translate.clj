@@ -6,16 +6,15 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.opengl.translate
+(ns penumbra.glsl.translate
   (:use [clojure.contrib (def :only (defmacro-)) pprint])
-  (:use [penumbra.opengl.core])
   (:require [clojure.zip :as zip])
   (:import (java.text ParseException))
   (:import (java.io StringWriter)))
 
 ;;;;;;;;;;;;;;;;;;;
 
-(defn realize [s]
+(defn- realize [s]
   (if (seq? s) (doall s) s))
 
 (defn- str-pprint [expr]
@@ -103,7 +102,7 @@
   (let [lines (seq (.split s "\n"))]
     (str (apply str (interpose "\n" (map #(str "  " %) lines))) "\n")))
 
-(defn translate
+(defn translate-expr
   "Core function for translate-shader.  Useful for testing phrases."
   [expr]
   (parse-lines (reverse (generate-exprs (transform-exprs expr)))))
@@ -115,7 +114,7 @@
            (if (empty? decl)
              ""
              (parse-lines ";" (map #(list 'declare %) decl)))]
-       (str parsed-decl (translate (list 'main exprs))))))
+       (str parsed-decl (translate-expr (list 'main exprs))))))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;shader macros
