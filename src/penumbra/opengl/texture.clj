@@ -8,6 +8,7 @@
 
 (ns penumbra.opengl.texture
   (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [clojure.contrib.seq-utils :only (separate)])
   (:use [penumbra.opengl.core])
   (:import (java.nio ByteBuffer FloatBuffer))
   (:import (com.sun.opengl.util BufferUtil))
@@ -16,46 +17,20 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(gl-import glTexCoord1d gl-tex-1)
-(gl-import glTexCoord2d gl-tex-2)
-(gl-import glTexCoord3d gl-tex-3)
+(defstruct texture-struct
+  :target :id
+  :dim :size :tuple
+  :internal-type :internal-format :pixel-format
+  :permanent :ref-count :attach-point)
 
-(gl-import glBindTexture gl-bind-texture)
-(gl-import glActiveTexture gl-active-texture)
-(gl-import glGenTextures gl-gen-textures)
-(gl-import glDeleteTextures gl-delete-textures)
-(gl-import glTexParameteri tex-parameter)
-(gl-import glTexEnvf tex-env)
-(gl-import glPixelStorei gl-pixel-store)
-
-(gl-import glGetTexParameteriv gl-get-tex-parameter)
-
-(gl-import glTexImage1D gl-tex-image-1d)
-(gl-import glTexSubImage1D gl-tex-sub-image-1d)
-
-(gl-import glTexImage2D gl-tex-image-2d)
-(gl-import glTexSubImage2D gl-tex-sub-image-2d)
-(gl-import glCopyTexSubImage2D gl-copy-tex-sub-image-2d)
-(glu-import gluBuild2DMipmaps glu-build-2d-mipmaps)
-
-(gl-import glTexImage3D gl-tex-image-3d)
-(gl-import glTexSubImage3D gl-tex-sub-image-3d)
-
-;;;;;;;;;;;;;;;;;;;;;;;
-
-(defstruct tex-struct
-  :width :height :depth :id
-  :type :tuple :attach-point :size
-  :permanent :refs)
-
-(defn dimensions [texture]
-  (count (filter #(not= 1 %) [(:width texture) (:height texture) (:depth texture)])))
+(defn num-dimensions [t]
+  (count (filter #(not= 1 %) (:dim t))))
 
 (defn sizeof [t]
-  (* (:width t) (:height t) (:tuple t) (if (= :unsigned-byte (:type t)) 1 4)))
+  (* (apply * (:dim t)) (:tuple t) (if (= :unsigned-byte (:internal-type t)) 1 4)))
 
 (defn permanent? [t]
-  (or (nil? t) @(:permanent t)))
+  (or (nil? (:permanent t)) @(:permanent t)))
 
 (defn permanent! [t]
   (dosync (ref-set (:permanent t) true)))
@@ -64,33 +39,121 @@
   (dosync (ref-set (:permanent t) false)))
 
 (defn refer! [t]
-  (dosync (alter (:refs t) inc)))
+  (dosync (alter (:ref-count t) inc)))
 
 (defn release! [t]
-  (dosync (alter (:refs t) dec)))
+  (dosync (alter (:ref-count t) dec)))
 
-;;;;;;;;;;;;;;;;;;;;;;
+(defn attach! [t point]
+  (dosync
+    (ref-set
+      (:attach-point t)
+      (if (nil? point)
+        nil
+        (enum (keyword (str "color-attachment" point)))))))
 
-(defn texture
-  ([u] (gl-tex-1 u))
-  ([u v] (gl-tex-2 u v))
-  ([u v w] (gl-tex-3 u v w)))
+(defn available? [t]
+  (let [permanent (or (not (:permanent t)) @(:permanent t))
+        ref-count (if (nil? (:ref-count t)) 0 @(:ref-count t))]
+    (and (not permanent) (<= 0 ref-count))))
 
-(defn bind-texture [t]
-  (let [dims (dimensions t)]
-   (cond
-    (= 1 dims) (gl-bind-texture :texture-1d (:id t))
-    (= 2 dims) (gl-bind-texture :texture-2d (:id t))
-    (= 3 dims) (gl-bind-texture :texture-3d (:id t)))))
+;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn gen-texture []
+(gl-import glBindTexture gl-bind-texture)
+(gl-import glGenTextures gl-gen-textures)
+(gl-import glTexImage1D gl-tex-image-1d)
+(gl-import glTexImage2D gl-tex-image-2d)
+(gl-import glTexImage3D gl-tex-image-3d)
+(gl-import glTexSubImage1D gl-tex-sub-image-1d)
+(gl-import glTexSubImage2D gl-tex-sub-image-2d)
+(gl-import glTexSubImage3D gl-tex-sub-image-3d)
+(gl-import glTexParameteri tex-parameter)
+(gl-import glTexCoord1d gl-tex-coord-1)
+(gl-import glTexCoord2d gl-tex-coord-2)
+(gl-import glTexCoord3d gl-tex-coord-3)
+(gl-import glCopyTexSubImage2D gl-copy-tex-sub-image-2d)
+(glu-import gluBuild2DMipmaps glu-build-2d-mipmaps)
+(gl-import glDeleteTextures gl-delete-textures)
+(gl-import glPixelStorei gl-pixel-store)
+(gl-import glGetTexParameteriv gl-get-tex-parameter)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def *texture-pool* nil)
+(def *tex-mem-threshold* 10e6)
+(def *tex-count-threshold* 30)
+
+(defn- gen-texture []
   (let [a (int-array 1)]
     (gl-gen-textures 1 a 0)
     (nth a 0)))
 
+(defn- separate-textures [textures]
+  (separate #(and (not (permanent? %)) (>= 0 @(:refs %))) textures))
+
 (defn destroy-textures [textures]
-  (let [a (int-array (map #(:id %) textures))]
-    (gl-delete-textures (count textures) a 0)))
+  (if (not (empty? textures))
+    (gl-delete-textures (count textures) (int-array (map :id textures)) 0)))
+
+(defn- cleanup-textures []
+  (let [[discard keep] (separate-textures @(:textures *texture-pool*))]
+    (if (< 0 (count discard))
+      (destroy-textures discard))
+    (dosync
+      (let [textures (alter (:textures *texture-pool*)
+                        #(let [[d k] (separate-textures %)]
+                          (vec (concat (drop (count discard) d) k))))]
+        (ref-set (:texture-size *texture-pool*) (reduce + (map sizeof textures)))))))
+
+(defn- add-texture [t]
+  (if *texture-pool*
+    (let [textures @(:textures *texture-pool*)
+          texture-size @(:texture-size *texture-pool*)]
+      (if (or (> (count textures) *tex-count-threshold*)
+              (> texture-size *tex-mem-threshold*))
+        (cleanup-textures))
+        (dosync
+          (alter (:texture-size *texture-pool*)
+            #(+ % (sizeof t)))
+          (alter (:textures *texture-pool*)
+            #(conj % t))))))
+
+(defn create-texture [type dim internal-format pixel-format internal-type tuple]
+  (let [available   (filter available? *texture-pool*)
+        equivalent  (filter
+                      (fn [t]
+                        (= [dim internal-type pixel-format internal-format]
+                        (map #(% t) [:dim :internal-type :pixel-format :internal-format])))
+                      available)]
+    (if (not (empty? equivalent))
+      (let [t (first equivalent)]
+        (refer! t)
+        t)
+      (let [id    (int (gen-texture))
+            typ   (int (enum type))
+            p-f   (int (enum pixel-format))
+            i-t   (int (enum internal-type))
+            i-f   (int (enum internal-format))
+            dim   (vec dim)]
+        (gl-bind-texture typ id)
+        (doseq [p [:texture-wrap-s :texture-wrap-t :texture-wrap-r]]
+          (tex-parameter typ (enum p) :clamp))
+        (doseq [p [:texture-min-filter :texture-mag-filter]]
+          (tex-parameter typ (enum p) :nearest))
+        (condp = (count (filter #(not= 1 %) dim))
+          1 (gl-tex-image-1d typ 0 i-f (dim 0) 0 p-f internal-type nil)
+          2 (gl-tex-image-2d typ 0 i-f (dim 0) (dim 1) 0 p-f i-t nil)
+          3 (gl-tex-image-3d typ 0 i-f (dim 0) (dim 1) (dim 2) 0 p-f i-t nil))
+        (let [tex
+              (struct-map texture-struct
+                :target type :id id
+                :dim dim :tuple tuple
+                :internal-type internal-type :internal-format internal-format :pixel-format pixel-format
+                :ref-count (ref 1) :attach-point (ref nil))]
+          (add-texture tex)
+          tex)))))
+
+;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro get-tex-parameter [dim param]
   `(let [ary# (int-array 1)]
@@ -99,65 +162,16 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn init-texture-1d []
-  (tex-parameter :texture-1d :texture-wrap-s :clamp)
-  (tex-parameter :texture-1d :texture-min-filter :linear)
-  (tex-parameter :texture-1d :texture-mag-filter :linear))
-
-(defn init-texture-2d []
-  (tex-parameter :texture-2d :texture-wrap-s :clamp)
-  (tex-parameter :texture-2d :texture-wrap-t :clamp)
-  (tex-parameter :texture-2d :texture-min-filter :linear)
-  (tex-parameter :texture-2d :texture-mag-filter :linear))
-
-(defn init-texture-3d []
-  (tex-parameter :texture-3d :texture-wrap-s :clamp)
-  (tex-parameter :texture-3d :texture-wrap-t :clamp)
-  (tex-parameter :texture-3d :texture-wrap-r :clamp)
-  (tex-parameter :texture-3d :texture-min-filter :linear)
-  (tex-parameter :texture-3d :texture-mag-filter :linear))
-
-(defn create-texture
-  ([w]
-     (let [id (gen-texture)]
-       (gl-bind-texture :texture-1d id)
-       (gl-tex-image-1d :texture-1d 0 :rgba w 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w 4)))
-       (init-texture-1d)
-       (struct-map tex-struct :width w :height 1 :depth 1 :id id :type :unsigned-byte :tuple 4)))
-  ([w h]
-     (let [id (gen-texture)]
-       (gl-bind-texture :texture-2d id)
-       (gl-tex-image-2d :texture-2d 0 :rgba w h 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h 4)))
-       (init-texture-2d)
-       (struct-map tex-struct :width w :height h :depth 1 :id id :type :unsigned-byte :tuple 4)))
-  ([w h d]
-     (let [id (gen-texture)]
-       (gl-bind-texture :texture-3d id)
-       (gl-tex-image-3d :texture-3d 0 :rgba w h d 0 :rgba :unsigned-byte (ByteBuffer/allocate (* w h d 4)))
-       (init-texture-3d)
-       (struct-map tex-struct :width w :height h :depth d :id id :type :unsigned-byte :tuple 4))))
-
-(def rgba (translate-keyword :rgba))
-
-(defn- texture-from-texture-io [tex]
-  (struct-map tex-struct
-    :width (.getWidth tex)
-    :height (.getHeight tex)
+(defn texture-from-texture-io [tex]
+  (struct-map texture-struct
+    :dim [(.getWidth tex) (.getHeight tex)]
     :id (.getTextureObject tex)
-    :type :unsigned-byte
-    :tuple 4))
-
-(defn load-texture-from-file [filename subsample]
-  (let [rgba (translate-keyword :rgba)
-        data (TextureIO/newTextureData (File. filename) rgba rgba subsample "")
-        tex  (TextureIO/newTexture data)]
-    (texture-from-texture-io tex)))
-
-(defn load-texture-from-image [image subsample]
-  (let [rgba (translate-keyword :rgba)
-        data (TextureIO/newTextureData image rgba rgba subsample "")
-        tex  (TextureIO/newTexture data)]
-    (texture-from-texture-io tex)))
+    :target :texture-2d
+    :pixel-format :rgba
+    :internal-format :rgba
+    :internal-type :unsigned-byte
+    :tuple 4
+    :ref-count (ref 1)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -170,54 +184,15 @@
     (.put (to-byte b))
     (.put (to-byte a))))
 
-(defn populate-buffer [fun texture]
-  (let [dim (dimensions texture)
-        w (:width texture)
-        h (:height texture)
-        d (:depth texture)
-        #^ByteBuffer buf (ByteBuffer/allocate (* 4 w h d))]
-    (cond
-      (= 1 dim)
-      (dotimes [x w]
-        (put buf (fun [x] [(/ x (double h))])))
-      (= 2 dim)
-      (dotimes [x w] (dotimes [y h]
-        (put buf (fun [x y] [(/ x (double w)) (/ y (double h))]))))
-      (= 3 dim)
-      (dotimes [x w] (dotimes [y h] (dotimes [z d]
-        (put buf (fun [x y z] [(/ x (double w)) (/ y (double h)) (/ z (double d))]))))))
+(defn populate-buffer [fun tex]
+  (let [#^ByteBuffer buf (ByteBuffer/allocate (* 4 (apply * (:dim tex))))
+        dim (vec (:dim tex))]
+    (condp = (num-dimensions tex)
+      1 (dotimes [x (dim 0)]
+          (put buf (fun [x] [(/ x (double (dim 0)))])))
+      2 (dotimes [x (dim 0)] (dotimes [y (dim 1)]
+          (put buf (fun [x y] [(/ x (double (dim 0))) (/ y (double (dim 1)))]))))
+      3 (dotimes [x (dim 0)] (dotimes [y (dim 1)] (dotimes [z (dim 2)]
+          (put buf (fun [x y z] [(/ x (double (dim 0))) (/ y (double (dim 1))) (/ z (double (dim 2)))]))))))
     (.rewind buf)
     buf))
-
-(defn draw-to-subsampled-texture
-  [tex fun]
-  (bind-texture tex)
-  (tex-parameter :texture-2d :texture-min-filter :linear-mipmap-linear)
-  (let [buf (populate-buffer fun tex)]
-    (glu-build-2d-mipmaps :texture-2d :rgba (:width tex) (:height tex) :rgba :unsigned-byte buf)))
-
-(defn draw-to-texture
-  [tex fun]
-  (bind-texture tex)
-  (let [dims (dimensions tex)
-        buf (populate-buffer fun tex)]
-    (cond
-      (= 1 dims)
-      (gl-tex-sub-image-1d :texture-1d 0 0 (:width tex) :rgba :unsigned-byte buf)
-      (= 2 dims)
-      (gl-tex-sub-image-2d :texture-2d 0 0 0 (:width tex) (:height tex) :rgba :unsigned-byte buf)
-      :else
-      (gl-tex-sub-image-3d :texture-3d 0 0 0 0 (:width tex) (:height tex) (:depth tex) :rgba :unsigned-byte buf))))
-
-(defmacro render-to-texture
-  "Renders a scene to a texture."
-  [tex & body]
-  `(do
-    (clear)
-    (with-viewport [0 0 (:width ~tex) (:height ~tex)]
-      (push-matrix
-        ~@body)                              
-      (bind-texture ~tex)
-      (gl-copy-tex-sub-image-2d :texture-2d 0 0 0 0 0 (:width ~tex) (:height ~tex))
-    (clear))))
-

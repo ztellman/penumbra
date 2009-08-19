@@ -6,10 +6,8 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.examples.render-to-texture)
-
-(use '(penumbra.opengl core geometry effects texture)
-     'penumbra.interface.window)
+(ns examples.render-to-texture
+  (:use [penumbra opengl window]))
 
 (defn textured-quad []
   (push-matrix
@@ -33,8 +31,8 @@
 (defn xor [a b] (or (and a (not b)) (and (not a) b)))
 
 (defn init-textures []
-  (let [view (create-texture 256 256)
-        checkers (create-texture 128 128)]
+  (let [view (create-color-texture 256 256)
+        checkers (create-color-texture 128 128)]
     (draw-to-subsampled-texture
       checkers
       (fn [[x y] _]

@@ -6,10 +6,10 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.examples.gpgpu
-  (:use [penumbra.interface.slate])
-  (:use [penumbra.opengl core shader texture])
-  (:use [penumbra.compute data operators]))
+(ns examples.gpgpu
+  (:use [penumbra opengl slate])
+  (:use [penumbra.opengl texture core])
+  (:use [penumbra.glsl data operators]))
 
 (def dim 1e4)
 (def tuple 4)
@@ -17,15 +17,14 @@
 
 (defn op [program]
   (with-program program
-    (let [data          (tex source tuple)
-          [data target] (attach-textures
-                          ['tex data]
-                          [(create-tex data)])]
-        ;(println (frame-buffer-status))
-        (draw)
-        (println (take 20 (seq (array target))))
-        (release! data)
-        (release! target))))
+    (let [data    (wrap source tuple)
+          target  (mimic-texture data)]
+      (attach-textures ['tex data] [target])
+      (println (frame-buffer-status))
+      (draw)
+      (println (take 20 (seq (unwrap target))))
+      (release! data)
+      (release! target))))
 
 (with-blank-slate
   (def operator

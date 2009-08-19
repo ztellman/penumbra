@@ -8,8 +8,8 @@
 
 (ns penumbra.window
   (:use [clojure.contrib.def :only (defmacro-)])
-  (:use [penumbra.opengl])
-  (:use [penumbra.opengl.core])
+  (:use [penumbra opengl])
+  (:use [penumbra.opengl core])
   (:import (java.awt Frame Dimension))
   (:import (java.awt.event
               MouseAdapter MouseListener MouseEvent
@@ -33,7 +33,7 @@
 ;;;;;;;;;;;;;;;;;;;;;
 
 (defn- update-state [state new-value]
-  (if (not (= @state new-value)) (repaint)) ;we want to redraw if the state has been altered
+  (if (not (identical? @state new-value)) (repaint)) ;we want to redraw if the state has been altered
   (dosync (ref-set state new-value)))
 
 (defmacro- try-call [canvas state fns k & args]

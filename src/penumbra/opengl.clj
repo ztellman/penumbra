@@ -9,14 +9,16 @@
 (ns penumbra.opengl
   (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
-  (:use [penumbra.opengl core geometry shader])
+  (:use [penumbra.opengl core geometry shader texture])
   (:use [penumbra.glsl.translate])
   (:import (javax.media.opengl GL2))
   (:import (javax.media.opengl.glu.gl2 GLUgl2))
   (:import (com.sun.opengl.util.gl2 GLUT))
   (:import (java.lang.reflect Field))
   (:import (java.awt Font))
-  (:import (com.sun.opengl.util.awt TextRenderer)))
+  (:import (com.sun.opengl.util.awt TextRenderer))
+  (:import (com.sun.opengl.util.texture TextureIO))
+  (:import (java.io File)))
 
 (defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & body]
   `(binding [*gl* (.. ~drawable getGL getGL2)]
@@ -121,6 +123,78 @@
 (defn teapot [] (glut-solid-teapot 1))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;Texture
+
+(gl-import glTexEnvf tex-env)
+(gl-import glActiveTexture gl-active-texture)
+
+(defn texture
+  ([u] (gl-tex-coord-1 u))
+  ([u v] (gl-tex-coord-2 u v))
+  ([u v w] (gl-tex-coord-3 u v w)))
+
+(defn bind-texture [t]
+  (gl-bind-texture (enum (:target t)) (:id t)))
+
+(defn destroy-texture [tex]
+  (gl-delete-textures 1 (int-array (:id tex)) 0))
+
+(defn create-color-texture [w h]
+  (create-texture :texture-2d [w h] :rgba :rgba :unsigned-byte 4))
+
+(defn load-texture-from-file [filename subsample]
+  (let [rgba (enum :rgba)
+        data (TextureIO/newTextureData (File. filename) rgba rgba subsample "")
+        tex  (TextureIO/newTexture data)]
+    (texture-from-texture-io tex)))
+
+(defn load-texture-from-image [image subsample]
+  (let [rgba (enum :rgba)
+        data (TextureIO/newTextureData image rgba rgba subsample "")
+        tex  (TextureIO/newTexture data)]
+    (texture-from-texture-io tex)))
+
+(defn draw-to-subsampled-texture
+  [tex fun]
+  (bind-texture tex)
+  (tex-parameter (enum (:target tex)) :texture-min-filter :linear-mipmap-linear)
+  (let [buf (populate-buffer fun tex)
+        dim (vec (:dim tex))]
+    (glu-build-2d-mipmaps
+      (enum (:target tex))
+      (enum (:internal-format tex))
+      (dim 0) (dim 1)
+      (enum (:pixel-format tex))
+      (enum (:internal-type tex))
+      buf)))
+
+(defn draw-to-texture
+  [tex fun]
+  (bind-texture tex)
+  (let [target  (enum (:target tex))
+        p-f     (enum (:pixel-format tex))
+        i-t     (enum (:internal-type tex))
+        dim     (vec (:dim tex))
+        buf     (populate-buffer fun tex)]
+    (condp = (count (filter #(not= 1 %) dim))
+      1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
+      2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
+      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
+
+(defmacro render-to-texture
+  "Renders a scene to a texture."
+  [tex & body]
+  `(do
+    (clear)
+    (let [[w# h#] (:dim ~tex)]
+      (with-viewport [0 0 w# h#]
+        (push-matrix
+          ~@body)
+        (bind-texture ~tex)
+        (gl-copy-tex-sub-image-2d :texture-2d 0 0 0 0 0 w# h#)
+      (clear)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Display Lists
 
 (gl-import- glCallList gl-call-list)
@@ -172,17 +246,17 @@
 (gl-import- glShadeModel shade-model)
 
 (defn light [num & params]
-  (let [light-num (translate-keyword (keyword (str "light" num)))]
+  (let [light-num (enum (keyword (str "light" num)))]
     (doseq [[property value] (partition 2 params)]
-      (let [property (translate-keyword property)]
+      (let [property (enum property)]
         (if (sequential? value)
           (set-light-array light-num property (float-array (count value) value) 0)
           (set-light light-num property value))))))
 
 (defn material [side & params]
-  (let [side (translate-keyword side)]
+  (let [side (enum side)]
     (doseq [[property value] (partition 2 params)]
-      (let [property (translate-keyword property)]
+      (let [property (enum property)]
         (if (sequential? value)
           (set-material-array side property (float-array (count value) value) 0)
           (set-material side property value))))))
@@ -191,8 +265,8 @@
   (doseq [[property value] (partition 2 params)]
     (let [value (if (sequential? value) value [value])]
       (set-fog
-        (translate-keyword property)
-        (float-array (count value) (map #(if (keyword? %) (translate-keyword %) %) value))
+        (enum property)
+        (float-array (count value) (map #(if (keyword? %) (enum %) %) value))
         0))))
 
 (defn draw-solid [] (gl-polygon-mode :front-and-back :fill))
@@ -214,7 +288,7 @@
         (str extensions "\n" fragment-source)))))
 
 (gl-import- glUseProgram gl-use-program)
-(gl-import glGetUniformLocation gl-get-uniform-location)
+(gl-import- glGetUniformLocation gl-get-uniform-location)
 
 (defn bind-program
   [program]
@@ -249,6 +323,7 @@
 (gl-import- glGenFramebuffers gl-gen-frame-buffers)
 (gl-import- glBindFramebuffer gl-bind-frame-buffer)
 (gl-import- glCheckFramebufferStatus gl-check-frame-buffer-status)
+(gl-import- glDeleteFramebuffers gl-delete-frame-buffers)
 (gl-import- glFramebufferTexture2D gl-frame-buffer-texture-2d)
 (gl-import- glDrawBuffers gl-draw-buffers)
 (gl-import- glDrawBuffer draw-buffer)
@@ -260,37 +335,44 @@
     (gl-gen-frame-buffers 1 a 0)
     (nth a 0)))
 
+(defn destroy-frame-buffer [fb]
+  (let [a (int-array [fb])]
+    (gl-delete-frame-buffers 1 a 0)))
+
 (defn bind-frame-buffer [fb]
   (gl-bind-frame-buffer :framebuffer fb))
 
+(defn frame-buffer-ok? []
+  (= (gl-check-frame-buffer-status :framebuffer) (enum :framebuffer-complete)))
+
 (defn frame-buffer-status []
-  (get-name (gl-check-frame-buffer-status :framebuffer)))
+  (enum-name (gl-check-frame-buffer-status :framebuffer)))
 
 (defn attachment [point]
-  (translate-keyword (keyword (str "color-attachment" point))))
+  (enum (keyword (str "color-attachment" point))))
 
 (defn attach [tex point]
   (let [p (attachment point)]
-    ;(gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle 0 0)
-    (gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle (:id tex) 0)
-    (assoc tex :attach-point p)))
+    (gl-frame-buffer-texture-2d :framebuffer p (enum (:target tex)) (:id tex) 0)
+    (attach! tex point)))
 
-'(defn bind-read [variable tex point]
+(defn bind-read [variable tex point]
   (let [loc (gl-get-uniform-location *program* (name variable))]
-    (gl-active-texture (translate-keyword (keyword (str "texture" point))))
-    (gl-bind-texture :texture-rectangle (:id tex))
+    (gl-active-texture (enum (keyword (str "texture" point))))
+    (gl-bind-texture (enum (:target tex)) (:id tex))
     (uniform-1i loc point)))
 
 (defn bind-write [start end]
+  (println start end)
   (gl-draw-buffers (- end start) (int-array (map attachment (range start end))) 0))
 
-'(defn attach-textures [read write]
-  (let [read-textures (map #(last %) (partition 2 read))
-        textures (map (fn [[idx tex]] (attach tex idx)) (indexed (concat read-textures write)))]
+(defn attach-textures [read write]
+  (let [read-textures (map #(last %) (partition 2 read))]
+    (doseq [[idx tex] (indexed write)]
+      (attach tex idx))
     (doseq [[idx [vr tex]] (indexed (partition 2 read))]
       (bind-read vr tex idx))
-    (bind-write (dec (count read)) (dec (+ (count read) (count write))))
-    textures))
+    (bind-write 0 (count write))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 

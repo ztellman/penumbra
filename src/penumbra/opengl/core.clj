@@ -12,13 +12,12 @@
 (def *inside-begin-end* false)
 (def *transform-matrix* (atom nil))
 (def *program* 0)
-(def *texture-pool* nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
 (def *check-errors* true) ;makes any OpenGL error throw an exception
 
-(defn get-name
+(defn enum-name
   "Takes the numeric value of a gl constant (i.e. GL_LINEAR), and gives the name"
   [enum-value]
   (if (= 0 enum-value)
@@ -29,15 +28,15 @@
 (defn check-error []
   (let [error (.glGetError *gl*)]
     (if (not (zero? error))
-      (throw (Exception. (str "OpenGL error: " (get-name error)))))))
+      (throw (Exception. (str "OpenGL error: " (enum-name error)))))))
 
-(defn translate-keyword-macro [k]
+(defn enum-macro [k]
  (if (keyword? k)
    (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
     `(. GL2 ~(symbol gl)))
    k))
 
-(defn-memo translate-keyword [k]
+(defn-memo enum [k]
   (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
     (eval `(. GL2 ~(symbol gl)))))
 
@@ -46,7 +45,7 @@
   [import-from import-as]
   `(defmacro ~import-as [& args#]
     `(do
-      (let [~'value# (. #^GL2 *gl* ~'~import-from ~@(map translate-keyword-macro args#))]
+      (let [~'value# (. #^GL2 *gl* ~'~import-from ~@(map enum-macro args#))]
         (if (and *check-errors* (not *inside-begin-end*)) (check-error))
         ~'value#))))
 
@@ -57,7 +56,7 @@
 
 (defmacro glu-import [import-from import-as]
   `(defmacro ~import-as [& args#]
-      `(. *glu* ~'~import-from ~@(map translate-keyword-macro args#))))
+      `(. *glu* ~'~import-from ~@(map enum-macro args#))))
 
 (defmacro glu-import-
   "Private version of glu-import"
@@ -66,7 +65,7 @@
 
 (defmacro glut-import [import-from import-as]
   `(defmacro ~import-as [& args#]
-      `(. *glut* ~'~import-from ~@(map translate-keyword-macro args#))))
+      `(. *glut* ~'~import-from ~@(map enum-macro args#))))
 
 (defmacro glut-import-
   "Private version of glu-import"

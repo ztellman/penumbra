@@ -6,16 +6,15 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.interface.slate
+(ns penumbra.slate
   (:use [clojure.contrib.def :only (defmacro- defn-memo)])
   (:use [clojure.contrib.pprint])
   (:use [clojure.contrib.lazy-seqs :only (primes)])
   (:use [clojure.contrib.seq-utils :only (separate)])
-  (:use [penumbra.opengl core geometry texture])
+  (:use [penumbra opengl])
+  (:use [penumbra.opengl texture])
   (:import (java.util.concurrent Semaphore))
-  (:import (javax.media.opengl
-              GLPbuffer GLDrawableFactory GLEventListener
-              GLCapabilities GLProfile GLAutoDrawable)))
+  (:import (javax.media.opengl GLPbuffer GLEventListener GLCapabilities GLProfile GLAutoDrawable)))
 
 ;;;;;;;;;;;;;;;;;
 
@@ -41,8 +40,6 @@
 (defstruct slate-struct :p-buffer :queue :width :height :textures :texture-size)
 
 (def *slate* nil)
-(def *tex-mem-threshold* 10e6)
-(def *tex-count-threshold* 10)
 
 (defn repaint [slate]
   (.repaint #^GLPbuffer (:p-buffer slate)))
@@ -86,36 +83,10 @@
       (texture 0 0) (vertex 0 h 0))))
 
 (defn draw []
+  ;(draw* (:width *slate*) (:height *slate*)))
   (call-display-list @(:display-list *slate*)))
 
 ;;;;;;;;;;;;;;;;;;
-
-(defn- separate-textures [textures]
-  (separate #(and (not (persistent? %)) (>= 0 @(:refs %))) textures))
-
-(defn cleanup-textures [slate]
-  (let [[discard keep] (separate-textures @(:textures slate))]
-    ;(println "discard:" (map #(:id %) discard))
-    ;(println "keep:" (map #(:id %) keep))
-    (if (< 0 (count discard))
-      (destroy-textures discard))
-    (dosync
-      (let [textures (alter (:textures slate)
-                        #(let [[d k] (separate-textures %)]
-                          (vec (concat (drop (count discard) d) k))))]
-        (ref-set (:texture-size slate) (reduce + (map sizeof textures)))))))
-
-(defn add-texture [slate t]
-  (let [textures @(:textures slate)
-        texture-size @(:texture-size slate)]
-    (if (or (> (count textures) *tex-count-threshold*)
-            (> texture-size *tex-mem-threshold*))
-      (cleanup-textures slate)))
-  (dosync
-    (alter (:texture-size slate)
-      #(+ % (sizeof t)))
-    (alter (:textures slate)
-      #(conj % t))))
 
 (defn create-slate
   ([] (create-slate 4096 4096))
@@ -124,9 +95,11 @@
       [profile (GLProfile/get GLProfile/GL2GL3)
        cap (GLCapabilities. profile)]
 
-      ;cap stuff goes here
+      (.setPbufferFloatingPointBuffers cap true)
+      (.setPbufferRenderToTextureRectangle cap true)
 
-      (let [p-buffer  (.. (GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
+      (let [p-buffer  (.. (javax.media.opengl.GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
+            tex-pool  (ref {:texture-size 0 :textures []})
             slate     (struct-map slate-struct
                         :p-buffer p-buffer :queue (ref '()) :textures (ref []) :texture-size (ref 0.)
                         :width width :height height

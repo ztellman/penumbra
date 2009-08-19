@@ -6,9 +6,9 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.compute.operators
-  (:use [penumbra.opengl translate shader])
-  (:use [penumbra.compute data])
+(ns penumbra.glsl.operators
+  (:use [penumbra.opengl])
+  (:use [penumbra.glsl translate])
   (:use [clojure.set :only (map-invert)])
   (:use [clojure.contrib.seq-utils :only (indexed flatten)]))
 
@@ -74,6 +74,9 @@
     1
     (Integer/parseInt (.substring (name param) 1))))
 
+(defn- replace-with [from to]
+  #(if (= from %) to %))
+
 ;;;;;;;;;;;;;;;;;;;;;
 
 (defn- validate-types [symbols typecasts]
@@ -98,18 +101,18 @@
           param-types (distinct (filter-typed-exprs keyword? expr))]
       (validate-types elems elem-types)
       (validate-types params param-types)
-        (let [expr (apply-transforms expr
-                     #(if (= :coord %) '--coord %)
-                     #(if (not (element? %)) % (list 'texture2DRect (symbol (str "-tex" (element-index %))) '--coord))
-                     #(if (not (keyword? %)) % (symbol (str "-" (name %)))))
-              decl (concat
-                     (if (empty? elems)
-                       '()
-                       (map
-                         #(conj '(uniform sampler2DRect) (symbol (str "-tex" %)))
-                         (range (apply max (map element-index elems)))))
-                     (map (fn [[type sym]] (list 'uniform type sym)) param-types))]
-          [decl expr]))))
+      (let [expr (apply-transforms expr
+                   #(if (= :coord %) '--coord %)
+                   #(if (not (element? %)) % (list 'texture2DRect (symbol (str "-tex" (element-index %))) '--coord))
+                   #(if (not (keyword? %)) % (symbol (str "-" (name %)))))
+            decl (concat
+                   (if (empty? elems)
+                     '()
+                     (map
+                       #(conj '(uniform sampler2DRect) (symbol (str "-tex" %)))
+                       (range (apply max (map element-index elems)))))
+                   (map (fn [[type sym]] (list 'uniform type sym)) param-types))]
+        [decl expr]))))
 
 
 

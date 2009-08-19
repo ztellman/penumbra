@@ -6,10 +6,9 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.examples.marble)
-
-(use '(penumbra.opengl core geometry effects shader)
-     'penumbra.interface.window)
+(ns examples.marble
+  (:use [penumbra opengl window])
+  (:use [penumbra.glsl.effects]))
 
 ;;;;;;;;;;;;;;;;;
 
@@ -22,7 +21,7 @@
   '(let a b))
 
 (def vertex-shader
-  '((import (penumbra.opengl.effects lighting))
+  '((import (penumbra.glsl.effects lighting))
     (let [pos         :vertex 
           noise       (* 1.5 (noise1 pos)) 
           intensity   (lighting 0 (normalize (* :normal-matrix :normal)))]
