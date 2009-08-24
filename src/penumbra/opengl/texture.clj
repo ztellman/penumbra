@@ -38,7 +38,7 @@
 (defn ephemeral! [t]
   (dosync (ref-set (:permanent t) false)))
 
-(defn refer! [t]
+(defn acquire! [t]
   (dosync (alter (:ref-count t) inc)))
 
 (defn release! [t]
@@ -53,7 +53,7 @@
         (enum (keyword (str "color-attachment" point)))))))
 
 (defn available? [t]
-  (let [permanent (or (not (:permanent t)) @(:permanent t))
+  (let [permanent (and (not (nil? (:permanent t))) @(:permanent t))
         ref-count (if (nil? (:ref-count t)) 0 @(:ref-count t))]
     (and (not permanent) (<= 0 ref-count))))
 
@@ -89,7 +89,7 @@
     (nth a 0)))
 
 (defn- separate-textures [textures]
-  (separate #(and (not (permanent? %)) (>= 0 @(:refs %))) textures))
+  (separate available? textures))
 
 (defn destroy-textures [textures]
   (if (not (empty? textures))
@@ -119,15 +119,16 @@
             #(conj % t))))))
 
 (defn create-texture [type dim internal-format pixel-format internal-type tuple]
-  (let [available   (filter available? *texture-pool*)
+  (let [available   (if *texture-pool* (filter available? @(:textures *texture-pool*)) ())
         equivalent  (filter
                       (fn [t]
-                        (= [dim internal-type pixel-format internal-format]
-                        (map #(% t) [:dim :internal-type :pixel-format :internal-format])))
+                        (=
+                          [dim internal-type pixel-format internal-format]
+                          (map #(% t) [:dim :internal-type :pixel-format :internal-format])))
                       available)]
     (if (not (empty? equivalent))
       (let [t (first equivalent)]
-        (refer! t)
+        (acquire! t)
         t)
       (let [id    (int (gen-texture))
             typ   (int (enum type))

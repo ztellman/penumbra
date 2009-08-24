@@ -10,7 +10,7 @@
   (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [penumbra.opengl core geometry shader texture])
-  (:use [penumbra.glsl.translate])
+  (:use [penumbra.glsl.glsl])
   (:import (javax.media.opengl GL2))
   (:import (javax.media.opengl.glu.gl2 GLUgl2))
   (:import (com.sun.opengl.util.gl2 GLUT))
@@ -363,7 +363,6 @@
     (uniform-1i loc point)))
 
 (defn bind-write [start end]
-  (println start end)
   (gl-draw-buffers (- end start) (int-array (map attachment (range start end))) 0))
 
 (defn attach-textures [read write]

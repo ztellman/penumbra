@@ -37,7 +37,7 @@
 
 ;;;;;;;;;;;;;;;;;
 
-(defstruct slate-struct :p-buffer :queue :width :height :textures :texture-size)
+(defstruct slate-struct :p-buffer :queue :width :height :texture-pool)
 
 (def *slate* nil)
 
@@ -67,9 +67,10 @@
 (defn destroy [slate]
   (enqueue slate
     (fn []
-      (println "cleaning up" (count @(:textures slate)) "textures")
-      (destroy-textures @(:textures slate))
-      (.destroy #^GLPbuffer (:p-buffer slate)))))
+      (let [textures @(:textures (:texture-pool slate))]
+        (println "cleaning up" (count textures) "textures")
+        (destroy-textures textures)
+        (.destroy #^GLPbuffer (:p-buffer slate))))))
 
 ;;;;;;;;;;;;;;;;;
 
@@ -99,9 +100,10 @@
       (.setPbufferRenderToTextureRectangle cap true)
 
       (let [p-buffer  (.. (javax.media.opengl.GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
-            tex-pool  (ref {:texture-size 0 :textures []})
+            tex-pool  {:texture-size (ref 0) :textures (ref [])}
             slate     (struct-map slate-struct
-                        :p-buffer p-buffer :queue (ref '()) :textures (ref []) :texture-size (ref 0.)
+                        :p-buffer p-buffer :queue (ref '())
+                        :texture-pool tex-pool
                         :width width :height height
                         :display-list (atom nil))]
 
@@ -111,7 +113,8 @@
 
               (display [drawable]
                 (bind-gl drawable
-                  (binding [*slate* slate]
+                  (binding [*slate* slate
+                            *texture-pool* tex-pool]
                     (execute slate))))
 
               (reshape [#^GLAutoDrawable drawable x y width height])

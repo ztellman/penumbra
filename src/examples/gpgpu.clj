@@ -11,7 +11,7 @@
   (:use [penumbra.opengl texture core])
   (:use [penumbra.glsl data operators]))
 
-(def dim 1e4)
+(def dim 1e3)
 (def tuple 4)
 (def source (float-array (range (* tuple dim))))
 
@@ -20,19 +20,22 @@
     (let [data    (wrap source tuple)
           target  (mimic-texture data)]
       (attach-textures ['tex data] [target])
-      (println (frame-buffer-status))
+      ;(println (frame-buffer-status))
       (draw)
-      (println (take 20 (seq (unwrap target))))
+      (take 4 (seq (unwrap target)))
       (release! data)
       (release! target))))
 
-(with-blank-slate
-  (def operator
-      (create-operator
-        '[(sampler2DRect tex)]
-        '(* (texture2DRect tex --coord) 8.)))
-  '(time (dotimes [_ 50]
-    (doall (map #(* 8 (int %)) (seq source)))))
-  (binding [*tex-count-threshold* 500]
-    (time (dotimes [_ 1]
-      (op operator)))))
+(defn run [iterations]
+  (with-blank-slate
+    (def operator
+        (create-operator
+          '[(sampler2DRect tex)]
+          '(* (texture2DRect tex --coord) 8.)))
+    '(time (dotimes [_ 50]
+      (doall (map #(* 8 (int %)) (seq source)))))
+    (binding [*tex-count-threshold* 10]
+      (time (dotimes [_ iterations]
+        (op operator))))))
+
+(run 1e3)

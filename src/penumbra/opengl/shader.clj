@@ -10,7 +10,8 @@
   (:use [clojure.contrib.def :only (defmacro-)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [penumbra.opengl.core])
-  (:use [penumbra.glsl.translate])
+  (:use [penumbra.glsl.glsl])
+  (:use [penumbra.translate.util])
   (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
   (:import (com.sun.opengl.util BufferUtil)))
 

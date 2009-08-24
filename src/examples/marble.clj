@@ -29,8 +29,8 @@
 
 (def fragment-shader
   '(let [(float marble)       (-> pos .x (* 2.0) (+ noise) sin abs)
-         (vec4 marble-color)  [0.8 0.7 0.7 1.0] 
-         (vec4 vein-color)    [0.2 0.15 0.1 1.0] 
+         (vec4 marble-color)  (vec4 0.8 0.7 0.7 1.0)
+         (vec4 vein-color)    (vec4 0.2 0.15 0.1 1.0) 
          (vec4 color)         (mix vein-color marble-color (pow marble 0.5))]
      (set! :frag-color (* intensity color))))
 
