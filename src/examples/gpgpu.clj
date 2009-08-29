@@ -23,4 +23,4 @@
 (with-blank-slate
   (def op (create-gmap '((float4 (* :index #^float scale)))))
   (def data (wrap source tuple))
-  (println (take 20 (unwrap (op {:scale 0.33} 20)))))
+  (println (take 20 (unwrap (op {:scale 1.0} 20)))))

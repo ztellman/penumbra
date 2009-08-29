@@ -95,7 +95,7 @@
 ;;;;;;;;;;;;;;;;;;;;;
 
 (defn- prepend-index [expr]
-  (let [index '((set! (float --index) (-> --coord .y (* (.x --dim)) (+ (.x --coord)))))]
+  (let [index '((set! (float --index) (-> --coord .y (- 0.5) (* (.x --dim)) (+ (-> --coord .x (- 0.5))))))]
     (if (contains? (set (flatten expr)) :index)
       (concat
         index
