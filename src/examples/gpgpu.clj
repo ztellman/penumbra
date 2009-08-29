@@ -15,27 +15,12 @@
 (def tuple 4)
 (def source (float-array (range (* tuple dim))))
 
-(defn op [program]
-  (with-program program
-    (let [data    (wrap source tuple)
-          target  (mimic-texture data)]
-      (attach-textures ['tex data] [target])
-      ;(println (frame-buffer-status))
-      (draw)
-      (take 4 (seq (unwrap target)))
-      (release! data)
-      (release! target))))
+(with-blank-slate
+  (def op (create-gmap '(#^float4 (+ #^float4 %1 (* #^float4 %2 #^float scale)))))
+  (def data (wrap source tuple))
+  (println (take 20 (unwrap (op {:scale 0.5} [data data])))))
 
-(defn run [iterations]
-  (with-blank-slate
-    (def operator
-        (create-operator
-          '[(sampler2DRect tex)]
-          '(* (texture2DRect tex --coord) 8.)))
-    '(time (dotimes [_ 50]
-      (doall (map #(* 8 (int %)) (seq source)))))
-    (binding [*tex-count-threshold* 10]
-      (time (dotimes [_ iterations]
-        (op operator))))))
-
-(run 1e3)
+(with-blank-slate
+  (def op (create-gmap '((float4 (* :index #^float scale)))))
+  (def data (wrap source tuple))
+  (println (take 20 (unwrap (op {:scale 0.33} 20)))))

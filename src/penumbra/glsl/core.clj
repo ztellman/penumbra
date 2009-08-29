@@ -6,9 +6,11 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.glsl.glsl
-  (:use [penumbra.translate util c])
-  (:use [clojure.contrib.def :only (defvar-)]))
+(ns penumbra.glsl.core
+  (:use [penumbra.translate.core])
+  (:use [penumbra.translate.c :only (c-transformer c-generator c-parser)])
+  (:use [clojure.contrib.def :only (defvar-)])
+  (:use [clojure.contrib.pprint]))
 
 ;;;
 
@@ -23,7 +25,7 @@
           #(str (.. % (substring 0 1) toUpperCase) (. % substring 1 (count %)))
           (seq (.split (name k) "-")))))))
 
-(defvar- type-map
+(def type-map
   (apply hash-map
     '(float float
       float2 vec2

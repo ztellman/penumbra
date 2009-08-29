@@ -55,7 +55,7 @@
 (defn available? [t]
   (let [permanent (and (not (nil? (:permanent t))) @(:permanent t))
         ref-count (if (nil? (:ref-count t)) 0 @(:ref-count t))]
-    (and (not permanent) (<= 0 ref-count))))
+    (and (not permanent) (>= 0 ref-count))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -128,6 +128,7 @@
                       available)]
     (if (not (empty? equivalent))
       (let [t (first equivalent)]
+        (println "coopting" t)
         (acquire! t)
         t)
       (let [id    (int (gen-texture))

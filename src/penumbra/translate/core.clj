@@ -6,7 +6,7 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.translate.util
+(ns penumbra.translate.core
   (:use [clojure.contrib.pprint])  
   (:import (java.text ParseException))
   (:import (java.io StringWriter))

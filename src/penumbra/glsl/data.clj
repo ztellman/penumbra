@@ -7,8 +7,10 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.glsl.data
-  (:use [penumbra.opengl core framebuffer texture])
+  (:use [penumbra.opengl.framebuffer :only (read-format)])
   (:use [penumbra.slate :only (rectangle)])
+  (:use [penumbra.opengl.texture :only (create-texture gl-tex-sub-image-2d)])
+  (:use [penumbra.opengl.core])
   (:use [penumbra opengl])
   (:import (java.nio Buffer FloatBuffer IntBuffer ByteBuffer))
   (:import (com.sun.opengl.util.texture TextureData)))

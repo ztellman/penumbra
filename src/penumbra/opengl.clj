@@ -10,7 +10,7 @@
   (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [penumbra.opengl core geometry shader texture])
-  (:use [penumbra.glsl.glsl])
+  (:use [penumbra.glsl.core])
   (:import (javax.media.opengl GL2))
   (:import (javax.media.opengl.glu.gl2 GLUgl2))
   (:import (com.sun.opengl.util.gl2 GLUT))
@@ -28,6 +28,7 @@
 
 (gl-import glEnable enable)
 (gl-import glDisable disable)
+(gl-import glGetIntegerv get-integer)
 
 (gl-import glMatrixMode gl-matrix-mode)
 (gl-import glPushMatrix gl-push-matrix)
@@ -281,7 +282,7 @@
   ([declarations vertex fragment]
     (create-program "" declarations vertex fragment))
   ([extensions declarations vertex fragment]
-    (let [vertex-source (translate-shader declarations vertex)
+    (let [vertex-source   (translate-shader declarations vertex)
           fragment-source (translate-shader (filter #(not= 'attribute (first %)) declarations) fragment)]
       (create-program-from-source
         (str extensions "\n" vertex-source)
@@ -306,16 +307,16 @@
 (defn uniform [variable & args]
   (let [loc     (gl-get-uniform-location *program* (name variable))
         is-int  (int? (first args))
-        args    (vec args)]
-    (condp (count args)
-      1 (if is-int  (uniform-1i loc (args 1))
-                    (uniform-1f loc (args 1)))
-      2 (if is-int  (uniform-2i loc (args 1) (args 2))
-                    (uniform-2f loc (args 1) (args 2)))
-      3 (if is-int  (uniform-3i loc (args 1) (args 2) (args 3))
-                    (uniform-3f loc (args 1) (args 2) (args 3)))
-      4 (if is-int  (uniform-4i loc (args 1) (args 2) (args 3) (args 4))
-                    (uniform-4f loc (args 1) (args 2) (args 3) (args 4))))))
+        args    (vec (map (if is-int int float) args))]
+    (condp = (count args)
+      1 (if is-int  (uniform-1i loc (args 0))
+                    (uniform-1f loc (args 0)))
+      2 (if is-int  (uniform-2i loc (args 0) (args 1))
+                    (uniform-2f loc (args 0) (args 1)))
+      3 (if is-int  (uniform-3i loc (args 0) (args 1) (args 2))
+                    (uniform-3f loc (args 0) (args 1) (args 2)))
+      4 (if is-int  (uniform-4i loc (args 0) (args 1) (args 2) (args 3))
+                    (uniform-4f loc (args 0) (args 1) (args 2) (args 3))))))
 
 ;;;;;;;;;;;;;;;;
 ;Frame Buffers
@@ -334,6 +335,11 @@
   (let [a (int-array 1)]
     (gl-gen-frame-buffers 1 a 0)
     (nth a 0)))
+
+(defn get-frame-buffer []
+  (let [ary (int-array 1)]
+    (get-integer :framebuffer-binding ary 0)
+    (first (seq ary))))
 
 (defn destroy-frame-buffer [fb]
   (let [a (int-array [fb])]

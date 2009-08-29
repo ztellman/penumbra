@@ -7,7 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.translate.c
-  (:use [penumbra.translate.util])
+  (:use [penumbra.translate core])
   (:use [clojure.contrib (def :only (defmacro-))]))
   
 ;;;;;;;;;;;;;;;;;;;

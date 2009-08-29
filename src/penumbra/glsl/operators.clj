@@ -7,12 +7,15 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.glsl.operators
-  (:use [penumbra.opengl])
-  (:use [penumbra.translate util])
-  (:use [penumbra.glsl glsl])
+  (:use [penumbra opengl slate])
+  (:use [penumbra.opengl.texture :only (create-texture release!)])
+  (:use [penumbra.opengl.framebuffer :only (pixel-format write-format)])
+  (:use [penumbra.translate.core :only (tree-map)])
   (:use [clojure.set :only (map-invert)])
   (:use [clojure.contrib.seq-utils :only (indexed flatten)])
-  (:use [clojure.contrib.def :only (defvar-)]))
+  (:use [clojure.contrib.def :only (defvar-)])
+  (:require [penumbra.glsl.core :as glsl])
+  (:use [clojure.contrib.pprint]))
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -66,20 +69,13 @@
       int3    [:int 3]
       int4    [:int 4])))
 
-(defn- apply-transforms [tree & funs]
+(defvar- swizzle { 1 '.x, 2 '.xy, 3 '.xyz, 4 '.xyzw })
+
+(defn- apply-transforms [tree funs]
   (reduce #(tree-map %1 %2) tree funs))
 
-(defn- filter-typed-exprs
-  "Filters out all typecast expressions whose second element satisfies 'predicate'"
-  [predicate tree]
-  (let [tr-seq (tree-seq sequential? seq tree)]
-    (filter
-      #(and
-        (sequential? %)
-        (= 2 (count %))
-        (types (first %))
-        (predicate (second %)))
-      tr-seq)))
+(defn- typeof [x]
+  (:tag ^x))
 
 (defn- filter-symbols [predicate tree]
   (let [leaves (filter #(not (seq? %)) (flatten tree))]
@@ -90,56 +86,127 @@
 
 (defn- element-index [param]
   (if (= '% param)
-    1
-    (Integer/parseInt (.substring (name param) 1))))
+    0
+    (dec (Integer/parseInt (.substring (name param) 1)))))
 
 (defn- replace-with [from to]
   #(if (= from %) to %))
 
 ;;;;;;;;;;;;;;;;;;;;;
 
-(defn- validate-types [symbols typecasts]
-  (doseq [s symbols]
-    (let [types (distinct (map first (filter #(= s (second %)) typecasts)))]
-      (if (zero? (count types))
-        (throw (Exception. (str s " needs to have an explicitly defined type."))))
-      (if (not= 1 (count types))
-        (throw (Exception. (str "Ambiguous type for " s ", can't choose between " (vec types))))))))
+(defn- prepend-index [expr]
+  (let [index '((set! (float --index) (-> --coord .y (* (.x --dim)) (+ (.x --coord)))))]
+    (if (contains? (set (flatten expr)) :index)
+      (concat
+        index
+        (apply-transforms expr [(replace-with :index '--index)]))
+      expr)))
+
+(defn- validate-elements [expr]
+  (let [elements (filter-symbols element? expr)]
+    (doseq [e (distinct (filter typeof elements))]
+      (let [typs (distinct (map typeof (filter #(= e %) elements)))]
+        (if (empty? typs)
+          (throw (Exception. (str e " needs to have an explicitly defined type."))))
+        (if (< 1 (count typs))
+          (throw (Exception. (str "Ambiguous type for " e ", can't choose between " typs))))))))
+
+(defn- validate-params [expr]
+  (let [params (filter-symbols #(and (not (element? %)) (typeof %)) expr)]
+    (doseq [e (distinct (filter typeof params))]
+      (let [typs (distinct (map typeof (filter #(= e %) params)))]
+        (if (< 1 (count typs))
+          (throw (Exception. (str "Ambiguous type for " e ", can't choose between " typs))))))))
+
+(defn- validate-results [expr]
+  (let [[_ result] (separate-operator expr)]
+    (doseq [x result]
+      (if (and (nil? (typeof x)) (or (not (sequential? x)) (not (contains? types (first x)))))
+        (throw (Exception. (str x " must have an explicit type.")))))))
+
+(defn- rename-element [i]
+  (symbol (str "-tex" i)))
+
+(defn- transform-element [e]
+  (let [[_ tuple] (type-map (typeof e))]
+    (list (swizzle tuple)
+      (list 'texture2DRect (rename-element (element-index e)) '--coord))))
+
+(defn- rename-param [p]
+  (symbol (str "-" (name p))))
 
 (defn- process-gmap [expr]
-  (let [index '((set! --index (-> --coord .y (* (.x --dim)) (+ (.x --coord)))))
-        expr  (if (contains? (flatten expr) :index) ;If we use :index, calculate linear index
-                (concat
-                  index
-                  (apply-transforms (replace-with :index '--index) expr))
-                expr)]
-    (let [expr        (if (seq? (first expr)) expr (list expr))
-          elems       (distinct (filter-symbols element? expr))
-          elem-types  (distinct (filter-typed-exprs element? expr))
-          params      (distinct (filter-symbols keyword? expr))
-          param-types (distinct (filter-typed-exprs keyword? expr))
-          [_ result]  (separate-operator expr)]
-      (validate-types elems elem-types)
-      (validate-types params param-types)
-      (doseq [x result]
-        (if (or (not (sequential? x)) (not (types (first x))))
-          (throw (Exception. (str x " must have an explicit type.")))))
-      (let [expr (apply-transforms expr
-                   #(if (= :coord %) '--coord %)
-                   #(if (not (element? %)) % (list 'texture2DRect (symbol (str "-tex" (element-index %))) '--coord))
-                   #(if (not (keyword? %)) % (symbol (str "-" (name %)))))
-            decl (concat
-                   (if (empty? elems)
-                     '()
-                     (map
-                       #(concat '(uniform sampler2DRect) (list (symbol (str "-tex" %))))
-                       (range (apply max (map element-index elems)))))
-                   (map (fn [[type sym]] (list 'uniform type sym)) param-types))]
-        {:declarations decl
-         :body expr
-         :elements (apply hash-map (flatten elem-types))
-         :params (apply hash-map (flatten param-types))
-         :result (map first result)}))))
+  (validate-elements expr)
+  (validate-params expr)
+  (validate-results expr)
+  (let [expr        expr ;(if (seq? (first expr)) expr (list expr))
+        elements    (distinct (filter-symbols #(and (element? %) (typeof %)) expr))
+        params      (distinct (filter-symbols #(and (not (element? %)) (typeof %)) expr))
+        transforms  (flatten
+                      (list
+                        prepend-index
+                        (replace-with :coord '--coord)
+                        (map #(replace-with % (transform-element %)) elements)
+                        (map #(replace-with % (rename-param %)) params)))
+        expr        (apply-transforms expr transforms)
+        decl        (concat
+                      (if (empty? elements)
+                        '()
+                        (map
+                          #(list 'sampler2DRect (rename-element (element-index %)))
+                          elements))
+                      (map
+                        #(list (glsl/type-map (typeof %)) (rename-param %))
+                        params))]
+    {:declarations decl
+     :body expr
+     :elements (zipmap elements (map typeof elements))
+     :params (zipmap params (map typeof params))
+     :result (map #(or (typeof %) (first %)) (second (separate-operator expr)))}))
+
+(defn- create-write-texture [typecast dim]
+  (let [[type tuple]  (type-map typecast)
+        i-f           (write-format type tuple)
+        p-f           (pixel-format tuple)]
+    (if (nil? i-f) (throw (Exception. (str "Cannot write to texture of type " typecast))))
+    (create-texture :texture-rectangle dim (first i-f) p-f type tuple)))
+
+(defn create-gmap [expr]
+  (let [info    (process-gmap expr)
+        program (create-operator (:declarations info) (:body info))]
+    (fn this
+      ([size] (this {} [] (rectangle size)))
+      ([params elements-or-size]
+        (if (number? elements-or-size)
+          (this params [] (rectangle elements-or-size))
+          (this params elements-or-size (:dim (first elements-or-size)))))
+      ([params elements dim]
+        ;Check number of elements
+        (if (not= (count elements) (count (:elements info)))
+          (throw (Exception. (str "Expected " (count (:elements info)) " elements, was given " (count elements) "."))))
+        ;Check dimensions of elements
+        (if (and
+              (not (empty? elements))
+              (apply not= (list* dim (map :dim elements))))
+          (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (map :dim elements)))))
+        (with-program program
+          (let [targets (map
+                          (fn [[typ dim]] (create-write-texture typ dim))
+                          (map (fn [x] [x dim]) (:result info)))]
+            (doseq [[n v] params]
+              (apply uniform (list*
+                               (keyword (.replace (str "-" (name n)) \- \_))
+                               (if (sequential? v) v (list v)))))
+            (uniform :__dim (float (first dim)) (float (second dim)))
+            (attach-textures
+              (interleave (map rename-element (range (count elements))) elements)
+              targets)
+            (draw)
+            (doseq [e elements]
+              (release! e))
+            (if (= 1 (count targets)) (first targets) targets)))))))
+
+
 
 
 

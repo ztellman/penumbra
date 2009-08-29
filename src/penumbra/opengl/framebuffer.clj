@@ -48,14 +48,14 @@
    [:unsigned-byte 3 :rgb]
    [:unsigned-byte 4 :rgba]])
 
-(def pixel-formats
+(def pixel-format
   {1 :luminance, 2 :luminance-alpha, 3 :rgb, 4 :rgba})
 
 (defn- valid-read-format? [type tuple format]
   (try
-    (let [tex (create-texture :texture-rectangle [16 16] format (pixel-formats tuple) type tuple)]
+    (let [tex (create-texture :texture-rectangle [16 16] format (pixel-format tuple) type tuple)]
       (destroy-texture tex)
-      [format (pixel-formats tuple) type])
+      [format (pixel-format tuple) type])
     (catch Exception e
       false)))
 
@@ -67,18 +67,20 @@
       internal-formats)))
 
 (defn- valid-write-format? [type tuple format]
-  (let [fb (gen-frame-buffer)]
+  (let [curr (get-frame-buffer)
+        fb (gen-frame-buffer)]
     (bind-frame-buffer fb)
     (try
-      (let [tex (create-texture :texture-rectangle [16 16] format (pixel-formats tuple) type tuple)]
+      (let [tex (create-texture :texture-rectangle [16 16] format (pixel-format tuple) type tuple)]
         (attach-textures [] [tex])
         (if (frame-buffer-ok?)
-          (do (if tex (destroy-texture tex)) [format (pixel-formats tuple) type])
+          (do (if tex (destroy-texture tex)) [format (pixel-format tuple) type])
           (do (if tex (destroy-texture tex)) false)))
       (catch Exception e
         false)
       (finally
-        (destroy-frame-buffer fb)))))
+        (destroy-frame-buffer fb)
+        (bind-frame-buffer curr)))))
 
 (defn-memo write-format [type tuple]
   (some
