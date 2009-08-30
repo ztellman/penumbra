@@ -7,10 +7,10 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.glsl.core
-  (:use [penumbra.translate.core])
-  (:use [penumbra.translate.c :only (c-transformer c-generator c-parser)])
+  (:use [penumbra.translate core])
   (:use [clojure.contrib.def :only (defvar-)])
-  (:use [clojure.contrib.pprint]))
+  (:use [clojure.contrib.pprint :only (pprint)])
+  (:require [penumbra.translate.c :as c] ))
 
 ;;;
 
@@ -39,30 +39,30 @@
       color4 float4)))
 ;;;
 
-(defmulti glsl-transformer
+(defmulti transformer
   (fn [_] nil)
   :default :none)
 
-(defmulti glsl-generator
+(defmulti generator
   #(if (seq? %) (first %) nil)
   :default :none)
 
-(defmulti glsl-parser
+(defmulti parser
   #(if (seq? %) (first %) nil)
   :default :none)
 
-(defmethod glsl-transformer :none [expr]
+(defmethod transformer :none [expr]
   (cond
     (contains? type-map expr) (expr type-map)
-    :else                     (c-transformer expr)))
+    :else                     (c/transformer expr)))
 
-(defmethod glsl-generator :none [expr]
- (c-generator expr))
+(defmethod generator :none [expr]
+ (c/generator expr))
 
-(defmethod glsl-parser :none [expr]
+(defmethod parser :none [expr]
   (cond
     (keyword? expr) (parse-keyword expr)
-    :else           (c-parser expr)))
+    :else           (c/parser expr)))
 
 (defn translate-declarations [decl]
   (if (empty? decl)
@@ -72,7 +72,7 @@
 (defn translate-shader
   ([exprs] (translate-shader '() exprs))
   ([decl exprs]
-    (binding [*transformer* glsl-transformer, *generator* glsl-generator, *parser* #(try-parse % glsl-parser)]
+    (binding [*transformer* transformer, *generator* generator, *parser* #(try-parse % parser)]
       (let [exprs (tree-map exprs #(if (keyword? %) (parse-keyword %) %))]
       (str
         (translate-declarations decl)

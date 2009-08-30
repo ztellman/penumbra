@@ -7,20 +7,17 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns examples.gpgpu
-  (:use [penumbra opengl slate])
-  (:use [penumbra.opengl texture core])
-  (:use [penumbra.glsl data operators]))
+  (:use [penumbra slate compute]))
 
 (def dim 1e3)
 (def tuple 4)
 (def source (float-array (range (* tuple dim))))
 
 (with-blank-slate
-  (def op (create-gmap '(#^float4 (+ #^float4 %1 (* #^float4 %2 #^float scale)))))
   (def data (wrap source tuple))
+  (defmap op
+    (let [a #^float4 %1
+          b #^float4 %2
+          k #^float scale]
+      #^float4 (+ a (* b k))))
   (println (take 20 (unwrap (op {:scale 0.5} [data data])))))
-
-(with-blank-slate
-  (def op (create-gmap '((float4 (* :index #^float scale)))))
-  (def data (wrap source tuple))
-  (println (take 20 (unwrap (op {:scale 1.0} 20)))))

@@ -12,22 +12,22 @@
   
 ;;;;;;;;;;;;;;;;;;;
 
-(defmulti c-transformer
+(defmulti transformer
   #(if (seq? %) (first %) nil)
   :default :none)
 
-(defmulti c-generator
+(defmulti generator
   #(if (seq? %) (first %) nil)
   :default :none)
 
 (declare special-parse-case?)
 
-(defmulti c-parser
+(defmulti parser
   #(if (special-parse-case? %) nil (first %))
   :default :function)
 
-(defn translate-c [expr]
-  (binding [*generator* c-generator, *transformer* c-transformer, *parser* #(try-parse % c-parser)]
+(defn translate [expr]
+  (binding [*generator* generator, *transformer* transformer, *parser* #(try-parse % parser)]
     (translate-expr expr)))
 
 (defn- parse [expr]
@@ -36,14 +36,19 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;;shader macros
 
-(defmethod c-transformer :none [expr]
+(defmethod transformer :none [expr]
   expr)
 
-(defmethod c-transformer 'let
+(defmethod transformer 'let
   [expr]
   (concat
     '(do)
-    (map #(list 'set! (first %) (second %)) (partition 2 (second expr)))
+    (map
+      #(let [a (first %)
+             b (second %)
+             type (:tag ^b)]
+        (list 'set! (if type (cons type (seq-wrap a)) a) b))
+      (partition 2 (second expr)))
     (nnext expr)))
 
 (defn- unwind-stack [term expr]
@@ -51,7 +56,7 @@
     `(~(first expr) ~term ~@(rest expr))
     `(~expr ~term)))
 
-(defmethod c-transformer '->
+(defmethod transformer '->
   [expr]
   (let [term  (second expr)
         expr  (nnext expr)]
@@ -60,12 +65,12 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;shader generators
 
-(defmethod c-generator :none [expr]
+(defmethod generator :none [expr]
   (if (seq? expr)
     (apply concat (map try-generate expr))
     nil))
 
-(defmethod c-generator 'import [expr]
+(defmethod generator 'import [expr]
   (apply concat
     (map
       (fn [lst]
@@ -73,7 +78,7 @@
           (map #(var-get (intern namespace %)) (next lst))))
       (next expr))))
 
-(defmethod c-parser 'import [expr] "")
+(defmethod parser 'import [expr] "")
 
 ;;;;;;;;;;;;;;;;;;;;
 ;shader parser
@@ -112,7 +117,7 @@
     (swizzle? expr)
     (not (seq? expr))))
 
-(defmethod c-parser nil
+(defmethod parser nil
   ;handle base cases
   [expr]
   (cond
@@ -120,7 +125,7 @@
     (not (seq? expr))  (.replace (str expr) \- \_)
     :else              ""))
 
-(defmethod c-parser :function
+(defmethod parser :function
   ;transforms (a b c d) into a(b, c, d)
   [expr]
   (str
@@ -140,21 +145,21 @@
   "Defines an infix operator
   (+ a b) -> a + b"
   [op-symbol op-string]
-  `(defmethod c-parser ~op-symbol [expr#]
+  `(defmethod parser ~op-symbol [expr#]
     (concat-operators ~op-string (reverse (next expr#)))))
 
 (defmacro- def-unary-parser
   "Defines a unary operator
   (not a) -> !a"
   [op-symbol op-string]
-  `(defmethod c-parser ~op-symbol [expr#]
+  `(defmethod parser ~op-symbol [expr#]
     (str ~op-string (parse (second expr#)))))
 
 (defmacro- def-assignment-parser
   "Defines an assignment operator, making use of parse-assignment for the l-value
   (set! a b) -> a = b"
   [op-symbol op-string]
-  `(defmethod c-parser ~op-symbol [expr#]
+  `(defmethod parser ~op-symbol [expr#]
     (if (= 2 (count expr#))
       (str (parse-assignment-left (second expr#)))
       (str (parse-assignment-left (second expr#)) " " ~op-string " " (parse-assignment-right (third expr#))))))
@@ -163,7 +168,7 @@
   "Defines a wrapper for any keyword that wraps a scope
   (if a b) -> if (a) { b }"
   [scope-symbol scope-fn]
-  `(defmethod c-parser ~scope-symbol [expr#]
+  `(defmethod parser ~scope-symbol [expr#]
     (let [[header# body#] (~scope-fn expr#)]
       (str header# "\n{\n" (indent (parse-lines body# ";")) "}\n"))))
 
@@ -187,22 +192,22 @@
 (def-assignment-parser '-= "-=")
 (def-assignment-parser '*= "*=")
 
-(defmethod c-parser '-
+(defmethod parser '-
   ;the - symbol can either be a infix or unary operator
   [expr]
   (if (>= 2 (count expr))
     (str "-" (parse (second expr)))
     (concat-operators "-" (reverse (next expr)))))
 
-(defmethod c-parser 'nth
+(defmethod parser 'nth
   [expr]
   (str (parse (second expr)) "[" (third expr) "]"))
 
-(defmethod c-parser 'do
+(defmethod parser 'do
   [expr]
   (parse-lines (next expr) ";"))
 
-(defmethod c-parser 'if
+(defmethod parser 'if
   [expr]
   (str
     "if (" (parse (second expr)) ")"
@@ -211,7 +216,7 @@
       (str "else\n{\n" (indent (parse-lines (fourth expr) ";")) "}\n")
       "")))
 
-(defmethod c-parser 'return
+(defmethod parser 'return
   [expr]
   (str "return " (parse (second expr))))
 

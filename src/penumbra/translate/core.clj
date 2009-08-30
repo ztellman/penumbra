@@ -20,7 +20,10 @@
 
 ;;;
 
-(defn- realize [s]
+(defn seq-wrap [s]
+  (if (sequential? s) s (list s)))
+
+(defn realize [s]
   (if (seq? s) (doall s) s))
 
 (defn- str-pprint [expr]
@@ -44,10 +47,21 @@
     (catch Exception e
       (throw (ParseException. (str "\nError while transforming:\n" (str-pprint expr) (.getMessage e)) 0)))))
 
-(defn tree-map [tree fun]
+(defn tree-map
+  "Maps fun over every branch and leaf in the tree, without affecting sequence type or metadata."
+  [tree fun]
   (if (empty? tree)
     ()
-    (loop [z (zip/seq-zip tree)]
+    (loop [z
+           (zip/zipper sequential? seq
+             (fn [s x]
+               (with-meta
+                 (cond
+                   (vector? s) (vec x)
+                   (map? s) (map x)
+                   :else x)
+                 ^s))
+             tree)]
       (if (zip/end? z)
         (zip/root z)
         (recur (zip/next (zip/replace z (try-transform (zip/node z) fun))))))))

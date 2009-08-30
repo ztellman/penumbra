@@ -10,51 +10,30 @@
   (:use [penumbra opengl slate])
   (:use [penumbra.opengl.texture :only (create-texture release!)])
   (:use [penumbra.opengl.framebuffer :only (pixel-format write-format)])
-  (:use [penumbra.translate.core :only (tree-map)])
+  (:use [penumbra.translate.core :only (tree-map realize seq-wrap)])
   (:use [clojure.set :only (map-invert)])
   (:use [clojure.contrib.seq-utils :only (indexed flatten)])
   (:use [clojure.contrib.def :only (defvar-)])
+  (:use [clojure.contrib.pprint])
   (:require [penumbra.glsl.core :as glsl])
-  (:use [clojure.contrib.pprint]))
-
-;;;;;;;;;;;;;;;;;;
-
-(def fixed-transform
-  '((set! --coord (-> :multi-tex-coord0 .xy))
-    (set! :position (* :model-view-projection-matrix :vertex))))
-
-(defn- separate-operator [expr]
-  (cond
-    (vector? expr)            ['() expr]
-    (vector? (last expr))     [(take (dec (count expr)) expr) (last expr)]
-    (-> expr first seq? not)  ['() (list expr)]
-    :else                     [(take (dec (count expr)) expr) (list (last expr))]))
-
-(defn- transform-return-expr
-  "Tranforms the final expression into one or more assignments to gl_FragData[n]"
-  [expr]
-  (let [[body assn] (separate-operator expr)
-        assn        (list* 'do
-                      (map
-                        (fn [[idx e]] (list 'set! (list '-> :frag-data (list 'nth idx)) e))
-                        (indexed assn)))]
-    (concat body (list assn))))
-
-(defn create-operator
-  ([source] (create-operator '() source))
-  ([uniforms body]
-    (create-program
-      "#extension GL_ARB_texture_rectangle : enable"
-      (concat
-        '((varying vec2 --coord)
-          (uniform vec2 --dim))
-        (map #(cons 'uniform %) uniforms))
-      fixed-transform
-      (transform-return-expr body))))
+  (:require [clojure.zip :as zip]))
 
 ;;;;;;;;;;;;;;;;;;
 
 (defvar- types (set '(color3 color4 float float2 float3 float4 int int2 int3 int4)))
+
+(defn- typecast-expr [type expr]
+  (condp = type
+    'float    (list 'float4 expr)
+    'float2   (list 'float4 expr 1.0 1.0)
+    'float3   (list 'float4 expr 1.0)
+    'float4   expr
+    'color3   (list 'float4 expr 1.0)
+    'color4   expr
+    'int      (list 'float4 expr)
+    'int2     (list 'float4 expr 1.0 1.0)
+    'int3     (list 'float4 expr 1.0)
+    'int4     expr))
 
 (defvar- type-map
   (apply hash-map
@@ -94,6 +73,60 @@
 
 ;;;;;;;;;;;;;;;;;;;;;
 
+(def fixed-transform
+  '((set! --coord (-> :multi-tex-coord0 .xy))
+    (set! :position (* :model-view-projection-matrix :vertex))))
+
+(defn- result?
+  "This assumes you only traverse down the last element of the tree"
+  [expr]
+  (or
+    (vector? expr)
+    (not (sequential? expr))
+    (and
+      (-> expr first seq? not)
+      (-> expr glsl/transformer first (not= 'do)))))
+
+(defn- results [expr]
+  (if (result? expr)
+    (if (vector? expr) expr (list expr))
+    (results (last expr))))
+
+(defn- transform-results [expr fun]
+  (loop [z (zip/seq-zip expr)]
+    (if (result? (zip/node z))
+      (zip/root (zip/replace z (fun (results expr))))
+      (recur (-> z zip/down zip/rightmost)))))
+
+(defn- transform-operator-results
+  "Tranforms the final expression into one or more assignments to gl_FragData[n]"
+  [expr]
+  (transform-results
+    expr
+    (fn [results]
+      (list* 'do
+        (realize
+          (map
+            (fn [[idx e]]
+              (list 'set!
+                (list '-> :frag-data (list 'nth idx))
+                (typecast-expr (or (typeof e) (first e)) e)))
+            (indexed results)))))))
+
+(defn create-operator
+  ([source] (create-operator '() source))
+  ([uniforms body]
+    (create-program
+      "#extension GL_ARB_texture_rectangle : enable"
+      (concat
+        '((varying vec2 --coord)
+          (uniform vec2 --dim))
+        (realize (map #(cons 'uniform %) uniforms)))
+      fixed-transform
+      (transform-operator-results body))))
+
+;;;;;;;;;;;;;;;;;;;
+
 (defn- prepend-index [expr]
   (let [index '((set! (float --index) (-> --coord .y (- 0.5) (* (.x --dim)) (+ (-> --coord .x (- 0.5))))))]
     (if (contains? (set (flatten expr)) :index)
@@ -102,7 +135,9 @@
         (apply-transforms expr [(replace-with :index '--index)]))
       expr)))
 
-(defn- validate-elements [expr]
+(defn- validate-elements
+  "Make sure that there is one and only one type for each element"
+  [expr]
   (let [elements (filter-symbols element? expr)]
     (doseq [e (distinct (filter typeof elements))]
       (let [typs (distinct (map typeof (filter #(= e %) elements)))]
@@ -111,37 +146,44 @@
         (if (< 1 (count typs))
           (throw (Exception. (str "Ambiguous type for " e ", can't choose between " typs))))))))
 
-(defn- validate-params [expr]
+(defn- validate-params
+  "Make sure there isn't more than one type for each parameter"
+  [expr]
   (let [params (filter-symbols #(and (not (element? %)) (typeof %)) expr)]
     (doseq [e (distinct (filter typeof params))]
       (let [typs (distinct (map typeof (filter #(= e %) params)))]
         (if (< 1 (count typs))
           (throw (Exception. (str "Ambiguous type for " e ", can't choose between " typs))))))))
 
-(defn- validate-results [expr]
-  (let [[_ result] (separate-operator expr)]
-    (doseq [x result]
-      (if (and (nil? (typeof x)) (or (not (sequential? x)) (not (contains? types (first x)))))
-        (throw (Exception. (str x " must have an explicit type.")))))))
+(defn- validate-results
+  "Make sure there is a type for each return value"
+  [expr]
+  (doseq [x (results expr)]
+    (if (and (nil? (typeof x)) (or (not (sequential? x)) (not (contains? types (first x)))))
+      (throw (Exception. (str x " must have an explicit type."))))))
 
 (defn- rename-element [i]
   (symbol (str "-tex" i)))
 
 (defn- transform-element [e]
   (let [[_ tuple] (type-map (typeof e))]
-    (list (swizzle tuple)
-      (list 'texture2DRect (rename-element (element-index e)) '--coord))))
+    (with-meta
+      (list (swizzle tuple)
+        (list 'texture2DRect (rename-element (element-index e)) '--coord))
+      ^e)))
 
 (defn- rename-param [p]
-  (symbol (str "-" (name p))))
+  (with-meta (symbol (str "-" (name p))) ^p))
 
-(defn- process-gmap [expr]
+(defn- process-gmap
+  "Transforms the body, and pulls out all the relevant information."
+  [expr]
   (validate-elements expr)
   (validate-params expr)
   (validate-results expr)
-  (let [expr        expr ;(if (seq? (first expr)) expr (list expr))
+  (let [expr        (if (seq? (first expr)) expr (list expr))
         elements    (distinct (filter-symbols #(and (element? %) (typeof %)) expr))
-        params      (distinct (filter-symbols #(and (not (element? %)) (typeof %)) expr))
+        params      (distinct (filter-symbols #(and (not (element? %)) (typeof %)) (transform-results expr (fn [x] '()))))
         transforms  (flatten
                       (list
                         prepend-index
@@ -162,7 +204,7 @@
      :body expr
      :elements (zipmap elements (map typeof elements))
      :params (zipmap params (map typeof params))
-     :result (map #(or (typeof %) (first %)) (second (separate-operator expr)))}))
+     :results (map #(or (typeof %) (first %)) (results expr))}))
 
 (defn- create-write-texture [typecast dim]
   (let [[type tuple]  (type-map typecast)
@@ -172,6 +214,7 @@
     (create-texture :texture-rectangle dim (first i-f) p-f type tuple)))
 
 (defn create-gmap [expr]
+  (println "create-gmap" expr)
   (let [info    (process-gmap expr)
         program (create-operator (:declarations info) (:body info))]
     (fn this
@@ -192,11 +235,11 @@
         (with-program program
           (let [targets (map
                           (fn [[typ dim]] (create-write-texture typ dim))
-                          (map (fn [x] [x dim]) (:result info)))]
+                          (map (fn [x] [x dim]) (:results info)))]
             (doseq [[n v] params]
               (apply uniform (list*
                                (keyword (.replace (str "-" (name n)) \- \_))
-                               (if (sequential? v) v (list v)))))
+                               (seq-wrap v))))
             (uniform :__dim (float (first dim)) (float (second dim)))
             (attach-textures
               (interleave (map rename-element (range (count elements))) elements)

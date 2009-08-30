@@ -12,7 +12,7 @@
   (:use [clojure.contrib.lazy-seqs :only (primes)])
   (:use [clojure.contrib.seq-utils :only (separate)])
   (:use [penumbra opengl])
-  (:use [penumbra.opengl texture])
+  (:use [penumbra.opengl.texture :only [*texture-pool* destroy-textures]])
   (:import (java.util.concurrent Semaphore))
   (:import (javax.media.opengl GLPbuffer GLEventListener GLCapabilities GLProfile GLAutoDrawable)))
 
