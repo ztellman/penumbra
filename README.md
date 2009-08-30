@@ -50,19 +50,19 @@ rather than this:
 
 Shaders are supported, via an s-expression representation of GLSL.  It mimics Clojure where possible, and generally follows the principle of least surprise, but is constrained by the limitations of the target language (it's imperative rather than functional, variables must have explicit types, etc.).
 
-	=> (use 'penumbra.opengl.translate)
+	=> (use 'penumbra.glsl.core)
 	
-	=> (translate-expr '(+ a 1 (- b 2)))
+	=> (translate '(+ a 1 (- b 2)))
 	((a + 1) + (b - 2))
 	
-	=> (translate-expr '(-> a (+ 2) (/ 3) sin))
+	=> (translate '(-> a (+ 2) (/ 3) sin))
 	sin(((a + 2) / 3))
 	
-	=> (translate-expr '(let [(ivec2 b) [1 2] (vec3 a) [1.0 2.0 3.0] ]))
-	ivec2 b = ivec2(1, 2);
-	vec3 a = vec3(1.0, 2.0, 3.0);
+	=> (translate '(let [(float2 a) (float2 1.0 2.0), b #^float4 (float4 1.0 2.0 3.0 4.0)]))
+	vec2 a = vec2(1.0, 2.0);
+	vec4 b = vec4(1.0, 2.0, 3.0, 4.0);
 	
-	=> (translate-expr '(if (< a b) (+= a 1) (+= b 1)))
+	=> (translate '(if (< a b) (+= a 1) (+= b 1)))
 	if ((a < b))
 	{
 	  a += 1;
@@ -72,7 +72,7 @@ Shaders are supported, via an s-expression representation of GLSL.  It mimics Cl
 	  b += 1;
 	}
 	
-	=> (translate-expr '(set! a (if (< a b) (+ a 1) (+ b 1))))
+	=> (translate '(set! a (if (< a b) (+ a 1) (+ b 1))))
 	a = ((a < b) ? (a + 1) : (b + 1))
 	
 	=> (translate-shader '(set! :frag-color (fract :frag-coord)))

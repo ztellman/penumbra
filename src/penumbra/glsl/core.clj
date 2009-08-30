@@ -69,6 +69,10 @@
     ""
     (parse-lines (map #(list 'declare %) decl) ";")))
 
+(defn translate [expr]
+  (binding [*transformer* transformer, *generator* generator, *parser* #(try-parse % parser)]
+    (translate-expr expr)))
+
 (defn translate-shader
   ([exprs] (translate-shader '() exprs))
   ([decl exprs]
