@@ -74,17 +74,17 @@
 
 ;;;;;;;;;;;;;;;;;
 
-(defn- draw* [w h]
+(defn- draw* []
   (gl-active-texture :texture0)
   (push-matrix
     (draw-quads
-      (texture 0 h) (vertex 0 0 0)
-      (texture w h) (vertex w 0 0)
-      (texture w 0) (vertex w h 0)
-      (texture 0 0) (vertex 0 h 0))))
+      (texture 0 1) (vertex 0 0 0)
+      (texture 1 1) (vertex 1 0 0)
+      (texture 1 0) (vertex 1 1 0)
+      (texture 0 0) (vertex 0 1 0))))
 
-(defn draw []
-  ;(draw* (:width *slate*) (:height *slate*)))
+(defn draw [w h]
+  (viewport 0 0 w h)
   (call-display-list @(:display-list *slate*)))
 
 ;;;;;;;;;;;;;;;;;;
@@ -123,9 +123,8 @@
                 (bind-gl drawable
                   (bind-frame-buffer (gen-frame-buffer))
                   (set-display-list (:display-list slate)
-                    (draw* width height))
-                  (viewport 0 0 width height)
-                  (ortho-view 0 0 width height 0 1))))))
+                    (draw*))
+                  (ortho-view 0 0 1 1 -1 1))))))
         slate))))
 
 (defmacro with-slate

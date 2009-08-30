@@ -21,3 +21,7 @@
           k #^float scale]
       #^float4 (+ a (* b k))))
   (println (take 20 (unwrap (op {:scale 0.5} [data data])))))
+
+'(with-blank-slate
+  (defmap op (float4 :coord 1.0 1.0))
+  (println (take 20 (unwrap (op 20)))))

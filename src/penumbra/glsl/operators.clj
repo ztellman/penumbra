@@ -74,7 +74,7 @@
 ;;;;;;;;;;;;;;;;;;;;;
 
 (def fixed-transform
-  '((set! --coord (-> :multi-tex-coord0 .xy))
+  '((set! --coord (-> :multi-tex-coord0 .xy (* --dim)))
     (set! :position (* :model-view-projection-matrix :vertex))))
 
 (defn- result?
@@ -175,7 +175,7 @@
 (defn- rename-param [p]
   (with-meta (symbol (str "-" (name p))) ^p))
 
-(defn- process-gmap
+(defn- process-map
   "Transforms the body, and pulls out all the relevant information."
   [expr]
   (validate-elements expr)
@@ -213,9 +213,8 @@
     (if (nil? i-f) (throw (Exception. (str "Cannot write to texture of type " typecast))))
     (create-texture :texture-rectangle dim (first i-f) p-f type tuple)))
 
-(defn create-gmap [expr]
-  (println "create-gmap" expr)
-  (let [info    (process-gmap expr)
+(defn create-map [expr]
+  (let [info    (process-map expr)
         program (create-operator (:declarations info) (:body info))]
     (fn this
       ([size] (this {} [] (rectangle size)))
@@ -240,14 +239,20 @@
               (apply uniform (list*
                                (keyword (.replace (str "-" (name n)) \- \_))
                                (seq-wrap v))))
-            (uniform :__dim (float (first dim)) (float (second dim)))
+            (apply uniform (list* :__dim (map float dim)))
             (attach-textures
               (interleave (map rename-element (range (count elements))) elements)
               targets)
-            (draw)
+            (apply draw dim)
             (doseq [e elements]
               (release! e))
             (if (= 1 (count targets)) (first targets) targets)))))))
+
+;;;;;;;;;;;;;;;;;;
+
+(defn process-reduce [expr]
+  (let [typ (typeof expr)]
+    ))
 
 
 

@@ -17,4 +17,4 @@
   (apply glsl-data/unwrap args))
 
 (defmacro defmap [name & body]
-  `(def ~name (glsl-op/create-gmap (quote ~body))))
+  `(def ~name (glsl-op/create-map (quote ~body))))
