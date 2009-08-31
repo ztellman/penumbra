@@ -16,6 +16,7 @@
   (:use [clojure.contrib.def :only (defvar-)])
   (:use [clojure.contrib.pprint])
   (:require [penumbra.glsl.core :as glsl])
+  (:require [penumbra.glsl.data :as data])
   (:require [clojure.zip :as zip]))
 
 ;;;;;;;;;;;;;;;;;;
@@ -128,7 +129,10 @@
 ;;;;;;;;;;;;;;;;;;;
 
 (defn- prepend-index [expr]
-  (let [index '((set! (float --index) (-> --coord .y (- 0.5) (* (.x --dim)) (+ (-> --coord .x (- 0.5))))))]
+  (let [index
+        '((set!
+          (float --index)
+          (-> --coord .y floor (* (.x --dim)) (+ (-> --coord .x floor)))))]
     (if (contains? (set (flatten expr)) :index)
       (concat
         index
@@ -173,7 +177,7 @@
       ^e)))
 
 (defn- rename-param [p]
-  (with-meta (symbol (str "-" (name p))) ^p))
+  p)
 
 (defn- process-map
   "Transforms the body, and pulls out all the relevant information."
@@ -237,22 +241,73 @@
                           (map (fn [x] [x dim]) (:results info)))]
             (doseq [[n v] params]
               (apply uniform (list*
-                               (keyword (.replace (str "-" (name n)) \- \_))
+                               (keyword (name n))
                                (seq-wrap v))))
             (apply uniform (list* :__dim (map float dim)))
             (attach-textures
               (interleave (map rename-element (range (count elements))) elements)
               targets)
             (apply draw dim)
-            (doseq [e elements]
+            (doseq [e (distinct elements)]
               (release! e))
             (if (= 1 (count targets)) (first targets) targets)))))))
 
 ;;;;;;;;;;;;;;;;;;
 
 (defn process-reduce [expr]
-  (let [typ (typeof expr)]
-    ))
+  (let [expr          (if (= 1 (count expr)) (first expr) expr)
+        result        (first (results expr))
+        apply-reduce  (fn [offset]
+                        (apply-transforms expr
+                          [(replace-with '%1 'a)
+                           (replace-with '%2
+                             (list
+                               'texture2DRect '--data
+                                 (list '+ 'coord
+                                   (list 'float2 (first offset) (second offset)))))]))]
+    {:type
+      (typeof result)
+     :declarations
+      '((sampler2DRect --data)
+        (vec2 --bounds))
+     :body
+      (list
+        'let
+          (vector
+            '(float2 coord) '(* (floor --coord) 2.0)
+            '(bool x) '(<= (.x --bounds) (.x coord))
+            '(bool y) '(<= (.y --bounds) (.y coord))
+            'a (with-meta '(texture2DRect --data coord) {:tag (typeof expr)})
+            'a (list 'if 'x 'a (apply-reduce [1 0]))
+            'a (list 'if 'y 'a (apply-reduce [0 1]))
+            'a (list 'if '(or x y) 'a (apply-reduce [1 1])))
+        (list (typeof result) 'a))}))
+
+(defn create-reduce [expr]
+  (let [info (process-reduce expr)
+        program (create-operator (:declarations info) (:body info))]
+    (fn [input*]
+      (let [[w* h*] (:dim input*)]
+        (loop [dim [w* h*], input input*]
+          ;(println (seq (data/unwrap input)))
+          (if (= [1 1] dim)
+            (do
+              (let [result (data/unwrap-first input)]
+                (release! input)
+                result))
+            (let [target    (data/mimic-texture input)
+                  half-dim  (map #(Math/ceil (/ % 2.0)) dim)
+                  [w h]     half-dim
+                  bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
+              (data/write-to-texture target (float-array (take (* (apply * (:dim input*)) (:tuple input*)) (repeat (float 0)))))
+              (with-program program
+                (apply uniform (list* :__bounds bounds))
+                (apply uniform (list* :__dim half-dim))
+                (attach-textures [:__data input] [target])
+                (draw 0 0 w h)
+                (release! input)
+                (recur half-dim target)))))))))
+
 
 
 

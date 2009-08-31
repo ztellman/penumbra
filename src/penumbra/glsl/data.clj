@@ -102,5 +102,18 @@
         #^Buffer (array-to-buffer a (:internal-type tex)))
        a)))
 
+(defn unwrap-first [tex]
+  (if (nil? (:attach-point tex))
+    (throw (Exception. "Cannot read from unattached texture.")))
+  (gl-read-buffer @(:attach-point tex))
+  (let [a (create-array (:tuple tex) (:internal-type tex))]
+    (gl-read-pixels
+      0 0 1 1
+      (int (enum (:pixel-format tex)))
+      (int (enum (:internal-type tex)))
+      #^Buffer (array-to-buffer a (:internal-type tex)))
+     a))
+
+
 ;;;;;;;;;;;;;;;;;;
 

@@ -83,9 +83,12 @@
       (texture 1 0) (vertex 1 1 0)
       (texture 0 0) (vertex 0 1 0))))
 
-(defn draw [w h]
-  (viewport 0 0 w h)
-  (call-display-list @(:display-list *slate*)))
+(defn draw
+  ([w h]
+    (draw 0 0 w h))
+  ([x y w h]
+    (viewport x y w h)
+    (call-display-list @(:display-list *slate*))))
 
 ;;;;;;;;;;;;;;;;;;
 

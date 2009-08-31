@@ -18,3 +18,6 @@
 
 (defmacro defmap [name & body]
   `(def ~name (glsl-op/create-map (quote ~body))))
+
+(defmacro defreduce [name & body]
+  `(def ~name (glsl-op/create-reduce (quote ~body))))

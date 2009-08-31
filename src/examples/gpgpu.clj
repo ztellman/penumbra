@@ -9,19 +9,30 @@
 (ns examples.gpgpu
   (:use [penumbra slate compute]))
 
-(def dim 1e3)
+(def dim 1e5)
 (def tuple 4)
 (def source (float-array (range (* tuple dim))))
 
-(with-blank-slate
-  (def data (wrap source tuple))
+'(with-blank-slate
+  (def a (wrap source tuple))
+  (def b (wrap source tuple))
   (defmap op
     (let [a #^float4 %1
           b #^float4 %2
           k #^float scale]
       #^float4 (+ a (* b k))))
-  (println (take 20 (unwrap (op {:scale 0.5} [data data])))))
+  (time
+    (dotimes [_ 1e2]
+      (op {:scale 1.0} [a a]))))
 
-'(with-blank-slate
-  (defmap op (float4 :coord 1.0 1.0))
-  (println (take 20 (unwrap (op 20)))))
+(with-blank-slate
+  (defmap series
+    (let [(float a) (* 4.0 :index)]
+      (float4 a (+ 1.0 a) (+ 2.0 a) (+ 3.0 a))))
+  (defreduce sum
+    #^float4 (+ %1 %2))
+  (let [n 60
+        results (apply + (seq (sum (series n))))]
+    (println results (/ (* (* n 4) (dec (* n 4))) 2))))
+
+

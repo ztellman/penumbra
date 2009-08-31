@@ -24,7 +24,7 @@
   :permanent :ref-count :attach-point)
 
 (defn num-dimensions [t]
-  (count (filter #(not= 1 %) (:dim t))))
+  (count (:dim t)))
 
 (defn sizeof [t]
   (* (apply * (:dim t)) (:tuple t) (if (= :unsigned-byte (:internal-type t)) 1 4)))
@@ -81,7 +81,7 @@
 
 (def *texture-pool* nil)
 (def *tex-mem-threshold* 10e6)
-(def *tex-count-threshold* 30)
+(def *tex-count-threshold* 50)
 
 (defn- gen-texture []
   (let [a (int-array 1)]
@@ -128,7 +128,6 @@
                       available)]
     (if (not (empty? equivalent))
       (let [t (first equivalent)]
-        (println "coopting" t)
         (acquire! t)
         t)
       (let [id    (int (gen-texture))
@@ -142,7 +141,7 @@
           (tex-parameter typ (enum p) :clamp))
         (doseq [p [:texture-min-filter :texture-mag-filter]]
           (tex-parameter typ (enum p) :nearest))
-        (condp = (count (filter #(not= 1 %) dim))
+        (condp = (count dim)
           1 (gl-tex-image-1d typ 0 i-f (dim 0) 0 p-f internal-type nil)
           2 (gl-tex-image-2d typ 0 i-f (dim 0) (dim 1) 0 p-f i-t nil)
           3 (gl-tex-image-3d typ 0 i-f (dim 0) (dim 1) (dim 2) 0 p-f i-t nil))
