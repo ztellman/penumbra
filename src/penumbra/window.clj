@@ -57,7 +57,7 @@
      cap (new GLCapabilities profile)
      state (ref initial-state)]
 
-    (doto cap
+    '(doto cap
       (.setSampleBuffers true)
       (.setNumSamples 4)) ;anti-aliasing level
 

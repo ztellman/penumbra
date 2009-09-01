@@ -68,7 +68,7 @@
   (enqueue slate
     (fn []
       (let [textures @(:textures (:texture-pool slate))]
-        (println "cleaning up" (count textures) "textures")
+        (println "cleaning up" (count textures) "textures:" (map :dim textures))
         (destroy-textures textures)
         (.destroy #^GLPbuffer (:p-buffer slate))))))
 
@@ -99,8 +99,8 @@
       [profile (GLProfile/get GLProfile/GL2GL3)
        cap (GLCapabilities. profile)]
 
-      (.setPbufferFloatingPointBuffers cap true)
-      (.setPbufferRenderToTextureRectangle cap true)
+      ;(.setPbufferFloatingPointBuffers cap true)
+      ;(.setPbufferRenderToTextureRectangle cap true)
 
       (let [p-buffer  (.. (javax.media.opengl.GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
             tex-pool  {:texture-size (ref 0) :textures (ref [])}

@@ -78,8 +78,11 @@
       (write-to-texture tex ary)
       (assoc tex :size (count s)))))
 
-(defn mimic-texture [tex]
-  (apply create-texture (map #(% tex) [:target :dim :internal-format :pixel-format :internal-type :tuple])))
+(defn mimic-texture
+  ([tex]
+    (mimic-texture tex (:dim tex)))
+  ([tex dim]
+    (apply create-texture (list* (:target tex) dim (map #(% tex) [:internal-format :pixel-format :internal-type :tuple])))))
 
 (defn wrap
   ([s] (seq-to-texture s))

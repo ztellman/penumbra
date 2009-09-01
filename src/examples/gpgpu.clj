@@ -21,18 +21,23 @@
           b #^float4 %2
           k #^float scale]
       #^float4 (+ a (* b k))))
-  (time
+  (println (take 20 (seq (unwrap (op {:scale 1.0} [a a]))))))
+  '(time
     (dotimes [_ 1e2]
-      (op {:scale 1.0} [a a]))))
+      (op {:scale 1.0} [a a])))
 
 (with-blank-slate
   (defmap series
     (let [(float a) (* 4.0 :index)]
-      (float4 a (+ 1.0 a) (+ 2.0 a) (+ 3.0 a))))
+      ;(float4 a (+ 1.0 a) (+ 2.0 a) (+ 3.0 a))))
+      (float4 1.0)))
   (defreduce sum
     #^float4 (+ %1 %2))
-  (let [n 60
-        results (apply + (seq (sum (series n))))]
-    (println results (/ (* (* n 4) (dec (* n 4))) 2))))
+  (dotimes [_ 1]
+    (time
+      (let [n (int 5e6)
+            results (apply + (seq (sum (series n))))]
+      ;(println results (/ (* (* n 4) (dec (* n 4))) 2)))))
+        (println results (* n 4))))))
 
 

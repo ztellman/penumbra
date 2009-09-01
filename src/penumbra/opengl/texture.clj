@@ -135,7 +135,7 @@
             p-f   (int (enum pixel-format))
             i-t   (int (enum internal-type))
             i-f   (int (enum internal-format))
-            dim   (vec dim)]
+            dim   (vec (map int dim))]
         (gl-bind-texture typ id)
         (doseq [p [:texture-wrap-s :texture-wrap-t :texture-wrap-r]]
           (tex-parameter typ (enum p) :clamp))
