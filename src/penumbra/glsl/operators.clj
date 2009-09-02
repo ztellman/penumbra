@@ -290,7 +290,6 @@
     (fn [input*]
       (let [dim* (:dim input*)]
         (loop [dim dim*, input input*]
-          ;(println (seq (data/unwrap input)))
           (if (= [1 1] dim)
             (do
               (let [result (data/unwrap-first input)]
@@ -301,10 +300,8 @@
                   [w h]     half-dim
                   bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
               (with-program program
-                ;(data/write-to-texture target (float-array (take (* (apply * (:dim input*)) (:tuple input*)) (repeat (float 0)))))
                 (apply uniform (list* :__bounds bounds))
                 (apply uniform (list* :__dim half-dim))
-                ;(println "bounds" bounds "half-dim" half-dim)
                 (attach-textures [:__data input] [target])
                 (draw 0 0 w h)
                 (release! input)

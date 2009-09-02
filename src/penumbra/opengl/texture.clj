@@ -80,7 +80,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def *texture-pool* nil)
-(def *tex-mem-threshold* 10e6)
+(def *tex-mem-threshold* 100e6)
 (def *tex-count-threshold* 50)
 
 (defn- gen-texture []
@@ -112,11 +112,11 @@
       (if (or (> (count textures) *tex-count-threshold*)
               (> texture-size *tex-mem-threshold*))
         (cleanup-textures))
-        (dosync
-          (alter (:texture-size *texture-pool*)
-            #(+ % (sizeof t)))
-          (alter (:textures *texture-pool*)
-            #(conj % t))))))
+      (dosync
+        (alter (:texture-size *texture-pool*)
+          #(+ % (sizeof t)))
+        (alter (:textures *texture-pool*)
+          #(conj % t))))))
 
 (defn create-texture [type dim internal-format pixel-format internal-type tuple]
   (let [available   (if *texture-pool* (filter available? @(:textures *texture-pool*)) ())
