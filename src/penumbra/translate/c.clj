@@ -26,12 +26,19 @@
   #(if (special-parse-case? %) nil (first %))
   :default :function)
 
-(defn translate [expr]
-  (binding [*generator* generator, *transformer* transformer, *parser* #(try-parse % parser)]
+(defmulti assignment
+  #(if (seq? %) (first %) nil)
+  :default :none)
+
+(defn translate-c [expr]
+  (binding [*generator* generator, *transformer* transformer, *parser* parser, *assignment* assignment]
     (translate-expr expr)))
 
-(defn- parse [expr]
-  (*parser* expr))
+;;;;;;;;;;;;;;;;;;;;
+;;shader assignment
+
+(defmethod assignment :none [expr]
+  expr)
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;shader macros
@@ -44,10 +51,7 @@
   (concat
     '(do)
     (map
-      #(let [a (first %)
-             b (second %)
-             type (:tag ^b)]
-        (list 'set! (if type (cons type (seq-wrap a)) a) b))
+      #(list 'set! (first %) (second %))
       (partition 2 (second expr)))
     (nnext expr)))
 
@@ -153,16 +157,28 @@
   (not a) -> !a"
   [op-symbol op-string]
   `(defmethod parser ~op-symbol [expr#]
-    (str ~op-string (parse (second expr#)))))
+     (str ~op-string (parse (second expr#)))))
+
+(defn- typeof [expr]
+  (cond
+    (integer? expr) 'int
+    (float? expr)   'float
+    :else           (:tag ^expr)))
 
 (defmacro- def-assignment-parser
   "Defines an assignment operator, making use of parse-assignment for the l-value
   (set! a b) -> a = b"
   [op-symbol op-string]
-  `(defmethod parser ~op-symbol [expr#]
-    (if (= 2 (count expr#))
-      (str (parse-assignment-left (second expr#)))
-      (str (parse-assignment-left (second expr#)) " " ~op-string " " (parse-assignment-right (third expr#))))))
+  `(do
+    (defmethod parser ~op-symbol [a#]
+      (if (= 2 (count a#))
+        (str (parse-assignment-left (second a#)))
+        (str (parse-assignment-left (second a#)) " " ~op-string " " (parse-assignment-right (third a#)))))
+    (defmethod assignment ~op-symbol [b#]
+      (list
+        (first b#)
+        (with-meta (second b#) (assoc ^b# :assignment true :tag (typeof (third b#))))
+        (third b#)))))
 
 (defmacro- def-scope-parser
   "Defines a wrapper for any keyword that wraps a scope
@@ -188,6 +204,7 @@
 (def-unary-parser 'dec "--")
 (def-assignment-parser 'declare "")
 (def-assignment-parser 'set! "=")
+(def-assignment-parser '<- "=")
 (def-assignment-parser '+= "+=")
 (def-assignment-parser '-= "-=")
 (def-assignment-parser '*= "*=")

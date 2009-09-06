@@ -10,13 +10,19 @@
   (:require [penumbra.glsl.data :as glsl-data])
   (:require [penumbra.glsl.operators :as glsl-op]))
 
-(defn wrap [& args]
+(defn wrap
+  "Turns a flat seq into a texture, grouped by tuple
+  (def s (map float (range 20))
+  (wrap s) -> float texture w/ count = 20
+  (wrap s 4) -> float4 texture w/ count = 5"
+  [& args]
   (apply glsl-data/wrap args))
 
 (defn unwrap [& args]
+  "Returns a flat array containing the texture data"
   (apply glsl-data/unwrap args))
 
-(defmacro defmap [name & body]
+(defmacro defmap [name & body]wwa
   `(def ~name (glsl-op/create-map (quote ~body))))
 
 (defmacro defreduce [name & body]
