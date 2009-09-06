@@ -116,10 +116,11 @@
   'vec4 'vec4
   'vec3 'vec3
   'vec2 'vec2
-  'float 'float)
+  'float 'float
+  '.x 'float, '.xy 'float2, '.xyz 'float3, '.xyzw 'float4)
 
 (def-identity-inspectors
-  '+ '- 'normalize)
+  '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil)
 
 (def-maximum-inspectors
   '* '/)

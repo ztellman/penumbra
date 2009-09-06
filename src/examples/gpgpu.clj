@@ -11,7 +11,7 @@
 
 (with-blank-slate
   (defmap generate
-    (let [s #^float (sin :index)]
+    (let [(float s) (sin :index)]
       #^float3
       (normalize
         (float3 s (* 3.0 (cos :index)) (/ (* s s) 2.0)))))

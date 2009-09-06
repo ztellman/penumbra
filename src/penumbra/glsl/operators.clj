@@ -129,6 +129,7 @@
 ;;;;;;;;;;;;;;;;;;;
 
 (defn- prepend-index [expr]
+  (println "prepend-index" expr)
   (let [index
         '((set!
           (float --index)
@@ -190,11 +191,10 @@
         params      (distinct (filter-symbols #(and (not (element? %)) (typeof %)) (transform-results expr (fn [x] '()))))
         transforms  (flatten
                       (list
-                        prepend-index
                         (replace-with :coord '--coord)
                         (map #(replace-with % (transform-element %)) elements)
                         (map #(replace-with % (rename-param %)) params)))
-        expr        (apply-transforms expr transforms)
+        expr        (prepend-index (apply-transforms expr transforms))
         decl        (concat
                       (if (empty? elements)
                         '()
@@ -278,7 +278,7 @@
             '(float2 coord) '(* (floor --coord) 2.0)
             '(bool x) '(<= (.x --bounds) (.x coord))
             '(bool y) '(<= (.y --bounds) (.y coord))
-            'a (with-meta (list (swizzle (second (type-map (typeof result)))) '(texture2DRect --data coord)) {:tag (typeof expr)})
+            (list (typeof result) 'a) (list (swizzle (second (type-map (typeof result)))) '(texture2DRect --data coord))
             'a (list 'if 'x 'a (apply-reduce [1 0]))
             'a (list 'if 'y 'a (apply-reduce [0 1]))
             'a (list 'if '(or x y) 'a (apply-reduce [1 1])))
