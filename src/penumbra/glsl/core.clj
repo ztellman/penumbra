@@ -11,7 +11,7 @@
   (:use [clojure.contrib.def :only (defvar- defmacro-)])
   (:use [clojure.contrib.pprint :only (pprint)])
   (:import (java.text ParseException))
-  (:require [penumbra.translate.c :as c] ))
+  (:require [penumbra.translate.c :as c]))
 
 ;;;
 
@@ -26,13 +26,18 @@
           #(str (.. % (substring 0 1) toUpperCase) (. % substring 1 (count %)))
           (seq (.split (name k) "-")))))))
 
-(def type-map
+(defvar- type-map
   (apply hash-map
     '(float float, float2 vec2, float3 vec3, float4 vec4
       int int, int2 ivec2, int3 ivec3, int4 ivec4
       color3 float3, color4 float4)))
 
-(def tuple
+(defvar- tuple-map
+  (apply hash-map
+    '([:vec 1] float, [:vec 2] vec2, [:vec 3] vec3, [:vec 4] vec4
+      [:ivec 1] int, [:ivec 2] ivec2, [:ivec 3] ivec3, [:ivec 4] ivec4)))
+
+(defvar- tuple
   (apply hash-map
     '(float 1, vec2 2, vec3 3, vec4 4
       int 1, ivec2 2, ivec3 3, ivec4 4)))
@@ -52,7 +57,10 @@
   :default :none)
 
 (defmulti inspector
-  #(if (seq? %) (first %) nil)
+  #(cond
+     (not (seq? %)) nil
+     (c/swizzle? %) :swizzle
+     :else (first %))
   :default :none)
 
 (defmethod transformer :none [expr]
@@ -68,16 +76,18 @@
     (keyword? expr) (parse-keyword expr)
     :else           (c/parser expr)))
 
-(defmethod inspector :none [expr]
-  ^expr)
-
 ;;;
 
-(defn- typeof [expr]
-  (cond
-    (integer? expr) 'int
-    (float? expr)   'float
-    :else           (:tag ^expr)))
+(defmethod inspector :none [expr]
+  (typeof expr))
+
+(defmethod inspector :swizzle [expr]
+  (let [tuple (-> expr first name count dec)
+        type  (-> expr second meta :tag)]
+    (if (not type)
+      nil
+      (let [subtype (-> type name (.substring 0 (-> type name count dec)) keyword)]
+        (tuple-map [subtype tuple])))))
 
 (defn- def-constant-inspector [[k v]]
   `(defmethod inspector ~k [x#]
@@ -90,20 +100,24 @@
 
 (defn- def-identity-inspector [sym]
   `(defmethod inspector ~sym [x#]
-     (let [types# (map typeof (next x#))]
-       (if (apply not= types#)
-         (throw (ParseException. (str "Mismatched types in " (list* x#) " : inferrered types are " (list* types#)) 0))
-         (first types#)))))
+    (let [types# (filter identity (map typeof (next x#)))]
+       (if (empty? types#)
+         nil
+         (if (apply not= types#)
+          (throw (ParseException. (str "Mismatched types in " (list* x#) " : inferrered types are " (list* types#)) 0))
+          (first types#))))))
 
 (defmacro- def-identity-inspectors [& symbols]
   (let [fns (map def-identity-inspector symbols)]
     `(do ~@fns)))
 
 (defn- def-maximum-inspector [sym]
-  `(defmethod inspector ~sym [x#]
-     (let [types# (map typeof (next x#))
-           maximum# (apply max (map tuple types#))]
-       (first (filter (fn [p#] (= maximum# (tuple p#))) types#)))))
+  `(defmethod inspector ~sym [expr#]
+     (let [types# (filter identity (map typeof (next expr#)))]
+       (if (empty? types#)
+         nil
+         (let [maximum# (apply max (map tuple types#))]
+           (first (filter (fn [p#] (= maximum# (tuple p#))) types#)))))))
 
 (defmacro- def-maximum-inspectors [& symbols]
   (let [fns (map def-maximum-inspector symbols)]
@@ -117,7 +131,7 @@
   'vec3 'vec3
   'vec2 'vec2
   'float 'float
-  '.x 'float, '.xy 'float2, '.xyz 'float3, '.xyzw 'float4)
+  'dot 'float)
 
 (def-identity-inspectors
   '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil)
@@ -133,13 +147,13 @@
     (parse-lines (map #(list 'declare %) decl) ";")))
 
 (defn translate-glsl [expr]
-  (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *assignment* c/assignment]
+  (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
     (translate-expr expr)))
 
 (defn translate-shader
   ([exprs] (translate-shader '() exprs))
   ([decl exprs]
-    (binding [*transformer* transformer, *generator* generator, *parser* parser]
+    (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
       (let [exprs (tree-map exprs #(if (keyword? %) (parse-keyword %) %))]
       (str
         (translate-declarations decl)

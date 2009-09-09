@@ -59,10 +59,20 @@
         #(drop (count coll) %)))))
 
 (defn invoke [slate f]
-  (let [#^Semaphore s (Semaphore. 1)]
+  (let [#^Semaphore s (Semaphore. 1)
+        exception (atom nil)]
     (.acquire s)
-    (enqueue slate (fn [] (f) (.release s)))
-    (.acquire s)))
+    (enqueue slate
+      (fn []
+        (try
+          (f)
+          (catch Exception e
+            (reset! exception e))
+          (finally
+            (.release s)))))
+    (.acquire s)
+    (if @exception
+      (throw @exception))))
 
 (defn destroy [slate]
   (enqueue slate

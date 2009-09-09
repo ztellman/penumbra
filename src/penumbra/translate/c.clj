@@ -26,18 +26,18 @@
   #(if (special-parse-case? %) nil (first %))
   :default :function)
 
-(defmulti assignment
+(defmulti tagger
   #(if (seq? %) (first %) nil)
   :default :none)
 
 (defn translate-c [expr]
-  (binding [*generator* generator, *transformer* transformer, *parser* parser, *assignment* assignment]
+  (binding [*generator* generator, *transformer* transformer, *parser* parser, *tagger* tagger]
     (translate-expr expr)))
 
 ;;;;;;;;;;;;;;;;;;;;
-;;shader assignment
+;;symbol metadata tagging
 
-(defmethod assignment :none [expr]
+(defmethod tagger :none [expr]
   expr)
 
 ;;;;;;;;;;;;;;;;;;;;
@@ -87,11 +87,11 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;shader parser
 
-(defn- swizzle?
+(defn swizzle?
   "Any function starting with a '.' is treated as a member access.
   (.xyz position) -> position.xyz"
   [expr]
-  (and (seq? expr) (= \. (-> expr first name first))))
+  (and (seq? expr) (-> expr first symbol?) (= \. (-> expr first name first))))
 
 (defn- third [expr] (-> expr next second))
 (defn- fourth [expr] (-> expr next next second))
@@ -101,11 +101,19 @@
   "Parses the l-value in an assignment expression."
   [expr]
   (cond
-    (swizzle? expr)         (str (apply str (interpose " " (map name (next expr)))) (-> expr first name))
-    (symbol? expr)          (.replace (name expr) \- \_)
-    (first= expr 'nth)      (str (parse-assignment-left (second expr)) "[" (parse (third expr)) "]")
-    (empty? expr)           ""
-    :else                   (apply str (interpose " " (map parse-assignment-left expr)))))
+    (swizzle? expr)
+      (str (apply str (interpose " " (map name (next expr)))) (-> expr first name))
+    (symbol? expr)
+      (let [name (.replace (name expr) \- \_)]
+        (if (:first-appearance ^expr)
+          (apply str (list (:tag ^expr) " " name))
+          (str name)))
+    (first= expr 'nth)
+      (str (parse-assignment-left (second expr)) "[" (parse (third expr)) "]")
+    (empty? expr)
+      ""
+    :else
+      (apply str (interpose " " (concat '() (:modifiers ^expr) (:tag ^expr) expr)))))
 
 (defn- parse-assignment-right
   "Parses the r-value in an assignment expressions."
@@ -159,12 +167,6 @@
   `(defmethod parser ~op-symbol [expr#]
      (str ~op-string (parse (second expr#)))))
 
-(defn- typeof [expr]
-  (cond
-    (integer? expr) 'int
-    (float? expr)   'float
-    :else           (:tag ^expr)))
-
 (defmacro- def-assignment-parser
   "Defines an assignment operator, making use of parse-assignment for the l-value
   (set! a b) -> a = b"
@@ -174,11 +176,20 @@
       (if (= 2 (count a#))
         (str (parse-assignment-left (second a#)))
         (str (parse-assignment-left (second a#)) " " ~op-string " " (parse-assignment-right (third a#)))))
-    (defmethod assignment ~op-symbol [b#]
-      (list
-        (first b#)
-        (with-meta (second b#) (assoc ^b# :assignment true :tag (typeof (third b#))))
-        (third b#)))))
+    (defmethod tagger ~op-symbol [b#]
+      (let [s1# (first b#)
+            s2# (second b#)
+            s3# (third b#)]
+        (if (= 2 (count b#))
+          (list
+           s1#
+           (with-meta s2# (assoc ^s2# :assignment true, :defines s2#)))
+          (list
+           s1#
+           (with-meta s2# (assoc ^s2# :assignment true, :defines s2#, :numeric-value (if (number? s3#) s3# nil)))
+           (if (meta? s3#)
+             (with-meta s3# (assoc ^s3# :defines s2#))
+             s3#)))))))
 
 (defmacro- def-scope-parser
   "Defines a wrapper for any keyword that wraps a scope
@@ -244,3 +255,9 @@
       (second expr) " " (.replace (name (third expr)) \- \_)
       "(" (apply str (interpose ", " (map parse-assignment-left (fourth expr)))) ")")
      (drop 4 expr)]))
+
+(defmethod tagger 'defn [expr]
+  (list*
+    (first expr) (second expr) (third expr)
+    (vec (map #(with-meta % (assoc ^% :assignment true, :defines %)) (fourth expr)))
+    (drop 4 expr)))
