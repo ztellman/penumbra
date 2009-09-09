@@ -18,13 +18,13 @@
 (defn- parse-keyword
   "Turns :model-view-matrix into gl_ModelViewMatrix."
   [k]
-  (symbol
-    (str
-      "gl_"
-      (apply str
-        (map
-          #(str (.. % (substring 0 1) toUpperCase) (. % substring 1 (count %)))
-          (seq (.split (name k) "-")))))))
+  (str
+   "gl_"
+   (apply
+    str
+    (map
+     #(str (.. % (substring 0 1) toUpperCase) (. % substring 1 (count %)))
+     (seq (.split (name k) "-"))))))
 
 (defvar- type-map
   (apply hash-map
@@ -45,7 +45,7 @@
 ;;;
 
 (defmulti transformer
-  (fn [_] nil)
+  #(if (seq? %) (first %) nil)
   :default :none)
 
 (defmulti generator
@@ -79,7 +79,10 @@
 ;;;
 
 (defmethod inspector :none [expr]
-  (typeof expr))
+  (let [transformed-type (type-map (:tag ^expr))]
+    (if transformed-type
+      transformed-type
+      (typeof expr))))
 
 (defmethod inspector :swizzle [expr]
   (let [tuple (-> expr first name count dec)
@@ -113,8 +116,9 @@
 
 (defn- def-maximum-inspector [sym]
   `(defmethod inspector ~sym [expr#]
-     (let [types# (filter identity (map typeof (next expr#)))]
-       (if (empty? types#)
+     (let [types# (map typeof (next expr#))
+           known-types# (filter identity types#)]
+       (if (or (empty? known-types#) (not= (count types#) (count known-types#))) 
          nil
          (let [maximum# (apply max (map tuple types#))]
            (first (filter (fn [p#] (= maximum# (tuple p#))) types#)))))))
@@ -123,28 +127,33 @@
   (let [fns (map def-maximum-inspector symbols)]
     `(do ~@fns)))
        
-
 ;;;
 
 (def-constant-inspectors
-  'vec4 'vec4
-  'vec3 'vec3
-  'vec2 'vec2
-  'float 'float
+  'vec4 'vec4, 'vec3 'vec3, 'vec2 'vec2, 'float 'float
+  'noise4 'vec4, 'noise3 'vec3, 'noise3 'vec2, 'noise 'float
   'dot 'float)
 
 (def-identity-inspectors
-  '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil)
+  '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil 'if 'abs)
 
 (def-maximum-inspectors
-  '* '/)
+  '* '/ 'mix 'pow)
 
 ;;;
 
-(defn translate-declarations [decl]
-  (if (empty? decl)
-    ""
-    (parse-lines (map #(list 'declare %) decl) ";")))
+(defn- def-transform-modifier [sym]
+  `(defmethod transformer ~sym [expr#]
+     (let [x# (second expr#)]
+       (with-meta x# (assoc ^x# :modifiers (into (:modifiers ^x#) [~sym]))))))
+
+(defmacro- def-transform-modifiers [& symbols]
+  (let [fns (map def-transform-modifier symbols)]
+    `(do ~@fns)))
+
+(def-transform-modifiers 'in, 'out, 'inout, 'uniform, 'attribute, 'varying)
+
+;;;
 
 (defn translate-glsl [expr]
   (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
@@ -154,10 +163,10 @@
   ([exprs] (translate-shader '() exprs))
   ([decl exprs]
     (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
-      (let [exprs (tree-map exprs #(if (keyword? %) (parse-keyword %) %))]
-      (str
-        (translate-declarations decl)
-        (translate-expr
-          (concat
-            '(defn void main [])
+      (translate-expr
+        (concat
+        (list 'do (map #(list 'declare %) decl))
+        (list
+          (list
+            'defn 'void 'main []
             (list 'do exprs))))))))

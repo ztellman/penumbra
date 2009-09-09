@@ -13,25 +13,25 @@
 ;;;;;;;;;;;;;;;;;
 
 (def declarations
-  '((varying float noise)
-    (varying vec4 pos)
-    (varying vec4 intensity)))
+  '((varying #^float noise)
+    (varying #^float4 pos)
+    (varying #^float4 intensity)))
 
 '(def vertex-shader
   '(let a b))
 
 (def vertex-shader
   '((import (penumbra.glsl.effects lighting))
-    (let [pos         :vertex 
-          noise       (* 1.5 (noise1 pos)) 
-          intensity   (lighting 0 (normalize (* :normal-matrix :normal)))]
+    (let [pos       :vertex
+          noise      (* 1.5 (noise1 pos))
+          intensity  (lighting 0 (normalize (* :normal-matrix :normal)))]
       (set! :position (* :model-view-projection-matrix :vertex)))))
 
 (def fragment-shader
-  '(let [(float marble)       (-> pos .x (* 2.0) (+ noise) sin abs)
-         (float4 marble-color)  (float4 0.8 0.7 0.7 1.0)
-         (float4 vein-color)    (float4 0.2 0.15 0.1 1.0)
-         (float4 color)         (mix vein-color marble-color (pow marble 0.5))]
+  '(let [marble       (-> pos .x (* 2.0) (+ noise) sin abs)
+         marble-color (float4 0.8 0.7 0.7 1.0)
+         vein-color   (float4 0.2 0.15 0.1 1.0)
+         color        (mix vein-color marble-color (pow marble 0.5))]
      (set! :frag-color (* intensity color))))
 
 ;;;;;;;;;;;;;;;;;
@@ -67,6 +67,9 @@
   (with-program (:program state)
     (teapot)))
 
-(start
-  {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
-  {:rot-x 0, :rot-y 0, :program nil})
+(defn begin []
+  (start
+   {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
+   {:rot-x 0, :rot-y 0, :program nil}))
+
+(begin)

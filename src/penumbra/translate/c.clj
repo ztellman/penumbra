@@ -8,7 +8,7 @@
 
 (ns penumbra.translate.c
   (:use [penumbra.translate core])
-  (:use [clojure.contrib (def :only (defmacro-))]))
+  (:use [clojure.contrib (def :only (defmacro-)) (seq-utils :only (flatten))]))
   
 ;;;;;;;;;;;;;;;;;;;
 
@@ -105,15 +105,15 @@
       (str (apply str (interpose " " (map name (next expr)))) (-> expr first name))
     (symbol? expr)
       (let [name (.replace (name expr) \- \_)]
-        (if (:first-appearance ^expr)
-          (apply str (list (:tag ^expr) " " name))
+        (if (and (meta? expr) (:first-appearance ^expr))
+          (.trim (apply str (interpose " " (reverse (list* name (:tag ^expr) (:modifiers ^expr))))))
           (str name)))
     (first= expr 'nth)
       (str (parse-assignment-left (second expr)) "[" (parse (third expr)) "]")
-    (empty? expr)
+    (and (seq? expr) (empty? expr))
       ""
     :else
-      (apply str (interpose " " (concat '() (:modifiers ^expr) (:tag ^expr) expr)))))
+      (parse expr)))
 
 (defn- parse-assignment-right
   "Parses the r-value in an assignment expressions."
@@ -127,15 +127,17 @@
 (defn- special-parse-case? [expr]
   (or
     (swizzle? expr)
-    (not (seq? expr))))
+    (not (seq? expr))
+    (-> expr first seq?)))
 
 (defmethod parser nil
   ;handle base cases
   [expr]
   (cond
-    (swizzle? expr)    (str (-> expr second parse) (-> expr first str))
-    (not (seq? expr))  (.replace (str expr) \- \_)
-    :else              ""))
+    (swizzle? expr)      (str (-> expr second parse) (-> expr first str))
+    (not (seq? expr))    (.replace (str expr) \- \_)
+    (-> expr first seq?) (parse-lines expr ";")
+    :else                ""))
 
 (defmethod parser :function
   ;transforms (a b c d) into a(b, c, d)
@@ -180,16 +182,16 @@
       (let [s1# (first b#)
             s2# (second b#)
             s3# (third b#)]
-        (if (= 2 (count b#))
-          (list
-           s1#
-           (with-meta s2# (assoc ^s2# :assignment true, :defines s2#)))
-          (list
-           s1#
-           (with-meta s2# (assoc ^s2# :assignment true, :defines s2#, :numeric-value (if (number? s3#) s3# nil)))
-           (if (meta? s3#)
-             (with-meta s3# (assoc ^s3# :defines s2#))
-             s3#)))))))
+        (cond
+          (not (meta? s2#))
+            b#
+          (= 2 (count b#))
+            (list s1# (with-meta s2# (assoc ^s2# :assignment true, :defines s2#)))
+          :else
+            (list
+             s1#
+             (with-meta s2# (assoc ^s2# :assignment true, :defines s2#, :numeric-value (if (number? s3#) s3# nil)))
+             (if (meta? s3#) (with-meta s3# (assoc ^s3# :defines s2#)) s3#)))))))
 
 (defmacro- def-scope-parser
   "Defines a wrapper for any keyword that wraps a scope

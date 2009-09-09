@@ -208,18 +208,21 @@
 (defn infer-types
   "Repeatedly applies inspect-exprs and tag-var until everything is typed"
   [expr]
+  ;(print-tree expr)
   (loop [expr expr, iterations 0]
     (let [vars          (declared-vars expr)
           types         (zipmap vars (map #(var-type % expr) vars))
           known-types   (filter (fn [[k v]] v) types)
           unknown-types (filter (fn [[k v]] (not v)) types)
           expr*         (inspect-exprs (reduce (fn [x [k v]] (tag-var k v x)) expr known-types))]
-      (if (< 10 iterations)
-        (throw (Exception. (str "Unable to determine type of " (with-out-str (prn (keys unknown-types)))))))
-      (print-tree expr*)
-      (if (empty? unknown-types)
-        expr*
-        (recur expr* (inc iterations))))))
+      (if (< 20 iterations)
+        ;expr*
+        (throw (Exception. (str "Unable to determine type of " (with-out-str (prn (keys unknown-types))))))
+        (do
+          ;(print-tree expr*)
+          (if (empty? unknown-types)
+            expr*
+            (recur expr* (inc iterations))))))))
         
 ;;;
 
