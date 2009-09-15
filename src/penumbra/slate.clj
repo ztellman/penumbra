@@ -103,7 +103,7 @@
 ;;;;;;;;;;;;;;;;;;
 
 (defn create-slate
-  ([] (create-slate 4096 4096))
+  ([] (create-slate 1 1))
   ([width height]
     (let
       [profile (GLProfile/get GLProfile/GL2GL3)
@@ -149,5 +149,6 @@
   `(let [slate# (create-slate)]
     (with-slate slate#
       ~@body)
-    (destroy slate#)))
+    (destroy slate#)
+    nil))
 

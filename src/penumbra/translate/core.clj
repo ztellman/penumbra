@@ -25,10 +25,17 @@
 (defvar *inspector* nil
   "Returns the type of the expression.  Applied as :tag metadata.")
 (defvar *tagger* nil
-  "Specialized macro.  Should set :assignment metadata to true where a variable is being assigned, and pull
-  type from r-value to l-value.")
+  "Specialized macro.  Should set :assignment and :defines tags.")
 
 ;;;
+
+(defn meta? [expr]
+  (instance? clojure.lang.IMeta expr))
+
+(defn add-meta [x & meta]
+  (if (meta? x)
+    (with-meta x (apply assoc (list* ^x meta)))
+    x))
 
 (defn seq-wrap [s]
   (if (sequential? s) s (list s)))
@@ -58,7 +65,7 @@
 
 (defmacro- defn-try-
   [name fun message]
-  (list `defn-try (with-meta name (assoc (meta name) :private true)) fun message))
+  (list `defn-try (add-meta name :private true) fun message))
 
 ;;;
 
@@ -67,14 +74,16 @@
   "Error while transforming")
 
 (defn- mimic-expr [a b]
-  (with-meta
-    (cond
-      (vector? a) (vec b)
-      (map? a) (hash-map b)
-      :else b)
-    (merge ^a ^b)))
+  (if (meta? b)
+    (with-meta
+      (cond
+        (vector? a) (vec b)
+        (map? a) (hash-map b)
+        :else b)
+      (merge ^a ^b))
+    b))
 
-(defn tree-filter [pred expr]
+(defn tree-filter [expr pred]
   (filter pred (tree-seq sequential? seq expr)))
 
 (defn- do-tree* [x fun depth]
@@ -89,17 +98,24 @@
 (defn- do-tree [x fun]
   (do-tree* x fun 0))
   
-(defn- tree-map*
+(defn tree-map
   "A post-order recursion, so that we can build transforms upwards."
   [x fun]
   (cond
-    (not (sequential? x)) (fun x)
-    (empty? x) ()
-    :else (mimic-expr x (fun (map #(tree-map* % fun) x)))))
+    (not (meta? x))
+      (fun x)
+    (not (sequential? x))
+      (let [x* (fun x)] 
+        (with-meta x* (merge ^x ^x*)))
+    (empty? x)
+      ()
+    :else
+      (let [x* (mimic-expr x (map #(tree-map % fun) x))]
+        (mimic-expr x* (fun x*)))))
 
-(defn tree-map [x fun]
-  (loop [x (tree-map* x fun)]
-    (let [x* (tree-map* x fun)]
+(defn tree-map* [x fun]
+  (loop [x (tree-map x fun)]
+    (let [x* (tree-map x fun)]
       (if (= x x*) x (recur x*)))))
 
 (defn print-tree [expr]
@@ -115,7 +131,7 @@
 
 (defn- transform-exprs [expr]
   (if *transformer*
-    (tree-map expr try-transform)
+    (tree-map* expr try-transform)
     expr))
 
 ;;;
@@ -135,13 +151,10 @@
 
 ;;;
 
-(defn meta? [expr]
-  (instance? clojure.lang.IMeta expr))
-
 (defn-try try-inspect
   #(realize
     (if (meta? %)
-      (with-meta % (assoc ^% :tag (or (*inspector* %) (:tag ^%))))
+      (add-meta % :tag (or (:tag ^%) (*inspector* %)))
       %))
   "Error while inferring type")
 
@@ -160,7 +173,7 @@
        (if (and (symbol? x) (:assignment ^x) (not (@vars x)))
         (do
           (swap! vars #(conj % x))
-          (with-meta x (assoc ^x :first-appearance true)))
+          (add-meta x :first-appearance true))
         x)))))
 
 (defn-try try-tag
@@ -180,15 +193,15 @@
     (float? expr) 'float
     (not (meta? expr)) nil
     (:numeric-value ^expr) (typeof (:numeric-value ^expr))
-    (:tag ^expr) (:tag ^expr)))
+    :else (:tag ^expr)))
 
 (defn declared-vars [expr]
-  (distinct (tree-filter #(:assignment ^%) expr)))
+  (distinct (tree-filter expr #(:assignment ^%))))
 
-(defn var-type
+(defn typeof-var
   "Determine type, if possible, of var within expr"
   [var expr]
-  (let [vars (tree-filter #(or (= var %) (and (meta? %) (= var (:defines ^%)))) expr)
+  (let [vars  (tree-filter expr #(or (= var %) (and (meta? %) (= var (:defines ^%)))))
         types (distinct (filter identity (map typeof vars)))]
     (cond
       (empty? types)
@@ -198,31 +211,40 @@
       :else
         (throw (ParseException. (str "Ambiguous type for " var ", cannot decide between " (with-out-str (prn types))) 0)))))
 
+(defn- tagged-vars [expr]
+  (let [vars (atom [])]
+    (tree-map
+      expr
+      (fn [x]
+        (if (:tag ^x)
+          (swap! vars #(conj % x)))
+        x))
+    @vars))
+
 (defn- tag-var
   "Add :tag metadata to all instances of var in expr"
   [var type expr]
   (tree-map
    expr
-   #(if (not= var %) % (with-meta % (assoc ^% :tag type)))))
+   #(if (not= var %) % (add-meta % :tag type))))
 
 (defn infer-types
   "Repeatedly applies inspect-exprs and tag-var until everything is typed"
   [expr]
-  ;(print-tree expr)
-  (loop [expr expr, iterations 0]
+  (loop [expr expr, tagged (tagged-vars expr), iterations 0]
     (let [vars          (declared-vars expr)
-          types         (zipmap vars (map #(var-type % expr) vars))
+          types         (zipmap vars (map #(typeof-var % expr) vars))
           known-types   (filter (fn [[k v]] v) types)
           unknown-types (filter (fn [[k v]] (not v)) types)
-          expr*         (inspect-exprs (reduce (fn [x [k v]] (tag-var k v x)) expr known-types))]
-      (if (< 20 iterations)
-        ;expr*
-        (throw (Exception. (str "Unable to determine type of " (with-out-str (prn (keys unknown-types))))))
-        (do
-          ;(print-tree expr*)
-          (if (empty? unknown-types)
-            expr*
-            (recur expr* (inc iterations))))))))
+          expr*         (inspect-exprs (reduce (fn [x [k v]] (tag-var k v x)) expr known-types))
+          tagged*       (tagged-vars expr*)]
+      (cond
+        (empty? unknown-types)
+          expr*
+        (and (= (count tagged) (count tagged*)) (< 20 iterations)) ;TODO: determine max sexpr depth and use that instead
+          (throw (Exception. (str "Unable to determine type of " (with-out-str (prn (keys unknown-types))))))
+        :else
+          (recur expr* tagged* (inc iterations))))))
         
 ;;;
 
@@ -248,13 +270,16 @@
 
 ;;;
 
-(defn translate-expr
-  "Applies all the multi-fns, in the appropriate order."  
+(defn transform-expr
   [expr]
   (-> expr
     transform-exprs
     generate-exprs reverse
     tag-exprs
-    infer-types
-    parse-lines))
+    infer-types))
+
+(defn translate-expr
+  [expr]
+  (parse-lines (transform-expr expr)))
+
 

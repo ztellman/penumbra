@@ -186,12 +186,12 @@
           (not (meta? s2#))
             b#
           (= 2 (count b#))
-            (list s1# (with-meta s2# (assoc ^s2# :assignment true, :defines s2#)))
+            (list s1# (add-meta s2# :assignment (symbol? s2#), :defines s2#))
           :else
             (list
              s1#
-             (with-meta s2# (assoc ^s2# :assignment true, :defines s2#, :numeric-value (if (number? s3#) s3# nil)))
-             (if (meta? s3#) (with-meta s3# (assoc ^s3# :defines s2#)) s3#)))))))
+             (add-meta s2# :assignment (symbol? s2#), :defines s2#, :numeric-value (if (number? s3#) s3# nil))
+             (if (meta? s3#) (add-meta s3# :defines s2#) s3#)))))))
 
 (defmacro- def-scope-parser
   "Defines a wrapper for any keyword that wraps a scope
@@ -261,5 +261,5 @@
 (defmethod tagger 'defn [expr]
   (list*
     (first expr) (second expr) (third expr)
-    (vec (map #(with-meta % (assoc ^% :assignment true, :defines %)) (fourth expr)))
+    (vec (map #(add-meta % :assignment true, :defines %) (fourth expr)))
     (drop 4 expr)))

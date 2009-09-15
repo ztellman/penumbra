@@ -277,14 +277,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;
 ;Shader
 
+(defn create-program*
+  [extensions vertex fragment]
+  (let [vertex-source   (translate-shader vertex)
+        fragment-source (translate-shader fragment)]
+    (create-program-from-source
+     (str extensions "\n" vertex-source)
+     (str extensions "\n" fragment-source))))
+
 (defn create-program
   "Creates a program from s-exprssions.  Declarations are specified first, and shared between both shaders."
   ([declarations vertex fragment]
-    (create-program "" declarations vertex fragment))
+     (create-program "" declarations vertex fragment))
   ([extensions declarations vertex fragment]
-    (let [vertex-source   (translate-shader declarations vertex)
-          fragment-source (translate-shader (filter #(not= 'attribute (first %)) declarations) fragment)]
-      (create-program-from-source
+     (let [vertex-source   (translate-shader declarations vertex)
+           fragment-source (translate-shader (filter #(not= 'attribute (first %)) declarations) fragment)]
+       (create-program-from-source
         (str extensions "\n" vertex-source)
         (str extensions "\n" fragment-source)))))
 

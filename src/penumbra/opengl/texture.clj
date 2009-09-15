@@ -27,7 +27,7 @@
   (count (:dim t)))
 
 (defn sizeof [t]
-  (* (apply * (:dim t)) (:tuple t) (if (= :unsigned-byte (:internal-type t)) 1 4)))
+  (* (apply * (:dim t)) (:tuple t) (if (= :unsigned-byte (:internal-type t)) 8 32)))
 
 (defn permanent? [t]
   (or (nil? (:permanent t)) @(:permanent t)))
@@ -137,7 +137,7 @@
             i-f   (int (enum internal-format))
             dim   (vec (map int dim))]
         (gl-bind-texture typ id)
-        (doseq [p [:texture-wrap-s :texture-wrap-t :texture-wrap-r]]
+        (doseq [p (take (count dim) [:texture-wrap-s :texture-wrap-t :texture-wrap-r])]
           (tex-parameter typ (enum p) :clamp))
         (doseq [p [:texture-min-filter :texture-mag-filter]]
           (tex-parameter typ (enum p) :nearest))
@@ -146,6 +146,7 @@
           2 (gl-tex-image-2d typ 0 i-f (dim 0) (dim 1) 0 p-f i-t nil)
           3 (gl-tex-image-3d typ 0 i-f (dim 0) (dim 1) (dim 2) 0 p-f i-t nil))
         (let [tex
+              #^texture-struct
               (struct-map texture-struct
                 :target type :id id
                 :dim dim :tuple tuple
@@ -164,6 +165,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn texture-from-texture-io [tex]
+  #^texture-struct
   (struct-map texture-struct
     :dim [(.getWidth tex) (.getHeight tex)]
     :id (.getTextureObject tex)
