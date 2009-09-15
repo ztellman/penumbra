@@ -10,11 +10,10 @@
   (:use [penumbra opengl slate])
   (:use [penumbra.opengl.texture :only (create-texture release!)])
   (:use [penumbra.opengl.framebuffer :only (pixel-format write-format)])
-  (:use [penumbra.glsl.core])
+  (:use [penumbra.glsl core data])
   (:use [penumbra.translate.core])
   (:use [clojure.set :only (difference)])
   (:use [clojure.contrib (seq-utils :only (separate indexed flatten)) (def :only (defvar-)) pprint])
-  (:require [penumbra.glsl (data :as data)])
   (:require [clojure.zip :as zip]))
 
 ;;;;;;;;;;;;;;;;;;
@@ -22,7 +21,6 @@
 (defvar- types (set '(color3 color4 float float2 float3 float4 int int2 int3 int4)))
 
 (defn- typecast [expr]
-  (println "typecast" expr ^expr)
   (condp = (:tag ^expr)
     'float   (list 'float4 expr)
     'float2  (list 'float4 expr 1.0 1.0)
@@ -146,6 +144,14 @@
       (wrap-and-prepend fixed-transform)
       body)))
 
+(defn set-params [params]
+  (doseq [[n v] params]
+    (apply
+      uniform
+      (list*
+        (keyword (name n))
+        (seq-wrap v)))))
+
 ;;;;;;;;;;;;;;;;;;;
 
 (defn- validate-elements
@@ -259,31 +265,19 @@
               (not (empty? elements))
               (apply not= (list* dim (map :dim elements))))
           (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (map :dim elements)))))
-        ;Run program
         (with-program program
           (let [targets
                 (map
                   (fn [[typ dim]] (create-write-texture typ dim))
                   (map (fn [x] [x dim]) (:results info)))]
-            ;Set uniform variables
-            (doseq [[n v] params]
-              (apply
-                uniform
-                (list*
-                  (keyword (name n))
-                  (seq-wrap v))))
-            ;Set dimensions
+            (set-params params)
             (apply uniform (list* :__dim (map float dim)))
-            ;Set read and write textures
             (attach-textures
               (interleave (map rename-element (range (count elements))) elements)
               targets)
-            ;Render
             (apply draw dim)
-            ;Release textures
             (doseq [e (distinct elements)]
               (release! e))
-            ;Return results
             (if (= 1 (count targets)) (first targets) targets)))))))
 
 ;;;;;;;;;;;;;;;;;;
@@ -311,7 +305,8 @@
       #(if (= 'result (:tag ^%)) (add-meta (typecast (add-meta % :tag type)) :tag nil) %)))))
 
 (defn process-reduce [expr]
-  (let [body (->
+  (let [params (tree-filter expr #(and (symbol? %) (not (element? %)) (:tag ^%)))
+        body (->
               expr
               transform-glsl
               (transform-results (fn [x] (map #(add-meta % :result true) x)))) 
@@ -326,42 +321,52 @@
                    (add-meta (list '<- 'b (add-meta % :result false)) :result false)
                    %))))]
     {:type
-     type
+       type
+     :params
+       (zipmap params (map typeof params))
      :body
-     (list
-      'do
-      '(declare (uniform #^sampler2DRect --data))
-      '(declare (uniform #^float2 --bounds))
-      (list
-       'defn 'void 'reduce
-       (vector
-        (list 'inout (with-meta 'b {:tag type}))
-        (list 'in (with-meta 'c {:tag type})))
-       body)
-      (wrap-and-prepend (transform-reduce-program type)))}))
+       (list
+        'do
+        '(declare (uniform #^sampler2DRect --data))
+        '(declare (uniform #^float2 --bounds))
+         (list
+           'do
+           (map #(list 'declare (list 'uniform %)) params))
+        (list
+        'defn 'void 'reduce
+        (vector
+         (list 'inout (with-meta 'b {:tag type}))
+         (list 'in (with-meta 'c {:tag type})))
+         body)
+       (wrap-and-prepend (transform-reduce-program type)))}))
 
-(defn create-reduce [expr]
+(defn create-reduce
+  [expr]
   (let [info (process-reduce expr)
         program (create-operator (:body info))]
-    (fn [input*]
-      (let [dim* (:dim input*)]
-        (loop [dim dim*, input input*]
-          (if (= [1 1] dim)
-            (do
-              (let [result (data/unwrap-first input)]
-                (release! input)
-                (seq result)))
-            (let [half-dim  (map #(Math/ceil (/ % 2.0)) dim)
-                  target    (data/mimic-texture input half-dim)
-                  [w h]     half-dim
-                  bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
-              (with-program program
-                (apply uniform (list* :__bounds bounds))
-                (apply uniform (list* :__dim half-dim))
-                (attach-textures [:__data input] [target])
-                (draw 0 0 w h)
-                (release! input)
-                (recur half-dim target)))))))))
+    (fn this
+      ([data]
+        (this {} data))
+      ([params data]
+        (let [dim* (:dim data)]
+          (with-program program
+            (set-params params)
+            (loop [dim dim*, input data]
+              (if (= [1 1] dim)
+                (do
+                  (let [result (unwrap-first input)]
+                    (release! input)
+                    (seq result)))
+                (let [half-dim  (map #(Math/ceil (/ % 2.0)) dim)
+                      target    (mimic-texture input half-dim)
+                      [w h]     half-dim
+                      bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
+                    (apply uniform (list* :__bounds bounds))
+                    (apply uniform (list* :__dim half-dim))
+                    (attach-textures [:__data input] [target])
+                    (draw 0 0 w h)
+                    (release! input)
+                    (recur half-dim target))))))))))
 
 
 

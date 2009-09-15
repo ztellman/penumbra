@@ -13,7 +13,7 @@
   (defmap generate
     (let [s (sin :index)]
       (normalize
-       (float3 s (* 3.0 (cos :index)) (/ (* s s) 2.0)))))
+        (float3 s (* 3.0 (cos :index)) (/ (* s s) 2.0)))))
   (defreduce find-max
     #^float3 (max %1 %2))
   (dotimes [_ 1]
@@ -26,9 +26,9 @@
 
   (defmap p2
     [(float3 :index) (float3 :index)])
-  (let [[a b] (map unwrap (p2 21))]
+  (let [[a b] (map #(-> % unwrap seq) (p2 21))]
     (println a "\n" b))
 
   (defmap p3
     (normalize (vec3 :index)))
-  (println (unwrap (p3 21))))
+  (println (seq (unwrap (p3 21)))))
