@@ -22,6 +22,7 @@
 (defvar- types (set '(color3 color4 float float2 float3 float4 int int2 int3 int4)))
 
 (defn- typecast [expr]
+  (println "typecast" expr ^expr)
   (condp = (:tag ^expr)
     'float   (list 'float4 expr)
     'float2  (list 'float4 expr 1.0 1.0)
@@ -100,7 +101,7 @@
     (vector? expr)
     (not (sequential? expr))
     (and
-      (-> expr first seq? not)
+      (-> expr first sequential? not)
       (-> expr transformer first (not= 'do)))))
 
 (defn- results [expr]
@@ -212,7 +213,7 @@
             params))
        body
          (->
-          (if (and (seq? expr) (seq? (first expr))) expr (list expr))
+          expr
           (apply-transforms
            (list*
             (replace-with :coord '--coord)
