@@ -31,8 +31,8 @@
   '(let [marble       (-> pos .x (* 2.0) (+ noise) sin abs)
          marble-color (float4 0.8 0.7 0.7 1.0)
          vein-color   (float4 0.2 0.15 0.1 1.0)
-         color        (mix vein-color marble-color (pow marble 0.5))]
-     (set! :frag-color (* intensity color))))
+         mixed-color  (mix vein-color marble-color (pow marble 0.5))]
+     (set! :frag-color (* intensity mixed-color))))
 
 ;;;;;;;;;;;;;;;;;
 ;teapot

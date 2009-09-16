@@ -177,7 +177,7 @@
 
 (defn translate-glsl [expr]
   (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
-    (-> expr transform-expr transform-tags translate-expr)))
+    (-> expr transform-expr transform-tags parser)))
 
 (defn transform-glsl [expr]
   (binding [*transformer* transformer, *generator* generator, *inspector* inspector, *tagger* c/tagger]

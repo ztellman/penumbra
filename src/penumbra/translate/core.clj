@@ -103,15 +103,15 @@
   [x fun]
   (cond
     (not (meta? x))
-      (fun x)
+      (or (fun x) x)
     (not (sequential? x))
-      (let [x* (fun x)] 
+      (let [x* (or (fun x) x)]
         (with-meta x* (merge ^x ^x*)))
     (empty? x)
       ()
     :else
       (let [x* (mimic-expr x (map #(tree-map % fun) x))]
-        (mimic-expr x* (fun x*)))))
+        (mimic-expr x* (or (fun x*) x*)))))
 
 (defn tree-map* [x fun]
   (loop [x (tree-map x fun)]

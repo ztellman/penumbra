@@ -66,7 +66,7 @@
     (dec (Integer/parseInt (.substring (name param) 1)))))
 
 (defn- replace-with [from to]
-  #(if (= from %) to %))
+  #(if (= from %) to))
 
 ;;;;;;;;;;;;;;;;;;;;;
 
@@ -300,9 +300,9 @@
     (apply-transforms
      reduce-program
      (list
-      #(if (= 'type (:tag ^%)) (add-meta % :tag type) %)
-      #(if (= 'lookup (:tag ^%)) (add-meta (list (swizzle tuple) (add-meta % :tag type)) :tag nil) %)
-      #(if (= 'result (:tag ^%)) (add-meta (typecast (add-meta % :tag type)) :tag nil) %)))))
+      #(if (= 'type (:tag ^%)) (add-meta % :tag type))
+      #(if (= 'lookup (:tag ^%)) (add-meta (list (swizzle tuple) (add-meta % :tag type)) :tag nil))
+      #(if (= 'result (:tag ^%)) (add-meta (typecast (add-meta % :tag type)) :tag nil))))))
 
 (defn process-reduce [expr]
   (let [params (tree-filter expr #(and (symbol? %) (not (element? %)) (:tag ^%)))

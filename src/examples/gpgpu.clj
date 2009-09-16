@@ -30,5 +30,5 @@
     (println a "\n" b))
 
   (defmap p3
-    (normalize (vec3 :index)))
+    (normalize (float3 :index)))
   (println (seq (unwrap (p3 21)))))
