@@ -252,10 +252,36 @@
     (if (nil? i-f) (throw (Exception. (str "Cannot write to texture of type " typecast))))
     (create-texture :texture-rectangle dim (first i-f) p-f format tuple)))
 
+(defn- run-map
+  [info params elements dim]
+  ;Check number of elements
+  (if (not= (count elements) (count (:elements info)))
+    (throw (Exception. (str "Expected " (count (:elements info)) " elements, was given " (count elements) "."))))
+  ;Check dimensions of elements
+  (if (and
+        (not (empty? elements))
+        (apply not= (list* dim (map :dim elements))))
+    (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (apply str (map :dim elements))))))
+  (let [targets
+        (map
+          (fn [[typ dim]] (create-write-texture typ dim))
+          (map (fn [x] [x dim]) (:results info)))]
+    (set-params params)
+    (apply uniform (list* :__dim (map float dim)))
+    (attach-textures
+      (interleave (map rename-element (range (count elements))) elements)
+      targets)
+    (apply draw dim)
+    (doseq [e (distinct elements)]
+      (release! e))
+    (if (= 1 (count targets)) (first targets) targets)))
+
 (defn create-map [expr]
   (let [info    (process-map expr)
         program (create-operator (:body info))
-        wrap    #(map (fn [[s type]] (wrap s (type-tuple type))) (zipmap % (-> info :elements vals)))]
+        wrap    #(map
+                  (fn [[s type]] (wrap s (type-tuple type)))
+                  (partition 2 (interleave % (-> info :elements vals sort))))]
     (fn this
       ([size]
         (this {} [] (rectangle size)))
@@ -266,28 +292,8 @@
             (this params elements (:dim (first elements))))))
       ([params elements dim]
         (let [elements (wrap elements)]
-          ;Check number of elements
-          (if (not= (count elements) (count (:elements info)))
-            (throw (Exception. (str "Expected " (count (:elements info)) " elements, was given " (count elements) "."))))
-          ;Check dimensions of elements
-          (if (and
-                (not (empty? elements))
-                (apply not= (list* dim (map :dim elements))))
-            (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (apply str (map :dim elements))))))
           (with-program program
-            (let [targets
-                  (map
-                    (fn [[typ dim]] (create-write-texture typ dim))
-                    (map (fn [x] [x dim]) (:results info)))]
-              (set-params params)
-              (apply uniform (list* :__dim (map float dim)))
-              (attach-textures
-                (interleave (map rename-element (range (count elements))) elements)
-                targets)
-              (apply draw dim)
-              (doseq [e (distinct elements)]
-                (release! e))
-              (if (= 1 (count targets)) (first targets) targets))))))))
+            (run-map info params elements dim)))))))
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -355,7 +361,7 @@
       ([data]
         (this {} data))
       ([params data]
-        (let [data (wrap data)
+        (let [data (wrap data (-> info :type type-tuple))
               dim* (:dim data)]
           (with-program program
             (set-params params)

@@ -11,13 +11,14 @@
   (:use [clojure test]))
 
 (with-blank-slate
-  (let [s (map float (range 100))
+  (let [s (map float (range 60))
         s2 (map #(* % 2) s)]
     (testing "GPGPU"
-      (testing "Map"
+
+      '(testing "Map"
 
         (defmap identity-map #^float4 %1)
-        (is (= (unwrap* (identity-map {} [s])) s)))
+        (is (= (unwrap* (identity-map {} [s])) s))
 
         (defmap multiply-map (* #^float4 %1 #^float k))
         (is (= (unwrap* (multiply-map {:k 2.0} [s])) s2))
@@ -28,4 +29,9 @@
         (is (= (unwrap* (index-map 25)) s))
 
         (defmap add-map (+ #^float4 %1 #^float4 %2))
-        (is (= (unwrap* (add-map s s)) s2)))))
+        (is (= (unwrap* (add-map {} [s s])) s2)))
+
+      (testing "Reduce"
+
+        (defreduce sum #^float4 (+ %1 %2))
+        (is (= (apply + (sum {} s)) (apply + s) ))))))
