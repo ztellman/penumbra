@@ -26,6 +26,8 @@
     'float2  (list 'float4 expr 1.0 1.0)
     'float3  (list 'float4 expr 1.0)
     'float4  expr
+    'color   (list 'float4 expr)
+    'color2  (list 'float4 expr 1.0 1.0)
     'color3  (list 'float4 expr 1.0)
     'color4  expr
     'int     (list 'float4 expr)
@@ -35,13 +37,15 @@
 
 (defvar- type-tuple
   (apply hash-map
-   '(color3 3, color4 4
+   '(color 1, color2 2, color3 3, color4 4
      float 1, float2 2, float3 3, float4 4
      int 1, int2 2, int3 3, int4 4)))
 
 (defvar- type-format
   (apply hash-map
-    '(color3 :unsigned-byte
+    '(color1 :unsigned-byte
+      color2 :unsigned-byte
+      color3 :unsigned-byte
       color4 :unsigned-byte
       float :float       
       float2 :float
@@ -74,17 +78,6 @@
   '((<- --coord (-> :multi-tex-coord0 .xy (* --dim)))
     (<- :position (* :model-view-projection-matrix :vertex))))
 
-(defn- prepend-index [expr]
-  (let [index
-        '((<-
-          --index
-          (-> --coord .y floor (* (.x --dim)) (+ (-> --coord .x floor)))))]
-    (if (contains? (set (flatten expr)) :index)
-      (concat
-        index
-        (apply-transforms expr [(replace-with :index '--index)]))
-      expr)))
-
 (defn wrap-and-prepend [expr]
   (list
    '(do
@@ -112,30 +105,6 @@
     (if (result? (zip/node z))
       (zip/root (zip/replace z (fun (results expr))))
       (recur (-> z zip/down zip/rightmost)))))
-
-(defn- transform-operator-results
-  "Tranforms the final expression into one or more assignments to gl_FragData[n]"
-  [expr]
-  (transform-results
-    expr
-    (fn [results]
-      (list* 'do
-        (realize
-          (map
-            (fn [[idx e]]
-              (list '<-
-                (list '-> :frag-data (list 'nth idx))
-                (add-meta e :result true)))
-            (indexed results)))))))
-
-(defn typecast-results
-  [expr]
-  (tree-map
-   expr
-   (fn [x]
-     (if (:result ^x)
-       (add-meta (typecast (add-meta x :result false)) :result false)
-       x))))
 
 (defn create-operator
   ([body]
@@ -173,6 +142,42 @@
       (let [typs (distinct (map typeof (filter #(= e %) params)))]
         (if (< 1 (count typs))
           (throw (Exception. (str "Ambiguous type for " e ", can't choose between " typs))))))))
+
+
+(defn- transform-operator-results
+  "Tranforms the final expression into one or more assignments to gl_FragData[n]"
+  [expr]
+  (transform-results
+    expr
+    (fn [results]
+      (list* 'do
+        (realize
+          (map
+            (fn [[idx e]]
+              (list '<-
+                (list '-> :frag-data (list 'nth idx))
+                (add-meta e :result true)))
+            (indexed results)))))))
+
+(defn typecast-results
+  [expr]
+  (tree-map
+   expr
+   (fn [x]
+     (if (:result ^x)
+       (add-meta (typecast (add-meta x :result false)) :result false)
+       x))))
+
+(defn- prepend-index [expr]
+  (let [index
+        '((<-
+          --index
+          (-> --coord .y floor (* (.x --dim)) (+ (-> --coord .x floor)))))]
+    (if (contains? (set (flatten expr)) :index)
+      (concat
+        index
+        (apply-transforms expr [(replace-with :index '--index)]))
+      expr)))
 
 (defn- validate-results
   "Make sure there is a type for each return value"
@@ -317,9 +322,7 @@
                (list
                 (replace-with '%1 (add-meta 'b :tag type))
                 (replace-with '%2 (add-meta 'c :tag type))
-                #(if (:result ^%)
-                   (add-meta (list '<- 'b (add-meta % :result false)) :result false)
-                   %))))]
+                #(if (:result ^%) (add-meta (list '<- 'b (add-meta % :result false)) :result false)))))]
     {:type
        type
      :params

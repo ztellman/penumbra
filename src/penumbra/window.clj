@@ -14,7 +14,8 @@
   (:import (java.awt.event
               MouseAdapter MouseListener MouseEvent
               MouseMotionListener MouseMotionAdapter
-              WindowListener WindowAdapter))
+              WindowListener WindowAdapter
+              KeyAdapter KeyListener KeyEvent))
   (:import (javax.media.opengl GLEventListener GLCapabilities GLAutoDrawable GLProfile))
   (:import (javax.media.opengl.awt GLCanvas)))
 
@@ -22,35 +23,91 @@
 
 (defn- clock [] (System/nanoTime))
 
-(def #^GLCanvas *canvas* nil)
+(defstruct window-struct :canvas :frame :state :callbacks)
+
+(def *window* nil)
 
 ;;;;;;;;;;;;;;;;;;;;;
 
-(defn get-canvas-size [] [(.getWidth *canvas*) (.getHeight *canvas*)])
-(defn set-canvas-size [w h] (.setSize *canvas* (Dimension. w h)))
-(defn repaint [] (.repaint *canvas*))
+(defstruct window-struct :canvas :frame :state :callbacks)
 
-;;;;;;;;;;;;;;;;;;;;;
+(defn get-canvas [] #^GLCanvas (:canvas *window*))
+(defn get-canvas-size [] [(.getWidth (get-canvas)) (.getHeight (get-canvas))])
+(defn set-canvas-size [w h] (.setSize (get-canvas) (Dimension. w h)))
+(defn repaint [] (.repaint (get-canvas)))
+
+(defn get-frame [] #^Frame (:frame *window*))
+(defn set-title [title] (.setTitle (get-frame) title))
+
+(defn get-state [] (:state *window*))
+
+(defn- get-callbacks [] (:callbacks *window*))
+
+;;;
 
 (defn- update-state [state new-value]
   (if (not (identical? @state new-value)) (repaint)) ;we want to redraw if the state has been altered
   (dosync (ref-set state new-value)))
 
-(defmacro- try-call [canvas state fns k & args]
-  `(binding [*canvas* ~canvas]
-    (if (~k ~fns)
-      (update-state ~state
-        ((~k ~fns) ~@args (deref ~state))))))
+(defmacro- try-call [window k & args]
+  `(binding [*window* ~window]
+    (if (~k (get-callbacks))
+      (update-state (get-state)
+        ((~k (get-callbacks)) ~@args (deref (get-state)))))))
 
-(defmacro- mouse-motion [canvas last-pos state fns event k]
+(defmacro- mouse-motion [window last-pos event k]
   `(let [x# (. ~event getX), y# (. ~event getY)
          [last-x# last-y#] (deref ~last-pos)
          delta# [(- x# last-x#) (- y# last-y#)]]
     (dosync (ref-set ~last-pos [x# y#]))
-    (try-call ~canvas ~state ~fns
+    (try-call ~window
       ~k [delta# [x# y#]])))
 
-(defn start [fns initial-state]
+(defn- get-key [#^KeyEvent event]
+  (let [key (.getKeyCode event)]
+    (cond
+      (= key KeyEvent/VK_UP) "UP"
+      (= key KeyEvent/VK_DOWN) "DOWN"
+      (= key KeyEvent/VK_LEFT) "LEFT"
+      (= key KeyEvent/VK_RIGHT) "RIGHT"
+      :else (KeyEvent/getKeyText key))))
+
+;;;
+
+(defn start-update-loop [hertz callback]
+  (let [window *window*
+        state  (get-state)
+        period (/ 1e9 hertz)]
+    (.start
+      (Thread.
+        (fn []
+          (binding [*window* window]
+            (loop []
+              (let [time (clock)]
+                (dosync (alter state callback))
+                (repaint)
+                (let [diff  (- (clock) time)
+                      sleep (max 0 (- period diff))]
+                  (Thread/sleep (long (/ sleep 1e6)) (long (rem sleep 1e6)))
+                  (recur))))))))))
+
+;;;
+
+(defn start
+  "Creates a window.  Supported callbacks are:
+  :update         [[delta time] state]
+  :display        [[delta time] state]
+  :reshape        [[x y width height] state]
+  :init           [state]
+  :mouse-drag     [[[dx dy] [x y]] state]
+  :mouse-move     [[[dx dy] [x y]] state]
+  :mouse-up       [[x y] state]
+  :mouse-click    [[x y] state]
+  :mouse-down     [[x y] state]
+  :key-type       [key state]
+  :key-press      [key state]
+  :key-release    [key state]"
+  [callbacks initial-state]
   (let
     [frame (new Frame)
      profile (GLProfile/get GLProfile/GL2)
@@ -63,7 +120,8 @@
 
     (let [canvas (new GLCanvas cap)
           last-render (ref (clock))
-          last-pos (ref [0 0])]
+          last-pos (ref [0 0])
+          window (struct-map window-struct :canvas canvas :frame frame :state state :callbacks callbacks)]
 
       (doto canvas
         (.addGLEventListener
@@ -76,49 +134,64 @@
                 (dosync (ref-set last-render current))
                 (bind-gl drawable
                   (clear)
-                  (try-call canvas state fns
+                  (try-call window
                     :update time)
-                  (binding [*canvas* canvas]
-                    (push-matrix
-                      ((:display fns) time @state))))))
+                  (push-matrix
+                    (binding [*window* window]
+                      ((:display callbacks) time @state))))))
 
             (reshape [#^GLAutoDrawable drawable x y width height]
               (bind-gl drawable
                 (viewport 0 0 width height)
-                (try-call canvas state fns
+                (try-call window
                   :reshape [x y width height])))
 
             (init [#^GLAutoDrawable drawable]
               (bind-gl drawable
                 (. *gl* setSwapInterval 1) ;turn on v-sync
-                (try-call canvas state fns
+                (try-call window
                   :init)))))
 
         (.addMouseListener
           (proxy [MouseAdapter] []
 
             (mouseClicked [#^MouseEvent event]
-              (try-call canvas state fns
+              (try-call window
                 :mouse-click [(.getX event) (.getY event)]))
 
             (mousePressed [#^MouseEvent event]
-              (try-call canvas state fns
+              (try-call window
                 :mouse-down [(.getX event) (.getY event)]))
 
             (mouseReleased [#^MouseEvent event]
-              (try-call canvas state fns
+              (try-call window
                 :mouse-up [(.getX event) (.getY event)]))))
 
         (.addMouseMotionListener
           (proxy [MouseMotionAdapter] []
 
             (mouseDragged [#^MouseEvent event]
-              (mouse-motion canvas last-pos state fns
+              (mouse-motion window last-pos
                 event :mouse-drag))
 
             (mouseMoved [#^MouseEvent event]
-              (mouse-motion canvas last-pos state fns
-                event :mouse-move)))))
+              (mouse-motion window last-pos
+                event :mouse-move))))
+
+        (.addKeyListener
+          (proxy [KeyListener] []
+
+            (keyTyped [#^KeyEvent event]
+              (try-call window
+                :key-type (get-key event)))
+
+            (keyPressed [#^KeyEvent event]
+              (try-call window
+                :key-press (get-key event)))
+
+            (keyReleased [#^KeyEvent event]
+              (try-call window
+                :key-release (get-key event))))))
 
       (doto frame
         (.addWindowListener
@@ -129,4 +202,5 @@
                         (. frame dispose))) start))))
         (.add canvas)
         (.setSize 640 480)
+        (.setFocusable true)
         (.show)))))

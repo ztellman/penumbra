@@ -246,6 +246,8 @@
 (gl-import- glFogfv set-fog)
 (gl-import- glShadeModel shade-model)
 
+(gl-import- glHint hint)
+
 (defn light [num & params]
   (let [light-num (enum (keyword (str "light" num)))]
     (doseq [[property value] (partition 2 params)]
