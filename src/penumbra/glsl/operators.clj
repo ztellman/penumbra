@@ -78,6 +78,17 @@
   '((<- --coord (-> :multi-tex-coord0 .xy (* --dim)))
     (<- :position (* :model-view-projection-matrix :vertex))))
 
+(defn- prepend-index [expr]
+  (let [index
+        '((<-
+          --index
+          (-> --coord .y floor (* (.x --dim)) (+ (-> --coord .x floor)))))]
+    (if (contains? (set (flatten expr)) :index)
+      (concat
+        index
+        (apply-transforms expr [(replace-with :index '--index)]))
+      expr)))
+
 (defn wrap-and-prepend [expr]
   (list
    '(do
@@ -168,17 +179,6 @@
        (add-meta (typecast (add-meta x :result false)) :result false)
        x))))
 
-(defn- prepend-index [expr]
-  (let [index
-        '((<-
-          --index
-          (-> --coord .y floor (* (.x --dim)) (+ (-> --coord .x floor)))))]
-    (if (contains? (set (flatten expr)) :index)
-      (concat
-        index
-        (apply-transforms expr [(replace-with :index '--index)]))
-      expr)))
-
 (defn- validate-results
   "Make sure there is a type for each return value"
   [expr]
@@ -254,36 +254,40 @@
 
 (defn create-map [expr]
   (let [info    (process-map expr)
-        program (create-operator (:body info))]
+        program (create-operator (:body info))
+        wrap    #(map (fn [[s type]] (wrap s (type-tuple type))) (zipmap % (-> info :elements vals)))]
     (fn this
-      ([size] (this {} [] (rectangle size)))
+      ([size]
+        (this {} [] (rectangle size)))
       ([params elements-or-size]
         (if (number? elements-or-size)
           (this params [] (rectangle elements-or-size))
-          (this params elements-or-size (:dim (first elements-or-size)))))
+          (let [elements (wrap elements-or-size)]
+            (this params elements (:dim (first elements))))))
       ([params elements dim]
-        ;Check number of elements
-        (if (not= (count elements) (count (:elements info)))
-          (throw (Exception. (str "Expected " (count (:elements info)) " elements, was given " (count elements) "."))))
-        ;Check dimensions of elements
-        (if (and
-              (not (empty? elements))
-              (apply not= (list* dim (map :dim elements))))
-          (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (map :dim elements)))))
-        (with-program program
-          (let [targets
-                (map
-                  (fn [[typ dim]] (create-write-texture typ dim))
-                  (map (fn [x] [x dim]) (:results info)))]
-            (set-params params)
-            (apply uniform (list* :__dim (map float dim)))
-            (attach-textures
-              (interleave (map rename-element (range (count elements))) elements)
-              targets)
-            (apply draw dim)
-            (doseq [e (distinct elements)]
-              (release! e))
-            (if (= 1 (count targets)) (first targets) targets)))))))
+        (let [elements (wrap elements)]
+          ;Check number of elements
+          (if (not= (count elements) (count (:elements info)))
+            (throw (Exception. (str "Expected " (count (:elements info)) " elements, was given " (count elements) "."))))
+          ;Check dimensions of elements
+          (if (and
+                (not (empty? elements))
+                (apply not= (list* dim (map :dim elements))))
+            (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (apply str (map :dim elements))))))
+          (with-program program
+            (let [targets
+                  (map
+                    (fn [[typ dim]] (create-write-texture typ dim))
+                    (map (fn [x] [x dim]) (:results info)))]
+              (set-params params)
+              (apply uniform (list* :__dim (map float dim)))
+              (attach-textures
+                (interleave (map rename-element (range (count elements))) elements)
+                targets)
+              (apply draw dim)
+              (doseq [e (distinct elements)]
+                (release! e))
+              (if (= 1 (count targets)) (first targets) targets))))))))
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -351,7 +355,8 @@
       ([data]
         (this {} data))
       ([params data]
-        (let [dim* (:dim data)]
+        (let [data (wrap data)
+              dim* (:dim data)]
           (with-program program
             (set-params params)
             (loop [dim dim*, input data]

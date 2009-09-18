@@ -9,7 +9,7 @@
 (ns penumbra.glsl.data
   (:use [penumbra.opengl.framebuffer :only (read-format)])
   (:use [penumbra.slate :only (rectangle)])
-  (:use [penumbra.opengl.texture :only (create-texture gl-tex-sub-image-2d)])
+  (:use [penumbra.opengl.texture :only (texture? create-texture gl-tex-sub-image-2d)])
   (:use [penumbra.opengl.core])
   (:use [penumbra opengl])
   (:import (java.nio Buffer FloatBuffer IntBuffer ByteBuffer))
@@ -85,8 +85,14 @@
     (apply create-texture (list* (:target tex) dim (map #(% tex) [:internal-format :pixel-format :internal-type :tuple])))))
 
 (defn wrap
-  ([s] (seq-to-texture s))
-  ([s tuple] (seq-to-texture s tuple)))
+  ([s]
+    (cond
+      (texture? s) s
+      :else (seq-to-texture s)))
+  ([s tuple]
+    (cond
+      (texture? s) s
+      :else (seq-to-texture s tuple))))
 
 (defn unwrap
   ([tex]

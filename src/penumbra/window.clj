@@ -74,7 +74,10 @@
 
 ;;;
 
-(defn start-update-loop [hertz callback]
+(defn start-update-loop
+  "Creates an update loop on a separate thread that repeats 'hertz' times a second.
+  Assumes that callback will execute in less than the update period."
+  [hertz callback]
   (let [window *window*
         state  (get-state)
         period (/ 1e9 hertz)]

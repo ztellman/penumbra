@@ -18,9 +18,15 @@
   [& args]
   (apply glsl-data/wrap args))
 
-(defn unwrap [& args]
+(defn unwrap
   "Returns a flat array containing the texture data"
+  [& args]
   (apply glsl-data/unwrap args))
+
+(defn unwrap*
+  "Returns a sequence containing the texture data"
+  [& args]
+  (seq (apply unwrap args)))
 
 (defmacro defmap [name & body]
   `(def ~name (glsl-op/create-map (quote ~body))))

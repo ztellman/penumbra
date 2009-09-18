@@ -44,6 +44,9 @@
 (defn release! [t]
   (dosync (alter (:ref-count t) dec)))
 
+(defn texture? [t]
+  (= 'texture-struct (:tag ^t)))
+
 (defn attach! [t point]
   (dosync
     (ref-set
@@ -146,12 +149,13 @@
           2 (gl-tex-image-2d typ 0 i-f (dim 0) (dim 1) 0 p-f i-t nil)
           3 (gl-tex-image-3d typ 0 i-f (dim 0) (dim 1) (dim 2) 0 p-f i-t nil))
         (let [tex
-              #^texture-struct
-              (struct-map texture-struct
-                :target type :id id
-                :dim dim :tuple tuple
-                :internal-type internal-type :internal-format internal-format :pixel-format pixel-format
-                :ref-count (ref 1) :attach-point (ref nil))]
+              (with-meta
+                (struct-map texture-struct
+                  :target type :id id
+                  :dim dim :tuple tuple
+                  :internal-type internal-type :internal-format internal-format :pixel-format pixel-format
+                  :ref-count (ref 1) :attach-point (ref nil))
+                {:tag 'texture-struct})]
           (add-texture tex)
           tex)))))
 
@@ -165,16 +169,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn texture-from-texture-io [tex]
-  #^texture-struct
-  (struct-map texture-struct
-    :dim [(.getWidth tex) (.getHeight tex)]
-    :id (.getTextureObject tex)
-    :target :texture-2d
-    :pixel-format :rgba
-    :internal-format :rgba
-    :internal-type :unsigned-byte
-    :tuple 4
-    :ref-count (ref 1)))
+  (with-meta
+    (struct-map texture-struct
+      :dim [(.getWidth tex) (.getHeight tex)]
+      :id (.getTextureObject tex)
+      :target :texture-2d
+      :pixel-format :rgba
+      :internal-format :rgba
+      :internal-type :unsigned-byte
+      :tuple 4
+      :ref-count (ref 1))
+    {:tag 'texture-struct}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
