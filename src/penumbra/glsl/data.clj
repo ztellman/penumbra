@@ -9,7 +9,7 @@
 (ns penumbra.glsl.data
   (:use [penumbra.opengl.framebuffer :only (read-format)])
   (:use [penumbra.slate :only (rectangle)])
-  (:use [penumbra.opengl.texture :only (texture? create-texture gl-tex-sub-image-2d)])
+  (:use [penumbra.opengl.texture :only (texture? create-texture gl-tex-sub-image-2d release!)])
   (:use [penumbra.opengl.core])
   (:use [penumbra opengl])
   (:import (java.nio Buffer FloatBuffer IntBuffer ByteBuffer))
@@ -109,10 +109,11 @@
         (int (enum (:pixel-format tex)))
         (int (enum (:internal-type tex)))
         #^Buffer (array-to-buffer a (:internal-type tex)))
+      (release! tex)
        a)))
 
 (defn unwrap-first [tex]
-  (if (nil? (:attach-point tex))
+  (if (nil? @(:attach-point tex))
     (throw (Exception. "Cannot read from unattached texture.")))
   (gl-read-buffer @(:attach-point tex))
   (let [a (create-array (:tuple tex) (:internal-type tex))]
@@ -121,6 +122,7 @@
       (int (enum (:pixel-format tex)))
       (int (enum (:internal-type tex)))
       #^Buffer (array-to-buffer a (:internal-type tex)))
+    (release! tex)
      a))
 
 

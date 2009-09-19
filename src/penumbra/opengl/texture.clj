@@ -84,7 +84,7 @@
 
 (def *texture-pool* nil)
 (def *tex-mem-threshold* 100e6)
-(def *tex-count-threshold* 50)
+(def *tex-count-threshold* 100)
 
 (defn- gen-texture []
   (let [a (int-array 1)]
@@ -132,6 +132,7 @@
     (if (not (empty? equivalent))
       (let [t (first equivalent)]
         (acquire! t)
+        (gl-bind-texture (int (enum (:target t))) (:id t))
         t)
       (let [id    (int (gen-texture))
             typ   (int (enum type))

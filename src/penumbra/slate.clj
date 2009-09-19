@@ -126,15 +126,15 @@
 
               (display [drawable]
                 (bind-gl drawable
-                  (binding [*slate* slate
-                            *texture-pool* tex-pool]
-                    (execute slate))))
+                  (with-frame-buffer
+                    (binding [*slate* slate
+                              *texture-pool* tex-pool]
+                      (execute slate)))))
 
               (reshape [#^GLAutoDrawable drawable x y width height])
 
               (init [#^GLAutoDrawable drawable]
                 (bind-gl drawable
-                  (bind-frame-buffer (gen-frame-buffer))
                   (set-display-list (:display-list slate)
                     (draw*))
                   (ortho-view 0 0 1 1 -1 1))))))

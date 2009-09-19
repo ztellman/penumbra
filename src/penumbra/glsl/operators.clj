@@ -361,10 +361,12 @@
       ([data]
         (this {} data))
       ([params data]
+        (unbind-write)
         (let [data (wrap data (-> info :type type-tuple))
               dim* (:dim data)]
           (with-program program
             (set-params params)
+            (attach-textures [] [data])
             (loop [dim dim*, input data]
               (if (= [1 1] dim)
                 (do

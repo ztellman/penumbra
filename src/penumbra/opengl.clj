@@ -89,8 +89,10 @@
 (defmacro push-matrix [& body]
   `(binding [*transform-matrix* (if *inside-begin-end* (atom @*transform-matrix*) *transform-matrix*)]
     (if (not *inside-begin-end*) (gl-push-matrix))
-    ~@body
-    (if (not *inside-begin-end*) (gl-pop-matrix))))
+      (try
+        ~@body
+        (finally
+          (if (not *inside-begin-end*) (gl-pop-matrix))))))
 
 (gl-facade-import glVertex3d vertex)
 (gl-facade-import glNormal3d normal)
@@ -358,6 +360,12 @@
 (defn bind-frame-buffer [fb]
   (gl-bind-frame-buffer :framebuffer fb))
 
+(defmacro with-frame-buffer [& body]
+  `(let [fb# (gen-frame-buffer)]
+    (bind-frame-buffer fb#)
+    ~@body
+    (destroy-frame-buffer fb#)))
+
 (defn frame-buffer-ok? []
   (= (gl-check-frame-buffer-status :framebuffer) (enum :framebuffer-complete)))
 
@@ -373,7 +381,7 @@
     (attach! tex point)))
 
 (defn bind-read [variable tex point]
-  (let [loc (gl-get-uniform-location *program* (name variable))]
+  (let [loc (gl-get-uniform-location *program* (.replace (name variable) \- \_))]
     (gl-active-texture (enum (keyword (str "texture" point))))
     (gl-bind-texture (enum (:target tex)) (:id tex))
     (uniform-1i loc point)))
@@ -381,13 +389,17 @@
 (defn bind-write [start end]
   (gl-draw-buffers (- end start) (int-array (map attachment (range start end))) 0))
 
+(defn unbind-write []
+  (gl-draw-buffers 0 (int-array [1]) 0))
+
 (defn attach-textures [read write]
   (let [read-textures (map #(last %) (partition 2 read))]
     (doseq [[idx tex] (indexed write)]
       (attach tex idx))
     (doseq [[idx [vr tex]] (indexed (partition 2 read))]
       (bind-read vr tex idx))
-    (bind-write 0 (count write))))
+    (if (not (empty? write))
+      (bind-write 0 (count write)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
