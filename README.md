@@ -70,11 +70,14 @@ Using this representation, Penumbra supports running general-purpose computation
 	=> (use 'penumbra.compute)
 
   	=> (with-blank-slate
-	     (defmap scaled-add
-	       (+ 
+	     (defmap scaled-add ;a + k*b
+	       (+
 		     #^float4 %1 
-		     (* #^float k #^float4 %2))) ;a + k*b
-	     (unwrap* (scaled-add {:k 2.0} [(range 20) (range 20)])))
+		     (*
+		       #^float k
+		       #^float4 %2))) 
+	     (unwrap* 
+	       (scaled-add {:k 2.0} [(range 20) (range 20)])))
 	(3.0 6.0 9.0 12.0 ...)
 	
 	=> (with-blank-slate
