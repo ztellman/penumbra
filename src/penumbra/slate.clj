@@ -60,19 +60,21 @@
 
 (defn invoke [slate f]
   (let [#^Semaphore s (Semaphore. 1)
-        exception (atom nil)]
+        exception (atom nil)
+        value (atom nil)]
     (.acquire s)
     (enqueue slate
       (fn []
         (try
-          (f)
+          (reset! value (f))
           (catch Exception e
             (reset! exception e))
           (finally
             (.release s)))))
     (.acquire s)
     (if @exception
-      (throw @exception))))
+      (throw @exception))
+    @value))
 
 (defn destroy [slate]
   (enqueue slate
@@ -147,8 +149,8 @@
 (defmacro with-blank-slate
   [& body]
   `(let [slate# (create-slate)]
-    (with-slate slate#
-      ~@body)
-    (destroy slate#)
-    nil))
-
+    (try
+      (with-slate slate#
+        ~@body)
+      (finally
+        (destroy slate#)))))
