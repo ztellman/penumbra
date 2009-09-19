@@ -56,8 +56,10 @@
 (defmacro with-viewport [[x y w h] & body]
   `(let [[x# y# w# h#] @*view-bounds*]
     (gl-viewport ~x ~y ~w ~h)
-    ~@body
-    (gl-viewport x# y# w# h#)))
+    (try
+      ~@body
+      (finally
+        (gl-viewport x# y# w# h#)))))
 
 (gl-import- glOrtho gl-ortho)
 (glu-import- gluPerspective glu-perspective)
@@ -363,8 +365,10 @@
 (defmacro with-frame-buffer [& body]
   `(let [fb# (gen-frame-buffer)]
     (bind-frame-buffer fb#)
-    ~@body
-    (destroy-frame-buffer fb#)))
+    (try
+      ~@body
+      (finally
+        (destroy-frame-buffer fb#)))))
 
 (defn frame-buffer-ok? []
   (= (gl-check-frame-buffer-status :framebuffer) (enum :framebuffer-complete)))
