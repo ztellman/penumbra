@@ -45,8 +45,8 @@ rather than this:
 	(draw-line-strip
   	  (dotimes [angle 360]
         (vertex (Math/cos (* Math/PI (/ angle 180.)))
-        (Math/sin (* Math/PI (/ angle 180.)))
-        0)))
+                (Math/sin (* Math/PI (/ angle 180.)))
+                0)))
 
 Shaders are supported, via an s-expression representation of GLSL.  It mimics Clojure where possible, and has basic type inference, but is constrained by the target language (imperative, explicit types, etc.)  
 

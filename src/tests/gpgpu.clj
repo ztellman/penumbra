@@ -30,7 +30,13 @@
         (is (= (unwrap* (index-map 6)) s))
 
         (defmap add-map (+ #^float4 %1 #^float4 %2))
-        (is (= (unwrap* (add-map {} [s2 s])) s3)))
+        (is (= (unwrap* (add-map {} [s2 s])) s3))
+
+        (defmap split-map
+          (let [a #^float4 %1]
+            [a a]))
+        (let [[a b] (map unwrap* (split-map {} [s]))]
+          (is (= a s) (= b s)))
 
       (testing "Reduce"
 
@@ -38,4 +44,4 @@
         (dotimes [i 60]
           (let [i (+ 1 i)]
             (let [s (map float (range (* 4 i)))]
-              (is (= (apply + (sum s)) (apply + s))))))))))
+              (is (= (apply + (sum s)) (apply + s)))))))))))

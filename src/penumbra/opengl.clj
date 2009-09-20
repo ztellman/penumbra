@@ -381,8 +381,11 @@
 
 (defn attach [tex point]
   (let [p (attachment point)]
-    (gl-frame-buffer-texture-2d :framebuffer p (enum (:target tex)) (:id tex) 0)
-    (attach! tex point)))
+    (if (nil? tex)
+      (gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle 0 0)
+      (do
+        (gl-frame-buffer-texture-2d :framebuffer p (enum (:target tex)) (:id tex) 0)
+        (attach! tex point)))))
 
 (defn bind-read [variable tex point]
   (let [loc (gl-get-uniform-location *program* (.replace (name variable) \- \_))]
@@ -400,6 +403,8 @@
   (let [read-textures (map #(last %) (partition 2 read))]
     (doseq [[idx tex] (indexed write)]
       (attach tex idx))
+    (doseq [idx (range (count write) 8)]
+      (attach nil idx))
     (doseq [[idx [vr tex]] (indexed (partition 2 read))]
       (bind-read vr tex idx))
     (if (not (empty? write))

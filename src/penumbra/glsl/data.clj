@@ -116,6 +116,8 @@
   (if (nil? @(:attach-point tex))
     (throw (Exception. "Cannot read from unattached texture.")))
   (gl-read-buffer @(:attach-point tex))
+  (if (not (frame-buffer-ok?))
+      (throw (Exception. (str "Framebuffer status is " (frame-buffer-status)))))
   (let [a (create-array (:tuple tex) (:internal-type tex))]
     (gl-read-pixels
       0 0 1 1
