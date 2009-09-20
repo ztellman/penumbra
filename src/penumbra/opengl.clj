@@ -420,10 +420,9 @@
       (bind-write 0 (count write)))))
 
 (defmacro with-frame-buffer
-  [dim & body]
+  [& body]
     `(let [fb# (gen-frame-buffer)]
       (bind-frame-buffer fb#)
-      (attach-depth-buffer ~dim)
       (try
         ~@body
         (finally
@@ -438,6 +437,7 @@
     (let [[w# h#] (:dim ~tex)]
       (with-frame-buffer [w# h#]
         (with-viewport [0 0 w# h#]
+          (attach-depth-buffer [w# h#])
           (attach-textures [] [~tex])
           (clear)
           (push-matrix
