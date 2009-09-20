@@ -128,7 +128,7 @@
 
               (display [drawable]
                 (bind-gl drawable
-                  (with-frame-buffer
+                  (with-frame-buffer [1 1]
                     (binding [*slate* slate
                               *texture-pool* tex-pool]
                       (execute slate)))))

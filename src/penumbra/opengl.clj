@@ -40,10 +40,18 @@
 (def *view-bounds* (ref [0 0 0 0]))
 
 (gl-import glClear gl-clear)
+(gl-import glClearColor clear-color)
+(gl-import glDepthFunc depth-test)
 
-(defn clear []
-  (gl-clear :depth-buffer-bit)
-  (gl-clear :color-buffer-bit))
+(defn clear
+  ([]
+    (gl-clear :depth-buffer-bit)
+    (gl-clear :color-buffer-bit))
+  ([r g b]
+    (clear r g b 1))
+  ([r g b a]
+    (clear-color r g b a)
+    (clear)))
 
 (gl-import- glViewport gl-viewport)
 
@@ -186,19 +194,6 @@
       2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
       3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
 
-(defmacro render-to-texture
-  "Renders a scene to a texture."
-  [tex & body]
-  `(do
-    (clear)
-    (let [[w# h#] (:dim ~tex)]
-      (with-viewport [0 0 w# h#]
-        (push-matrix
-          ~@body)
-        (bind-texture ~tex)
-        (gl-copy-tex-sub-image-2d :texture-2d 0 0 0 0 0 w# h#)
-      (clear)))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Display Lists
 
@@ -239,7 +234,6 @@
 
 (gl-import glColor3d color)
 (gl-import glCullFace cull-face)
-(gl-import glClearColor clear-color)
 (gl-import glLineWidth line-width)
 
 (gl-import- glPolygonMode gl-polygon-mode)
@@ -333,6 +327,28 @@
                     (uniform-4f loc (args 0) (args 1) (args 2) (args 3))))))
 
 ;;;;;;;;;;;;;;;;
+;Render Buffers
+(gl-import- glGenRenderbuffers gl-gen-render-buffers)
+(gl-import- glBindRenderbuffer gl-bind-render-buffer)
+(gl-import- glRenderbufferStorage gl-render-buffer-storage)
+(gl-import- glFramebufferRenderbuffer gl-frame-buffer-render-buffer)
+
+(defn gen-render-buffer []
+  (let [a (int-array 1)]
+    (gl-gen-render-buffers 1 a 0)
+    (nth a 0)))
+
+(defn bind-render-buffer [rb]
+  (gl-bind-render-buffer :renderbuffer rb))
+
+(defn attach-depth-buffer [dim]
+  (let [depth-buffer (gen-render-buffer)
+        dim (vec dim)]
+    (bind-render-buffer depth-buffer)
+    (gl-render-buffer-storage :renderbuffer :depth-component24 (dim 0) (dim 1))
+    (gl-frame-buffer-render-buffer :framebuffer :depth-attachment :renderbuffer depth-buffer)))
+
+;;;;;;;;;;;;;;;;
 ;Frame Buffers
 
 (gl-import- glGenFramebuffers gl-gen-frame-buffers)
@@ -362,13 +378,6 @@
 (defn bind-frame-buffer [fb]
   (gl-bind-frame-buffer :framebuffer fb))
 
-(defmacro with-frame-buffer [& body]
-  `(let [fb# (gen-frame-buffer)]
-    (bind-frame-buffer fb#)
-    (try
-      ~@body
-      (finally
-        (destroy-frame-buffer fb#)))))
 
 (defn frame-buffer-ok? []
   (= (gl-check-frame-buffer-status :framebuffer) (enum :framebuffer-complete)))
@@ -409,6 +418,30 @@
       (bind-read vr tex idx))
     (if (not (empty? write))
       (bind-write 0 (count write)))))
+
+(defmacro with-frame-buffer
+  [dim & body]
+    `(let [fb# (gen-frame-buffer)]
+      (bind-frame-buffer fb#)
+      (attach-depth-buffer ~dim)
+      (try
+        ~@body
+        (finally
+          (destroy-frame-buffer fb#)))))
+
+;;;;;;;;;;;;;;;;;;;;;;
+
+(defmacro render-to-texture
+  "Renders a scene to a texture."
+  [tex & body]
+  `(do
+    (let [[w# h#] (:dim ~tex)]
+      (with-frame-buffer [w# h#]
+        (with-viewport [0 0 w# h#]
+          (attach-textures [] [~tex])
+          (clear)
+          (push-matrix
+            ~@body))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 

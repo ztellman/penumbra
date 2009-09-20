@@ -91,15 +91,14 @@
     (bind-texture checkers)
 
     ;render the checkered cube to a texture
-    (clear-color 0.5 0.5 0.5 1)
     (render-to-texture view
+      (clear 0.5 0.5 0.5)
       (with-projection (frustum-view 50. 1. 0.1 10.)
         (push-matrix
           (rotate lx 1 0 0) (rotate ly 0 1 0)
           (textured-cube))))
 
-    (clear-color 0 0 0 1)
-    (clear)
+    (clear 0 0 0)
 
     (with-projection (frustum-view 90. (double (/ w 2.0 h)) 0.1 10.)
       ;render the checkered cube to the window
