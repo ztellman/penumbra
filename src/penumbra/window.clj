@@ -139,11 +139,11 @@
        cap (new GLCapabilities profile)
        state (ref initial-state)]
 
-    (doto cap
+    '(doto cap
       (.setSampleBuffers true)
       (.setNumSamples 4))
 
-    (let [canvas (GLCanvas. cap chooser nil (.getDefaultScreenDevice (GraphicsEnvironment/getLocalGraphicsEnvironment)))
+    (let [canvas (GLCanvas. cap)
           last-render (ref (clock))
           last-pos (ref [0 0])
           window (struct-map window-struct :canvas canvas :frame frame :state state :callbacks callbacks)]
