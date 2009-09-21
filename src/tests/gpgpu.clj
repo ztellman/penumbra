@@ -19,7 +19,7 @@
       (testing "Map"
 
         (defmap identity-map %1)
-        (doseq [tuple [3 4]]
+        (doseq [tuple [3 4 3 4]] ;repeated tuples test whether we're recreating the program when we shouldn't
           (let [tex (wrap s tuple)]
             (is (= s (unwrap* (identity-map [tex]))))))
 

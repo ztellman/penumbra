@@ -71,18 +71,18 @@ Using this representation, Penumbra supports running general-purpose computation
 	=> (use 'penumbra.compute)
 
   	=> (with-blank-slate
-	     (defmap scaled-add
-	       (+
-		     #^float4 %1 
-		     (*
-		       #^float k
-		       #^float4 %2))) 
-	     (unwrap* 
-	       (scaled-add {:k 2.0} [(range 20) (range 20)])))
+  	     (defmap saxpy (+ %1 (* k %2)))
+  	     (let [s (map float (range 20))
+  	           a (wrap s 4)
+  	           b (wrap s 4)]
+	       (unwrap* (saxpy {:k 2.0} [a b]))))
 	(3.0 6.0 9.0 12.0 ...)
 	
 	=> (with-blank-slate
-	     (defreduce sum #^float4 (+ %1 %2))
-	     (apply + (sum (range 20)))
+	     (defreduce sum (+ %1 %2))
+	     (let [s (map float (range 20))
+	           a (wrap s 4)]
+	       (apply + (sum a))))
 	210
 
+I'm currently working on adding some documentation and examples to the wiki.  If there are any particular applications you'd like covered, let me know.
