@@ -15,7 +15,7 @@
       (normalize
         (float3 s (* 3.0 (cos :index)) (/ (* s s) 2.0)))))
   (defreduce find-max
-    #^float3 (max %1 %2))
+    (max %1 %2))
   (dotimes [_ 100]
     (time (println (find-max (generate 5e6))))))
 

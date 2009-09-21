@@ -119,7 +119,10 @@
 (facade-multiply rotate penumbra.opengl.geometry/rotation-matrix)
 (facade-multiply scale penumbra.opengl.geometry/scaling-matrix)
 (facade-multiply translate penumbra.opengl.geometry/translation-matrix)
-(facade-multiply load-identity penumbra.opengl.geometry/identity-matrix #(%2)) ;Note: this only resets transformations local to the begin/end clause
+
+;This should really be the inverse matrix of the current model-view matrix
+;Right now, it only resets the intra-primitive transformations
+(facade-multiply load-identity penumbra.opengl.geometry/identity-matrix #(%2))
 
 (defn-draw :quads)
 (defn-draw :line-strip)
@@ -404,9 +407,6 @@
 
 (defn bind-write [start end]
   (gl-draw-buffers (- end start) (int-array (map attachment (range start end))) 0))
-
-(defn unbind-write []
-  (gl-draw-buffers 0 (int-array [1]) 0))
 
 (defn attach-textures [read write]
   (let [read-textures (map #(last %) (partition 2 read))]

@@ -10,13 +10,17 @@
   (:use [clojure.contrib.def :only (defmacro-)])
   (:use [penumbra opengl])
   (:use [penumbra.opengl core])
-  (:import (java.awt Frame Dimension))
+  (:import (java.awt
+              Frame Dimension
+              GraphicsDevice GraphicsEnvironment))
   (:import (java.awt.event
               MouseAdapter MouseListener MouseEvent
               MouseMotionListener MouseMotionAdapter
               WindowListener WindowAdapter
               KeyAdapter KeyListener KeyEvent))
-  (:import (javax.media.opengl GLEventListener GLCapabilities GLAutoDrawable GLProfile))
+  (:import (javax.media.opengl
+              GLEventListener GLCapabilities GLCapabilitiesChooser
+              GLAutoDrawable GLProfile))
   (:import (javax.media.opengl.awt GLCanvas)))
 
 ;;;;;;;;;;;;;;;;;;;;;
@@ -46,7 +50,8 @@
 ;;;
 
 (defn- update-state [state new-value]
-  (if (not (identical? @state new-value)) (repaint)) ;we want to redraw if the state has been altered
+  (if (not (identical? @state new-value))
+    (repaint))
   (dosync (ref-set state new-value)))
 
 (defmacro- try-call [window k & args]
@@ -74,25 +79,36 @@
 
 ;;;
 
-(defn start-update-loop
-  "Creates an update loop on a separate thread that repeats 'hertz' times a second.
-  Assumes that callback will execute in less than the update period."
-  [hertz callback]
+(defn- start-update-loop-
+  [hertz f executor]
   (let [window *window*
         state  (get-state)
         period (/ 1e9 hertz)]
     (.start
       (Thread.
         (fn []
+          (Thread/sleep (/ 1000 hertz))
           (binding [*window* window]
             (loop []
               (let [time (clock)]
-                (dosync (alter state callback))
+                (executor state)
                 (repaint)
                 (let [diff  (- (clock) time)
                       sleep (max 0 (- period diff))]
                   (Thread/sleep (long (/ sleep 1e6)) (long (rem sleep 1e6)))
                   (recur))))))))))
+
+(defn start-update-loop
+  "Creates an update loop on a separate thread that repeats 'hertz' times a second.
+  Assumes that callback will execute in less than the update period."
+  [hertz f]
+  (start-update-loop- hertz f (fn [s] (dosync (alter s f)))))
+
+(defn start-update-loop*
+  "Same as start-upate-loop, but passes in the ref to the state rather than just the state.
+  Only use this if you're sure you know what you're doing."
+  [hertz f]
+  (start-update-loop- hertz f (fn [s] (f s))))
 
 ;;;
 
@@ -112,16 +128,22 @@
   :key-release    [key state]"
   [callbacks initial-state]
   (let
-    [frame (new Frame)
-     profile (GLProfile/get GLProfile/GL2)
-     cap (new GLCapabilities profile)
-     state (ref initial-state)]
+      [chooser (proxy [GLCapabilitiesChooser] []
+                 (chooseCapabilities
+                  [desired available recommended]
+                  (doseq [cap available]
+                    (println (.getNumSamples cap)))
+                  0))
+       frame (new Frame)
+       profile (GLProfile/get GLProfile/GL2)
+       cap (new GLCapabilities profile)
+       state (ref initial-state)]
 
-    '(doto cap
+    (doto cap
       (.setSampleBuffers true)
-      (.setNumSamples 4)) ;anti-aliasing level
+      (.setNumSamples 4))
 
-    (let [canvas (new GLCanvas cap)
+    (let [canvas (GLCanvas. cap chooser nil (.getDefaultScreenDevice (GraphicsEnvironment/getLocalGraphicsEnvironment)))
           last-render (ref (clock))
           last-pos (ref [0 0])
           window (struct-map window-struct :canvas canvas :frame frame :state state :callbacks callbacks)]

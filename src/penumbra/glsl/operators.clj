@@ -8,7 +8,7 @@
 
 (ns penumbra.glsl.operators
   (:use [penumbra opengl slate])
-  (:use [penumbra.opengl.texture :only (create-texture release!)])
+  (:use [penumbra.opengl.texture :only (create-texture release! texture?)])
   (:use [penumbra.opengl.framebuffer :only (pixel-format write-format)])
   (:use [penumbra.glsl core data])
   (:use [penumbra.translate.core])
@@ -16,11 +16,9 @@
   (:use [clojure.contrib (seq-utils :only (separate indexed flatten)) (def :only (defvar-)) pprint])
   (:require [clojure.zip :as zip]))
 
-;;;;;;;;;;;;;;;;;;
+;;;
 
-(defvar- types (set '(color3 color4 float float2 float3 float4 int int2 int3 int4)))
-
-(defn- typecast [expr]
+(defn- typecast-float4 [expr]
   (condp = (:tag ^expr)
     'float   (list 'float4 expr)
     'float2  (list 'float4 expr 1.0 1.0)
@@ -56,7 +54,36 @@
       int3 :int
       int4 :int)))
 
+(defvar- texture-type
+  (apply hash-map
+    '([:unsigned-byte 1] float
+      [:unsigned-byte 2] float2
+      [:unsigned-byte 3] float3
+      [:unsigned-byte 4] float4
+      [:float 1] float
+      [:float 2] float2
+      [:float 3] float3
+      [:float 4] float4
+      [:int 1] int
+      [:int 2] int2
+      [:int 3] int3
+      [:int 4] int4)))
+
 (defvar- swizzle { 1 '.x, 2 '.xy, 3 '.xyz, 4 '.xyzw })
+
+;;;
+
+(defn- typeof-element [s]
+  (texture-type [(:internal-type s) (:tuple s)]))
+
+(defn- int? [p]
+  (let [cls (class p)]
+    (if (or (= cls Integer) (= cls Integer/TYPE)) true false)))
+
+(defn- typeof-param [p]
+  (if (number? p)
+    (if (int? p) 'int 'float)
+    (symbol (str (if (-> p first int?) "int" "float") (count p)))))
 
 (defn- apply-transforms [tree funs]
   (reduce #(tree-map %1 %2) tree funs))
@@ -68,6 +95,9 @@
   (if (= '% param)
     0
     (dec (Integer/parseInt (.substring (name param) 1)))))
+
+(defn- create-element [index]
+  (symbol (str "%" (inc index))))
 
 (defn- replace-with [from to]
   #(if (= from %) to))
@@ -171,20 +201,14 @@
             (indexed results)))))))
 
 (defn typecast-results
+  "Results must be of type float4, so we have to pad any different type to equal that"
   [expr]
   (tree-map
    expr
    (fn [x]
      (if (:result ^x)
-       (add-meta (typecast (add-meta x :result false)) :result false)
+       (add-meta (typecast-float4 (add-meta x :result false)) :result false)
        x))))
-
-(defn- validate-results
-  "Make sure there is a type for each return value"
-  [expr]
-  (doseq [x (results expr)]
-    (if (and (nil? (typeof x)) (or (not (sequential? x)) (not (contains? types (first x)))))
-      (throw (Exception. (str x " must have an explicit type."))))))
 
 (defn- rename-element [i]
   (symbol (str "-tex" i)))
@@ -197,31 +221,25 @@
        (list 'texture2DRect (rename-element (element-index e)) '--coord))
       ^e)))
 
+(defn- wrap-uniform [x]
+  (list 'declare (list 'uniform x)))
+
 (defn- process-map
   "Transforms the body, and pulls out all the relevant information."
   [expr]
   (validate-elements expr)
   (validate-params expr)
-  ;(validate-results expr)
   (let [[elements params]
           (separate element? (realize (tree-filter expr #(and (symbol? %) (typeof %)))))
         declarations
           (list
            'do
            (map
-            #(list
-              'declare
-              (list
-               'uniform
-               (add-meta (rename-element (element-index %)) :tag 'sampler2DRect)))
-            elements)
+            #(wrap-uniform (add-meta (rename-element (element-index %)) :tag 'sampler2DRect))
+            (distinct elements))
            (map
-            #(list
-              'declare
-              (list
-               'uniform
-               (add-meta % :tag (typeof %))))
-            params))
+            #(wrap-uniform (add-meta % :tag (typeof %)))
+            (distinct params)))
        body
          (->
           expr
@@ -244,7 +262,9 @@
      :params (zipmap params (map typeof params))
      :results results}))
 
-(defn- create-write-texture [typecast dim]
+(defn- create-write-texture
+  "Given the type (float4, etc.), creates the appropriate target texture"
+  [typecast dim]
   (let [tuple  (type-tuple typecast)
         format (type-format typecast)
         i-f    (write-format format tuple)
@@ -253,11 +273,10 @@
     (create-texture :texture-rectangle dim (first i-f) p-f format tuple)))
 
 (defn- run-map
+  "Executes the map"
   [info params elements dim]
-  ;Check number of elements
   (if (not= (count elements) (count (:elements info)))
     (throw (Exception. (str "Expected " (count (:elements info)) " elements, was given " (count elements) "."))))
-  ;Check dimensions of elements
   (if (and
         (not (empty? elements))
         (apply not= (list* dim (map :dim elements))))
@@ -276,39 +295,81 @@
       (release! e))
     (if (= 1 (count targets)) (first targets) targets)))
 
-(defn create-map [expr]
-  (let [info    (process-map expr)
-        program (create-operator (:body info))
-        wrap    #(map
-                  (fn [[s type]] (wrap s (type-tuple type)))
-                  (partition 2 (interleave % (-> info :elements vals sort))))]
+(defn- tag-map-types
+  "Applies types to map, so that we can create a program"
+  [expr types]
+  (let [[elements params] (separate #(-> % first element?) types)]
+    (apply-transforms
+     expr
+     (concat 
+      (map
+       (fn [[element type]]
+         #(if (and (element? %) (apply = (map element-index [element %]))) (add-meta % :tag type)))
+       elements)
+      (map
+       (fn [[param type]]
+         (replace-with param (add-meta param :tag type)))
+       params)))))
+
+(defn- map-cache [expr]
+  (memoize
+    (fn [types]
+      (let [expr    (tag-map-types expr types)
+            info    (process-map expr)
+            program (create-operator (:body info))]
+        [info program]))))
+
+(defn create-map-template
+  "Creates a template for a map, which will lazily create a set of shader programs based on the types passed in."
+  [expr]
+  (let [cache     (map-cache expr)
+        elements? #(and (vector? %) (-> % first number? not))
+        dim       #(:dim (first %))]
     (fn this
-      ([size]
-        (this {} [] (rectangle size)))
-      ([params elements-or-size]
-        (if (number? elements-or-size)
-          (this params [] (rectangle elements-or-size))
-          (let [elements (wrap elements-or-size)]
-            (this params elements (:dim (first elements))))))
-      ([params elements dim]
-        (let [elements (wrap elements)]
-          (with-program program
-            (run-map info params elements dim)))))))
+
+      ([elements-or-size]
+        (if (elements? elements-or-size)
+          (this {} elements-or-size (dim elements-or-size))
+          (this {} [] elements-or-size)))
+
+      ([params-or-elements elements-or-size]
+        (let [params   (if (map? params-or-elements)
+                         params-or-elements
+                         {})
+              elements (if (elements? elements-or-size)
+                         elements-or-size
+                         [])
+              size     (if (elements? elements-or-size)
+                         (dim elements-or-size)
+                         elements-or-size)]
+          (this params elements size)))
+
+      ([params elements size]
+        (let [size
+                (if (number? size) (rectangle size) size)
+              param-map
+                (zipmap (map #(symbol (name %)) (keys params)) (map typeof-param (vals params)))
+              element-map
+                (zipmap (map create-element (range (count elements))) (map typeof-element elements))
+              [info program]
+                (cache (merge element-map param-map))]
+           (with-program program
+             (run-map info params elements size)))))))
 
 ;;;;;;;;;;;;;;;;;;
 
 (defvar- reduce-program
-  '(let [#^float2 source-coord (* (floor --coord) 2.0)
-         #^bool x (> (.x --bounds) (.x source-coord))
-         #^bool y (> (.y --bounds) (.y source-coord))]
-     (<- #^type a #^lookup (texture2DRect --data source-coord))
-     (if x
-       (reduce a #^lookup (texture2DRect --data (+ source-coord (float2 1.0 0.0)))))
-     (if y
-       (reduce a #^lookup (texture2DRect --data (+ source-coord (float2 0.0 1.0)))))
-     (if (and x y)
-       (reduce a #^lookup (texture2DRect --data (+ source-coord (float2 1.0 1.0)))))
-     (<- (-> :frag-data (nth 0)) #^result a)))
+  '(let [#^float2 -source-coord (* (floor --coord) 2.0)
+         #^bool -x (> (.x --bounds) (.x -source-coord))
+         #^bool -y (> (.y --bounds) (.y -source-coord))]
+     (<- #^type -a #^lookup (texture2DRect --data -source-coord))
+     (if -x
+       (reduce -a #^lookup (texture2DRect --data (+ -source-coord (float2 1.0 0.0)))))
+     (if -y
+       (reduce -a #^lookup (texture2DRect --data (+ -source-coord (float2 0.0 1.0)))))
+     (if (and -x -y)
+       (reduce -a #^lookup (texture2DRect --data (+ -source-coord (float2 1.0 1.0)))))
+     (<- (-> :frag-data (nth 0)) #^result -a)))
 
 (defn- transform-reduce-program [type]
   (let [tuple (type-tuple type)]
@@ -317,9 +378,9 @@
      (list
       #(if (= 'type (:tag ^%)) (add-meta % :tag type))
       #(if (= 'lookup (:tag ^%)) (add-meta (list (swizzle tuple) (add-meta % :tag type)) :tag nil))
-      #(if (= 'result (:tag ^%)) (add-meta (typecast (add-meta % :tag type)) :tag nil))))))
+      #(if (= 'result (:tag ^%)) (add-meta (typecast-float4 (add-meta % :tag type)) :tag nil))))))
 
-(defn process-reduce [expr]
+(defn- process-reduce [expr]
   (let [params (tree-filter expr #(and (symbol? %) (not (element? %)) (:tag ^%)))
         body (->
               expr
@@ -330,9 +391,9 @@
               body
               (apply-transforms
                (list
-                (replace-with '%1 (add-meta 'b :tag type))
-                (replace-with '%2 (add-meta 'c :tag type))
-                #(if (:result ^%) (add-meta (list '<- 'b (add-meta % :result false)) :result false)))))]
+                (replace-with '%1 (add-meta '-b :tag type))
+                (replace-with '%2 (add-meta '-c :tag type))
+                #(if (:result ^%) (add-meta (list '<- '-b (add-meta % :result false)) :result false)))))]
     {:type
        type
      :params
@@ -348,42 +409,63 @@
         (list
         'defn 'void 'reduce
         (vector
-         (list 'inout (with-meta 'b {:tag type}))
-         (list 'in (with-meta 'c {:tag type})))
+         (list 'inout (with-meta '-b {:tag type}))
+         (list 'in (with-meta '-c {:tag type})))
          body)
        (wrap-and-prepend (transform-reduce-program type)))}))
 
-(defn create-reduce
+(defn- run-reduce
+  [params data]
+  (set-params params)
+  (attach-textures [] [data])
+  (loop [dim (:dim data), input data]
+    (if (= [1 1] dim)
+      (do
+        (let [result (unwrap-first input)]
+          (release! input)
+          (seq result)))
+      (let [half-dim  (map #(Math/ceil (/ % 2.0)) dim)
+            target    (mimic-texture input half-dim)
+            [w h]     half-dim
+            bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
+          (apply uniform (list* :__bounds bounds))
+          (apply uniform (list* :__dim half-dim))
+          (attach-textures [:__data input] [target])
+          (draw 0 0 w h)
+          (release! input)
+          (recur half-dim target)))))
+
+(defn- tag-reduce-types
+  [expr data params]
+  (apply-transforms
+    expr
+    (list*
+      #(if (element? %) (add-meta % :tag data))
+      (map
+        (fn [[param type]]
+          (replace-with param (with-meta param :tag type)))
+        params))))
+
+(defn- reduce-cache
   [expr]
-  (let [info (process-reduce expr)
-        program (create-operator (:body info))]
+  (memoize
+    (fn [data params]
+      (let [expr (tag-reduce-types expr data params)
+            info (process-reduce expr)
+            program (create-operator (:body info))]
+        program))))
+
+(defn create-reduce-template
+  [expr]
+  (let [cache (reduce-cache expr)]
     (fn this
       ([data]
         (this {} data))
       ([params data]
-        (unbind-write)
-        (let [data (wrap data (-> info :type type-tuple))
-              dim* (:dim data)]
+        (let [data-type (typeof-element data)
+              program   (cache data-type params)]
           (with-program program
-            (set-params params)
-            (attach-textures [] [data])
-            (loop [dim dim*, input data]
-              (if (= [1 1] dim)
-                (do
-                  (let [result (unwrap-first input)]
-                    (release! input)
-                    (seq result)))
-                (let [half-dim  (map #(Math/ceil (/ % 2.0)) dim)
-                      target    (mimic-texture input half-dim)
-                      [w h]     half-dim
-                      bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
-                    (apply uniform (list* :__bounds bounds))
-                    (apply uniform (list* :__dim half-dim))
-                    (attach-textures [:__data input] [target])
-                    (draw 0 0 w h)
-                    (release! input)
-                    (recur half-dim target))))))))))
-
+            (run-reduce params data)))))))
 
 
 

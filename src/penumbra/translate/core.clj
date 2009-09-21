@@ -221,12 +221,12 @@
         x))
     @vars))
 
-(defn- tag-var
+(defn tag-var
   "Add :tag metadata to all instances of var in expr"
   [var type expr]
   (tree-map
    expr
-   #(if (not= var %) % (add-meta % :tag type))))
+   #(if (= var %) (add-meta % :tag type))))
 
 (defn infer-types
   "Repeatedly applies inspect-exprs and tag-var until everything is typed"

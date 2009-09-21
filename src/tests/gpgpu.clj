@@ -11,37 +11,46 @@
   (:use [clojure test]))
 
 (with-blank-slate
-  (let [s (map float (range 24))
+  (let [s (map float (range 12))
         s2 (map #(* % 2) s)
         s3 (map #(* % 3) s)]
     (testing "GPGPU"
 
       (testing "Map"
 
-        (defmap identity-map #^float4 %1)
-        (is (= (unwrap* (identity-map {} [s])) s))
+        (defmap identity-map %1)
+        (doseq [tuple [3 4]]
+          (let [tex (wrap s tuple)]
+            (is (= s (unwrap* (identity-map [tex]))))))
 
-        (defmap multiply-map (* #^float4 %1 #^float k))
-        (is (= (unwrap* (multiply-map {:k 2.0} [s])) s2))
+        (defmap multiply-map (* %1 k))
+        (doseq [tuple [3 4]]
+          (let [tex (wrap s tuple)]
+            (is (= s2 (unwrap* (multiply-map {:k 2.0} [tex]))))))
 
         (defmap index-map
           (let [i (* 4.0 :index)]
             (float4 i (+ 1.0 i) (+ 2.0 i) (+ 3.0 i))))
-        (is (= (unwrap* (index-map 6)) s))
+        (is (= (unwrap* (index-map 3)) s))
 
-        (defmap add-map (+ #^float4 %1 #^float4 %2))
-        (is (= (unwrap* (add-map {} [s2 s])) s3))
+        (defmap add-map (+ %1 %2))
+        (doseq [tuple [3 4]]
+          (let [tex1 (wrap s tuple), tex2 (wrap s2 tuple)]
+            (is (= s3 (unwrap* (add-map [tex1 tex2]))))))
 
-        (defmap split-map
-          (let [a #^float4 %1]
-            [a a]))
-        (let [[a b] (map unwrap* (split-map {} [s]))]
-          (is (= a s) (= b s)))
+        (defmap split-map [%1 (* 2.0 %1) (* 3.0 %1)])
+        (doseq [tuple [3 4]]
+          (let [tex (wrap s tuple)]
+            (let [[a b c] (map unwrap* (split-map [tex]))]
+              (is (= a s))
+              (is (= b s2))
+              (is (= c s3))))))
 
       (testing "Reduce"
 
-        (defreduce sum #^float4 (+ %1 %2))
+        (defreduce sum (+ %1 %2))
         (dotimes [i 60]
           (let [i (+ 1 i)]
-            (let [s (map float (range (* 4 i)))]
-              (is (= (apply + (sum s)) (apply + s)))))))))))
+            (let [s (map float (range (* 4 i)))
+                  tex (wrap s 4)]
+              (is (= (apply + (sum tex)) (apply + s))))))))))

@@ -32,7 +32,6 @@ becomes
 		(vertex 1 1 0)
 		(vertex 1 0 0)))
 
-
 It also allows for intra-primitive transformations, which allows us to define a circle like this:
 
 	(draw-line-strip
@@ -44,9 +43,11 @@ rather than this:
 
 	(draw-line-strip
   	  (dotimes [angle 360]
-        (vertex (Math/cos (* Math/PI (/ angle 180.)))
-                (Math/sin (* Math/PI (/ angle 180.)))
-                0)))
+        (let [radians (/ angle 180.)]
+          (vertex 
+	        (Math/cos radians)
+            (Math/sin radians)
+            0))))
 
 Shaders are supported, via an s-expression representation of GLSL.  It mimics Clojure where possible, and has basic type inference, but is constrained by the target language (imperative, explicit types, etc.)  
 
@@ -70,7 +71,7 @@ Using this representation, Penumbra supports running general-purpose computation
 	=> (use 'penumbra.compute)
 
   	=> (with-blank-slate
-	     (defmap scaled-add ;a + k*b
+	     (defmap scaled-add
 	       (+
 		     #^float4 %1 
 		     (*

@@ -8,7 +8,8 @@
 
 (ns penumbra.compute
   (:require [penumbra.glsl.data :as glsl-data])
-  (:require [penumbra.glsl.operators :as glsl-op]))
+  (:require [penumbra.glsl.operators :as glsl-op])
+  (:require [clojure.contrib.def :only (defmacro-)]))
 
 (defn wrap
   "Turns a flat seq into a texture, grouped by tuple
@@ -29,7 +30,7 @@
   (seq (apply unwrap args)))
 
 (defmacro defmap [name & body]
-  `(def ~name (glsl-op/create-map (quote ~body))))
+  `(def ~name (glsl-op/create-map-template (quote ~body))))
 
 (defmacro defreduce [name & body]
-  `(def ~name (glsl-op/create-reduce (quote ~body))))
+  `(def ~name (glsl-op/create-reduce-template (quote ~body))))
