@@ -18,56 +18,49 @@
 
 ;;;
 
-(defn- typecast-float4 [expr]
-  (condp = (:tag ^expr)
-    'float   (list 'float4 expr)
-    'float2  (list 'float4 expr 1.0 1.0)
-    'float3  (list 'float4 expr 1.0)
-    'float4  expr
-    'color   (list 'float4 expr)
-    'color2  (list 'float4 expr 1.0 1.0)
-    'color3  (list 'float4 expr 1.0)
-    'color4  expr
-    'int     (list 'float4 expr)
-    'int2    (list 'float4 expr 1 1)
-    'int3    (list 'float4 expr 1)
-    'int4    expr))
-
-(defvar- type-tuple
-  (apply hash-map
-   '(color 1, color2 2, color3 3, color4 4
-     float 1, float2 2, float3 3, float4 4
-     int 1, int2 2, int3 3, int4 4)))
+(defn- typecast-float4 [x]
+  (condp = (:tag ^x)
+    :float   (list 'float4 x)
+    :float2  (list 'float4 x 1.0 1.0)
+    :float3  (list 'float4 x 1.0)
+    :float4  x
+    :color   (list 'float4 x)
+    :color2  (list 'float4 x 1.0 1.0)
+    :color3  (list 'float4 x 1.0)
+    :color4  x
+    :int     (list 'float4 x)
+    :int2    (list 'float4 x 1 1)
+    :int3    (list 'float4 x 1)
+    :int4    x
+    nil     (throw (Exception. (str "Cannot typecast \n" (with-out-str (print-tree x)))))))
 
 (defvar- type-format
-  (apply hash-map
-    '(color1 :unsigned-byte
-      color2 :unsigned-byte
-      color3 :unsigned-byte
-      color4 :unsigned-byte
-      float :float       
-      float2 :float
-      float3 :float
-      float4 :float
-      int :int
-      int2 :int
-      int3 :int
-      int4 :int)))
+  {:color :unsigned-byte
+   :color2 :unsigned-byte
+   :color3 :unsigned-byte
+   :color4 :unsigned-byte
+   :float :float       
+   :float2 :float
+   :float3 :float
+   :float4 :float
+   :int :int
+   :int2 :int
+   :int3 :int
+   :int4 :int})
 
 (defvar- texture-type
-  (apply hash-map
-    '([:unsigned-byte 1] float
-      [:unsigned-byte 2] float2
-      [:unsigned-byte 3] float3
-      [:unsigned-byte 4] float4
-      [:float 1] float
-      [:float 2] float2
-      [:float 3] float3
-      [:float 4] float4
-      [:int 1] int
-      [:int 2] int2
-      [:int 3] int3
-      [:int 4] int4)))
+  {[:unsigned-byte 1] :float
+   [:unsigned-byte 2] :float2
+   [:unsigned-byte 3] :float3
+   [:unsigned-byte 4] :float4
+   [:float 1] :float
+   [:float 2] :float2
+   [:float 3] :float3
+   [:float 4] :float4
+   [:int 1] :int
+   [:int 2] :int2
+   [:int 3] :int3
+   [:int 4] :int4})
 
 (defvar- swizzle { 1 '.x, 2 '.xy, 3 '.xyz, 4 '.xyzw })
 
@@ -82,8 +75,8 @@
 
 (defn- typeof-param [p]
   (if (number? p)
-    (if (int? p) 'int 'float)
-    (symbol (str (if (-> p first int?) "int" "float") (count p)))))
+    (if (int? p) :int :float)
+    (keyword (str (if (-> p first int?) "int" "float") (count p)))))
 
 (defn- apply-transforms [tree funs]
   (reduce #(tree-map %1 %2) tree funs))
@@ -108,43 +101,43 @@
   '((<- --coord (-> :multi-tex-coord0 .xy (* --dim)))
     (<- :position (* :model-view-projection-matrix :vertex))))
 
-(defn- prepend-index [expr]
+(defn- prepend-index [x]
   (let [index
         '((<-
           --index
           (-> --coord .y floor (* (.x --dim)) (+ (-> --coord .x floor)))))]
-    (if (contains? (set (flatten expr)) :index)
+    (if (contains? (set (flatten x)) :index)
       (concat
         index
-        (apply-transforms expr [(replace-with :index '--index)]))
-      expr)))
+        (apply-transforms x [(replace-with :index '--index)]))
+      x)))
 
-(defn wrap-and-prepend [expr]
+(defn wrap-and-prepend [x]
   (list
    '(do
-      (declare (varying #^float2 --coord))
-      (declare (uniform #^float2 --dim)))
-   (list 'defn 'void 'main [] (prepend-index expr))))             
+      (declare (varying #^:float2 --coord))
+      (declare (uniform #^:float2 --dim)))
+   (list 'defn 'void 'main [] (prepend-index x))))             
 
 (defn- result?
   "This assumes you only traverse down the last element of the tree"
-  [expr]
+  [x]
   (or
-    (vector? expr)
-    (not (sequential? expr))
+    (vector? x)
+    (not (sequential? x))
     (and
-      (-> expr first sequential? not)
-      (-> expr transformer first (not= 'do)))))
+      (-> x first sequential? not)
+      (-> x transformer first (not= 'do)))))
 
-(defn- results [expr]
-  (if (result? expr)
-    (if (vector? expr) expr (list expr))
-    (results (last expr))))
+(defn- results [x]
+  (if (result? x)
+    (if (vector? x) x (list x))
+    (results (last x))))
 
-(defn- transform-results [expr fun]
-  (loop [z (zip/seq-zip expr)]
+(defn- transform-results [x fun]
+  (loop [z (zip/seq-zip x)]
     (if (result? (zip/node z))
-      (zip/root (zip/replace z (fun (results expr))))
+      (zip/root (zip/replace z (fun (results x))))
       (recur (-> z zip/down zip/rightmost)))))
 
 (defn create-operator
@@ -166,8 +159,8 @@
 
 (defn- validate-elements
   "Make sure that there is one and only one type for each element"
-  [expr]
-  (let [elements (tree-filter expr element?)]
+  [x]
+  (let [elements (tree-filter x element?)]
     (doseq [e (distinct (filter typeof elements))]
       (let [typs (distinct (map typeof (filter #(= e %) elements)))]
         (if (empty? typs)
@@ -177,8 +170,8 @@
 
 (defn- validate-params
   "Make sure there isn't more than one type for each parameter"
-  [expr]
-  (let [params (tree-filter expr #(and (not (element? %)) (typeof %)))]
+  [x]
+  (let [params (tree-filter x #(and (not (element? %)) (typeof %)))]
     (doseq [e (distinct (filter typeof params))]
       (let [typs (distinct (map typeof (filter #(= e %) params)))]
         (if (< 1 (count typs))
@@ -186,10 +179,10 @@
 
 
 (defn- transform-operator-results
-  "Tranforms the final expression into one or more assignments to gl_FragData[n]"
-  [expr]
+  "Tranforms the final xession into one or more assignments to gl_FragData[n]"
+  [x]
   (transform-results
-    expr
+    x
     (fn [results]
       (list* 'do
         (realize
@@ -202,9 +195,9 @@
 
 (defn typecast-results
   "Results must be of type float4, so we have to pad any different type to equal that"
-  [expr]
+  [x]
   (tree-map
-   expr
+   x
    (fn [x]
      (if (:result ^x)
        (add-meta (typecast-float4 (add-meta x :result false)) :result false)
@@ -226,11 +219,11 @@
 
 (defn- process-map
   "Transforms the body, and pulls out all the relevant information."
-  [expr]
-  (validate-elements expr)
-  (validate-params expr)
+  [x]
+  (validate-elements x)
+  (validate-params x)
   (let [[elements params]
-          (separate element? (realize (tree-filter expr #(and (symbol? %) (typeof %)))))
+          (separate element? (realize (tree-filter x #(and (symbol? %) (typeof %)))))
         declarations
           (list
            'do
@@ -242,7 +235,7 @@
             (distinct params)))
        body
          (->
-          expr
+          x
           (apply-transforms
            (list*
             (replace-with :coord '--coord)
@@ -297,10 +290,10 @@
 
 (defn- tag-map-types
   "Applies types to map, so that we can create a program"
-  [expr types]
+  [x types]
   (let [[elements params] (separate #(-> % first element?) types)]
     (apply-transforms
-     expr
+     x
      (concat 
       (map
        (fn [[element type]]
@@ -311,18 +304,18 @@
          (replace-with param (add-meta param :tag type)))
        params)))))
 
-(defn- map-cache [expr]
+(defn- map-cache [x]
   (memoize
     (fn [types]
-      (let [expr    (tag-map-types expr types)
-            info    (process-map expr)
+      (let [x    (tag-map-types x types)
+            info    (process-map x)
             program (create-operator (:body info))]
         [info program]))))
 
 (defn create-map-template
   "Creates a template for a map, which will lazily create a set of shader programs based on the types passed in."
-  [expr]
-  (let [cache     (map-cache expr)
+  [x]
+  (let [cache     (map-cache x)
         elements? #(and (vector? %) (-> % first number? not))
         dim       #(:dim (first %))]
     (fn this
@@ -359,9 +352,9 @@
 ;;;;;;;;;;;;;;;;;;
 
 (defvar- reduce-program
-  '(let [#^float2 -source-coord (* (floor --coord) 2.0)
-         #^bool -x (> (.x --bounds) (.x -source-coord))
-         #^bool -y (> (.y --bounds) (.y -source-coord))]
+  '(let [#^:float2 -source-coord (* (floor --coord) 2.0)
+         #^:bool -x (> (.x --bounds) (.x -source-coord))
+         #^:bool -y (> (.y --bounds) (.y -source-coord))]
      (<- #^type -a #^lookup (texture2DRect --data -source-coord))
      (if -x
        (reduce -a #^lookup (texture2DRect --data (+ -source-coord (float2 1.0 0.0)))))
@@ -380,10 +373,10 @@
       #(if (= 'lookup (:tag ^%)) (add-meta (list (swizzle tuple) (add-meta % :tag type)) :tag nil))
       #(if (= 'result (:tag ^%)) (add-meta (typecast-float4 (add-meta % :tag type)) :tag nil))))))
 
-(defn- process-reduce [expr]
-  (let [params (tree-filter expr #(and (symbol? %) (not (element? %)) (:tag ^%)))
+(defn- process-reduce [x]
+  (let [params (tree-filter x #(and (symbol? %) (not (element? %)) (:tag ^%)))
         body (->
-              expr
+              x
               transform-glsl
               (transform-results (fn [x] (map #(add-meta % :result true) x)))) 
         type (first (map #(:tag ^%) (tree-filter body #(:result ^%))))
@@ -401,8 +394,8 @@
      :body
        (list
         'do
-        '(declare (uniform #^sampler2DRect --data))
-        '(declare (uniform #^float2 --bounds))
+        '(declare (uniform #^:sampler2DRect --data))
+        '(declare (uniform #^:float2 --bounds))
          (list
            'do
            (map #(list 'declare (list 'uniform %)) params))
@@ -436,9 +429,9 @@
           (recur half-dim target)))))
 
 (defn- tag-reduce-types
-  [expr data params]
+  [x data params]
   (apply-transforms
-    expr
+    x
     (list*
       #(if (element? %) (add-meta % :tag data))
       (map
@@ -447,17 +440,17 @@
         params))))
 
 (defn- reduce-cache
-  [expr]
+  [x]
   (memoize
     (fn [data params]
-      (let [expr (tag-reduce-types expr data params)
-            info (process-reduce expr)
+      (let [x (tag-reduce-types x data params)
+            info (process-reduce x)
             program (create-operator (:body info))]
         program))))
 
 (defn create-reduce-template
-  [expr]
-  (let [cache (reduce-cache expr)]
+  [x]
+  (let [cache (reduce-cache x)]
     (fn this
       ([data]
         (this {} data))

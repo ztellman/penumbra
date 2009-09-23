@@ -209,11 +209,11 @@
 
 (defn is-display-list [display-list]
   (and
-    (not (nil? display-list))
-    (gl-is-list display-list)))
+    (-> display-list meta :id nil? not)
+    (-> display-list meta :id gl-is-list)))
 
 (defn delete-display-list [display-list]
-  (gl-delete-lists display-list 1))
+  (gl-delete-lists (:id ^display-list) 1))
 
 (defn call-display-list [display-list]
   (gl-call-list display-list))

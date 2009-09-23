@@ -13,76 +13,76 @@
 ;;;;;;;;;;;;;;;;;;;
 
 (defmulti transformer
-  #(if (seq? %) (first %) nil)
-  :default :none)
+  #(if (seq? %) (keyword* (first %)) nil)
+  :default nil)
 
 (defmulti generator
-  #(if (seq? %) (first %) nil)
-  :default :none)
+  #(if (seq? %) (keyword* (first %)) nil)
+  :default nil)
 
 (declare special-parse-case?)
 
 (defmulti parser
-  #(if (special-parse-case? %) nil (first %))
+  #(if (special-parse-case? %) nil (keyword* (first %)))
   :default :function)
 
 (defmulti tagger
-  #(if (seq? %) (first %) nil)
-  :default :none)
+  #(if (seq? %) (keyword* (first %)) nil)
+  :default nil)
 
-(defn translate-c [expr]
+(defn translate-c [x]
   (binding [*generator* generator, *transformer* transformer, *parser* parser, *tagger* tagger]
-    (translate-expr expr)))
+    (translate-expr x)))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;symbol metadata tagging
 
-(defmethod tagger :none [expr]
-  expr)
+(defmethod tagger nil [x]
+  x)
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;shader macros
 
-(defmethod transformer :none [expr]
-  expr)
+(defmethod transformer nil [x]
+  x)
 
-(defmethod transformer 'let
-  [expr]
+(defmethod transformer :let
+  [x]
   (concat
     '(do)
     (map
       #(list 'set! (first %) (second %))
-      (partition 2 (second expr)))
-    (nnext expr)))
+      (partition 2 (second x)))
+    (nnext x)))
 
-(defn- unwind-stack [term expr]
-  (if (seq? expr)
-    `(~(first expr) ~term ~@(rest expr))
-    `(~expr ~term)))
+(defn- unwind-stack [term x]
+  (if (seq? x)
+    `(~(first x) ~term ~@(rest x))
+    `(~x ~term)))
 
-(defmethod transformer '->
-  [expr]
-  (let [term  (second expr)
-        expr  (nnext expr)]
-    (reduce unwind-stack term expr)))
+(defmethod transformer :->
+  [x]
+  (let [term  (second x)
+        x  (nnext x)]
+    (reduce unwind-stack term x)))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;shader generators
 
-(defmethod generator :none [expr]
-  (if (seq? expr)
-    (apply concat (map try-generate expr))
+(defmethod generator nil [x]
+  (if (seq? x)
+    (apply concat (map try-generate x))
     nil))
 
-(defmethod generator 'import [expr]
+(defmethod generator :import [x]
   (apply concat
     (map
       (fn [lst]
         (let [namespace (first lst)]
-          (map #(var-get (intern namespace %)) (next lst))))
-      (next expr))))
+          (map #(var-get (intern namespace (symbol %))) (next lst))))
+      (next x))))
 
-(defmethod parser 'import [expr] "")
+(defmethod parser :import [x] "")
 
 ;;;;;;;;;;;;;;;;;;;;
 ;shader parser
@@ -90,84 +90,99 @@
 (defn swizzle?
   "Any function starting with a '.' is treated as a member access.
   (.xyz position) -> position.xyz"
-  [expr]
-  (and (seq? expr) (-> expr first symbol?) (= \. (-> expr first name first))))
+  [x]
+  (and (seq? x) (-> x first symbol?) (= \. (-> x first name first))))
 
-(defn- third [expr] (-> expr next second))
-(defn- fourth [expr] (-> expr next next second))
-(defn- first= [expr sym] (and (seq? expr) (= sym (first expr))))
+(defn- third [x] (-> x next second))
+(defn- fourth [x] (-> x next next second))
+(defn- first= [x k] (and (seq? x) (= k (keyword (first x)))))
 
 (defn- parse-assignment-left
-  "Parses the l-value in an assignment expression."
-  [expr]
+  "Parses the l-value in an assignment xession."
+  [x]
   (cond
-    (swizzle? expr)
-      (str (apply str (interpose " " (map name (next expr)))) (-> expr first name))
-    (symbol? expr)
-      (let [name (.replace (name expr) \- \_)]
-        (if (and (meta? expr) (:first-appearance ^expr))
-          (.trim (apply str (interpose " " (reverse (list* name (:tag ^expr) (:modifiers ^expr))))))
-          (str name)))
-    (first= expr 'nth)
-      (str (parse-assignment-left (second expr)) "[" (parse (third expr)) "]")
-    (and (seq? expr) (empty? expr))
+    (swizzle? x)
+      (str (apply str (interpose " " (map name (next x)))) (-> x first name))
+    (symbol? x)
+      (let [x* (symbol (.replace (name x) \- \_))]
+        (if (:first-appearance ^x)
+          (.trim (apply str (interpose " " (reverse (map name (list* x* (:tag ^x) (:modifiers ^x)))))))
+          (str x*)))
+    (first= x :nth)
+      (str (parse-assignment-left (second x)) "[" (parse (third x)) "]")
+    (and (seq? x) (empty? x))
       ""
     :else
-      (parse expr)))
+      (parse x)))
 
 (defn- parse-assignment-right
-  "Parses the r-value in an assignment expressions."
-  [expr]
+  "Parses the r-value in an assignment xessions."
+  [x]
   (cond
-    (first= expr 'if) (str "(" (parse (second expr))
-                           " ? " (parse (third expr))
-                           " : " (parse (fourth expr)) ")")
-    :else             (parse expr)))
+   :else (parse x)))
 
-(defn- special-parse-case? [expr]
+(defn- parse-scope
+  "Parses the top-level of a new scope"
+  [x]
+  (cond
+    (-> x sequential? not)
+      (parse x)
+    (-> x first seq?)
+      (apply str (map parse-scope x))
+    (first= x :if)
+      (str
+       "if (" (parse (second x)) ")"
+       "\n{\n" (indent (parse-scope (third x))) "}\n"
+       (if (< 3 (count x))
+         (str "else\n{\n" (indent (parse-scope (fourth x))) "}\n")
+         ""))
+    :else
+      (parse-lines x ";")))
+
+(defn- special-parse-case? [x]
   (or
-    (swizzle? expr)
-    (not (seq? expr))
-    (-> expr first seq?)))
+    (swizzle? x)
+    (not (seq? x))
+    (-> x first seq?)))
 
 (defmethod parser nil
   ;handle base cases
-  [expr]
+  [x]
   (cond
-    (swizzle? expr)      (str (-> expr second parse) (-> expr first str))
-    (not (seq? expr))    (.replace (str expr) \- \_)
-    (-> expr first seq?) (parse-lines expr ";")
+    (swizzle? x)      (str (-> x second parse) (-> x first str))
+    (not (seq? x))    (.replace (str x) \- \_)
+    (-> x first seq?) (parse-lines x ";")
     :else                ""))
 
 (defmethod parser :function
   ;transforms (a b c d) into a(b, c, d)
-  [expr]
+  [x]
   (str
-    (.replace (name (first expr)) \- \_)
-    "(" (apply str (interpose ", " (map parse (next expr)))) ")"))
+    (.replace (name (first x)) \- \_)
+    "(" (apply str (interpose ", " (map parse (next x)))) ")"))
 
 (defn- concat-operators
   "Interposes operators between two or more operands, enforcing left-to-right evaluation.
   (- a b c) -> ((a - b) - c)"
-  [op expr]
-  (if (> 2 (count expr)) (throw (Exception. "Must be at least two operands.")))
-  (if (= 2 (count expr))
-    (str "(" (parse (second expr)) " " op " " (parse (first expr)) ")")
-    (str "(" (concat-operators op (rest expr)) " " op " " (parse (first expr)) ")")))
+  [op x]
+  (if (> 2 (count x)) (throw (Exception. "Must be at least two operands.")))
+  (if (= 2 (count x))
+    (str "(" (parse (second x)) " " op " " (parse (first x)) ")")
+    (str "(" (concat-operators op (rest x)) " " op " " (parse (first x)) ")")))
 
 (defmacro- def-infix-parser
   "Defines an infix operator
   (+ a b) -> a + b"
   [op-symbol op-string]
-  `(defmethod parser ~op-symbol [expr#]
-    (concat-operators ~op-string (reverse (next expr#)))))
+  `(defmethod parser ~op-symbol [x#]
+    (concat-operators ~op-string (reverse (next x#)))))
 
 (defmacro- def-unary-parser
   "Defines a unary operator
   (not a) -> !a"
   [op-symbol op-string]
-  `(defmethod parser ~op-symbol [expr#]
-     (str ~op-string (parse (second expr#)))))
+  `(defmethod parser ~op-symbol [x#]
+     (str ~op-string (parse (second x#)))))
 
 (defmacro- def-assignment-parser
   "Defines an assignment operator, making use of parse-assignment for the l-value
@@ -197,69 +212,66 @@
   "Defines a wrapper for any keyword that wraps a scope
   (if a b) -> if (a) { b }"
   [scope-symbol scope-fn]
-  `(defmethod parser ~scope-symbol [expr#]
-    (let [[header# body#] (~scope-fn expr#)]
-      (str header# "\n{\n" (indent (parse-lines body# ";")) "}\n"))))
+  `(defmethod parser ~scope-symbol [x#]
+    (let [[header# body#] (~scope-fn x#)]
+      (str header# "\n{\n" (indent (parse-scope body#)) "}\n"))))
 
-(def-infix-parser '+ "+")
-(def-infix-parser '/ "/")
-(def-infix-parser '* "*")
-(def-infix-parser '= "==")
-(def-infix-parser 'and "&&")
-(def-infix-parser 'or "||")
-(def-infix-parser 'xor "^^")
-(def-infix-parser '< "<")
-(def-infix-parser '<= "<=")
-(def-infix-parser '> ">")
-(def-infix-parser '>= ">=")
-(def-unary-parser 'not "!")
-(def-unary-parser 'inc "++")
-(def-unary-parser 'dec "--")
-(def-assignment-parser 'declare "")
-(def-assignment-parser 'set! "=")
-(def-assignment-parser '<- "=")
-(def-assignment-parser '+= "+=")
-(def-assignment-parser '-= "-=")
-(def-assignment-parser '*= "*=")
+(def-infix-parser :+ "+")
+(def-infix-parser (keyword '/) "/")
+(def-infix-parser :* "*")
+(def-infix-parser := "==")
+(def-infix-parser :and "&&")
+(def-infix-parser :or "||")
+(def-infix-parser :xor "^^")
+(def-infix-parser :< "<")
+(def-infix-parser :<= "<=")
+(def-infix-parser :> ">")
+(def-infix-parser :>= ">=")
+(def-unary-parser :not "!")
+(def-unary-parser :inc "++")
+(def-unary-parser :dec "--")
+(def-assignment-parser :declare "")
+(def-assignment-parser :set! "=")
+(def-assignment-parser :<- "=")
+(def-assignment-parser :+= "+=")
+(def-assignment-parser :-= "-=")
+(def-assignment-parser :*= "*=")
 
-(defmethod parser '-
+(defmethod parser :-
   ;the - symbol can either be a infix or unary operator
-  [expr]
-  (if (>= 2 (count expr))
-    (str "-" (parse (second expr)))
-    (concat-operators "-" (reverse (next expr)))))
+  [x]
+  (if (>= 2 (count x))
+    (str "-" (parse (second x)))
+    (concat-operators "-" (reverse (next x)))))
 
-(defmethod parser 'nth
-  [expr]
-  (str (parse (second expr)) "[" (third expr) "]"))
+(defmethod parser :nth
+  [x]
+  (str (parse (second x)) "[" (third x) "]"))
 
-(defmethod parser 'do
-  [expr]
-  (parse-lines (next expr) ";"))
+(defmethod parser :do
+  [x]
+  (parse-lines (next x) ";"))
 
-(defmethod parser 'if
-  [expr]
-  (str
-    "if (" (parse (second expr)) ")"
-    "\n{\n" (indent (parse-lines (third expr) ";")) "}\n"
-    (if (< 3 (count expr))
-      (str "else\n{\n" (indent (parse-lines (fourth expr) ";")) "}\n")
-      "")))
+(defmethod parser :if
+  [x]
+  (str "(" (parse (second x))
+       " ? " (parse (third x))
+       " : " (parse (fourth x)) ")"))
 
-(defmethod parser 'return
-  [expr]
-  (str "return " (parse (second expr))))
+(defmethod parser :return
+  [x]
+  (str "return " (parse (second x))))
 
 (def-scope-parser
-  'defn
-  (fn [expr]
+  :defn
+  (fn [x]
     [(str
-      (second expr) " " (.replace (name (third expr)) \- \_)
-      "(" (apply str (interpose ", " (map parse-assignment-left (fourth expr)))) ")")
-     (drop 4 expr)]))
+      (second x) " " (.replace (name (third x)) \- \_)
+      "(" (apply str (interpose ", " (map parse-assignment-left (fourth x)))) ")")
+     (drop 4 x)]))
 
-(defmethod tagger 'defn [expr]
+(defmethod tagger :defn [x]
   (list*
-    (first expr) (second expr) (third expr)
-    (vec (map #(add-meta % :assignment true, :defines %) (fourth expr)))
-    (drop 4 expr)))
+    (first x) (second x) (third x)
+    (vec (map #(add-meta % :assignment true, :defines %) (fourth x)))
+    (drop 4 x)))

@@ -27,70 +27,86 @@
      (seq (.split (name k) "-"))))))
 
 (defvar type-map
-  (apply hash-map
-    '(float float, float2 vec2, float3 vec3, float4 vec4
-      int int, int2 ivec2, int3 ivec3, int4 ivec4
-      color float, color2 vec2, color3 vec3, color4 vec4)))
+  {:float :float, :float2 :vec2, :float3 :vec3, :float4 :vec4
+   :int :int, :int2 :ivec2, :int3 :ivec3, :int4 :ivec4
+   :color :float, :color2 :vec2, :color3 :vec3, :color4 :vec4})
 
-(defvar- tuple
-  (apply hash-map
-    '(float 1, float2 2, float3 3, float4 4
-      int 1, int2 2, int3 3, int4 4
-      color 1, color2 2, color3 3, color4 4)))
+(def type-tuple
+  {:float 1, :float2 2, :float3 3, :float4 4
+   :int 1, :int2 2, :int3 3, :int4 4
+   :color 1, :color2 2, :color3 3, :color4 4})
       
 ;;;
 
 (defmulti transformer
-  #(if (seq? %) (first %) nil)
-  :default :none)
+  #(if (seq? %) (keyword* (first %)) nil)
+  :default nil)
 
 (defmulti generator
-  #(if (seq? %) (first %) nil)
-  :default :none)
+  #(if (seq? %) (keyword* (first %)) nil)
+  :default nil)
 
 (defmulti parser
-  #(if (seq? %) (first %) nil)
-  :default :none)
+  #(if (seq? %) (keyword* (first %)) nil)
+  :default nil)
 
 (defmulti inspector
   #(cond
      (not (seq? %)) nil
      (c/swizzle? %) :swizzle
-     :else (first %))
-  :default :none)
+     :else (keyword* (first %)))
+  :default nil)
 
-(defmethod transformer :none [expr]
+(defmethod transformer nil [x]
   (cond
-    (contains? type-map expr) (expr type-map)
-    :else                     (c/transformer expr)))
+    (and (symbol? x) (-> x keyword type-map))
+      (-> x keyword type-map name symbol)
+    :else
+      (c/transformer x)))
 
-(defmethod generator :none [expr]
-  (c/generator expr))
+(defmethod generator nil [x]
+  (c/generator x))
 
-(defmethod parser :none [expr]
+(defmethod parser nil [x]
   (cond
-    (keyword? expr) (parse-keyword expr)
-    :else           (c/parser expr)))
+    (keyword? x) (parse-keyword x)
+    :else           (c/parser x)))
 
 ;;;
 
-(defmethod inspector :none [expr]
-  (let [transformed-type (type-map (:tag ^expr))]
+(defmethod transformer :lookup [x]
+  (let [[_ element idx] x]
+    (if (not (symbol? element))
+      (let [[swizzle [_ tex _]] element]
+        (list
+          swizzle
+          (list
+            'texture2DRect
+            tex
+            (list
+              'float2
+              (list 'floor ('/ idx '(.x --dim)))
+              (list 'mod (list 'float idx) '(.x --dim)))))))))
+
+;;;
+
+(defmethod inspector nil [x]
+  (let [transformed-type (type-map (:tag ^x))]
     (if transformed-type
       transformed-type
-      (typeof expr))))
+      (typeof x))))
 
-(defmethod inspector :swizzle [expr]
-  (let [swizzle (-> expr first name rest)
-        tuple   (-> expr first name count dec)
-        type    (-> expr second meta :tag)]
+(defmethod inspector :swizzle [x]
+  (let [swizzle (-> x first name rest)
+        tuple   (-> x first name count dec)
+        type    (-> x second meta :tag)]
     (if (and
           type
           (or (every? (set "rgba") swizzle)
               (every? (set "xyzw") swizzle)
               (every? (set "stqr") swizzle)))
       (let [subtype (-> type name (.substring 0 (-> type name count dec)))]
-        (symbol (str subtype (if (= 1 tuple) "" tuple))))
+        (keyword (str subtype (if (= 1 tuple) "" tuple))))
       nil)))
 
 (defn- def-constant-inspector [[k v]]
@@ -116,13 +132,13 @@
     `(do ~@fns)))
 
 (defn- def-maximum-inspector [sym]
-  `(defmethod inspector ~sym [expr#]
-     (let [types# (map typeof (next expr#))
+  `(defmethod inspector ~sym [x#]
+     (let [types# (map typeof (next x#))
            known-types# (filter identity types#)]
        (if (or (empty? known-types#) (not= (count types#) (count known-types#))) 
          nil
-         (let [maximum# (apply max (map tuple types#))]
-           (first (filter (fn [p#] (= maximum# (tuple p#))) types#)))))))
+         (let [maximum# (apply max (map type-tuple known-types#))]
+           (first (filter (fn [p#] (= maximum# (type-tuple p#))) known-types#)))))))
 
 (defmacro- def-maximum-inspectors [& symbols]
   (let [fns (map def-maximum-inspector symbols)]
@@ -131,62 +147,66 @@
 ;;;
 
 (def-constant-inspectors
-  'vec4 'float4
-  'vec3 'float3
-  'vec2 'float2
-  'float 'float
-  'noise4 'float4
-  'noise3 'float3
-  'noise2 'float2,
-  'noise1 'float
-  'dot 'float
-  'texture2DRect 'float4
-  '< 'bool
-  '> 'bool
-  '= 'bool
-  '<= 'bool
-  '>= 'bool)
+  :vec4 :float4
+  :vec3 :float3
+  :vec2 :float2
+  :float :float
+  :noise4 :float4
+  :noise3 :float3
+  :noise2 :float2
+  :noise1 :float
+  :dot :float
+  :length :float
+  :texture2DRect :float4
+  :< :bool
+  :> :bool
+  := :bool
+  :<= :bool
+  :>= :bool)
 
 (def-identity-inspectors
-  '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil 'abs)
+  :+ :- :normalize :cos :sin :max :min :floor :fract :ceil :abs)
 
 (def-maximum-inspectors
-  '* '/ 'mix 'pow)
+  :* (keyword '/) :mix :pow)
+
+(defmethod inspector :if [x]
+  (or (typeof (nth x 2)) (typeof (nth x 3))))
 
 ;;;
 
 (defn- def-transform-modifier [sym]
-  `(defmethod transformer ~sym [expr#]
-     (let [x# (second expr#)]
+  `(defmethod transformer ~sym [x#]
+     (let [x# (second x#)]
        (add-meta x# :modifiers (into (:modifiers ^x#) [~sym])))))
 
 (defmacro- def-transform-modifiers [& symbols]
   (let [fns (map def-transform-modifier symbols)]
     `(do ~@fns)))
 
-(def-transform-modifiers 'in, 'out, 'inout, 'uniform, 'attribute, 'varying)
+(def-transform-modifiers :in :out :inout :uniform :attribute :varying)
 
 ;;;
 
-(defn transform-tags [expr]
+(defn- transform-tags [x]
   (tree-map
-   expr
+   x
    #(if (meta? %)
      (add-meta % :tag (or (type-map (:tag ^%)) (:tag ^%)))
      %)))
 
-(defn translate-glsl [expr]
+(defn translate-glsl [x]
   (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
-    (-> expr transform-expr transform-tags parser)))
+    (-> x transform-expr transform-tags parser)))
 
-(defn transform-glsl [expr]
+(defn transform-glsl [x]
   (binding [*transformer* transformer, *generator* generator, *inspector* inspector, *tagger* c/tagger]
-    (-> expr transform-expr)))
+    (-> x transform-expr)))
 
 (defn translate-shader
-  ([expr]
-     (translate-glsl expr))
-  ([decl exprs]
+  ([x]
+     (translate-glsl x))
+  ([decl x]
      (translate-shader
       (list
        (list
@@ -194,4 +214,4 @@
         (map #(list 'declare %) decl))
        (list
         'defn 'void 'main []
-        (list 'do exprs))))))
+        (list 'do x))))))

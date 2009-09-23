@@ -109,7 +109,6 @@
         (int (enum (:pixel-format tex)))
         (int (enum (:internal-type tex)))
         #^Buffer (array-to-buffer a (:internal-type tex)))
-      (release! tex)
        a)))
 
 (defn unwrap-first [tex]
