@@ -167,7 +167,9 @@
   '* 'div 'mix 'pow)
 
 (defmethod inspector 'if [x]
-  (or (typeof (nth x 2)) (typeof (nth x 3))))
+  (if (= 3 (count x))
+    (typeof (nth x 2))
+    (or (typeof (nth x 2)) (typeof (nth x 3)))))
 
 ;;;
 
