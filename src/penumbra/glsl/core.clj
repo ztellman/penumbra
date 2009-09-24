@@ -26,7 +26,7 @@
      #(str (.. % (substring 0 1) toUpperCase) (. % substring 1 (count %)))
      (seq (.split (name k) "-"))))))
 
-(defvar type-map
+(def type-map
   {:float :float, :float2 :vec2, :float3 :vec3, :float4 :vec4
    :int :int, :int2 :ivec2, :int3 :ivec3, :int4 :ivec4
    :color :float, :color2 :vec2, :color3 :vec3, :color4 :vec4})
@@ -39,30 +39,26 @@
 ;;;
 
 (defmulti transformer
-  #(if (seq? %) (keyword* (first %)) nil)
+  #(if (seq? %) (id (first %)) nil)
   :default nil)
 
 (defmulti generator
-  #(if (seq? %) (keyword* (first %)) nil)
+  #(if (seq? %) (id (first %)) nil)
   :default nil)
 
 (defmulti parser
-  #(if (seq? %) (keyword* (first %)) nil)
+  #(if (seq? %) (id (first %)) nil)
   :default nil)
 
 (defmulti inspector
   #(cond
      (not (seq? %)) nil
      (c/swizzle? %) :swizzle
-     :else (keyword* (first %)))
+     :else (id (first %)))
   :default nil)
 
 (defmethod transformer nil [x]
-  (cond
-    (and (symbol? x) (-> x keyword type-map))
-      (-> x keyword type-map name symbol)
-    :else
-      (c/transformer x)))
+  (c/transformer x))
 
 (defmethod generator nil [x]
   (c/generator x))
@@ -74,7 +70,7 @@
 
 ;;;
 
-(defmethod transformer :lookup [x]
+(defmethod transformer 'lookup [x]
   (let [[_ element idx] x]
     (if (not (symbol? element))
       (let [[swizzle [_ tex _]] element]
@@ -147,46 +143,54 @@
 ;;;
 
 (def-constant-inspectors
-  :vec4 :float4
-  :vec3 :float3
-  :vec2 :float2
-  :float :float
-  :noise4 :float4
-  :noise3 :float3
-  :noise2 :float2
-  :noise1 :float
-  :dot :float
-  :length :float
-  :texture2DRect :float4
-  :< :bool
-  :> :bool
-  := :bool
-  :<= :bool
-  :>= :bool)
+  'float4 :float4
+  'float3 :float3
+  'float2 :float2
+  'float :float
+  'noise4 :float4
+  'noise3 :float3
+  'noise2 :float2
+  'noise1 :float
+  'dot :float
+  'length :float
+  'texture2DRect :float4
+  '< :bool
+  '> :bool
+  '= :bool
+  '<= :bool
+  '>= :bool)
 
 (def-identity-inspectors
-  :+ :- :normalize :cos :sin :max :min :floor :fract :ceil :abs)
+  '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil 'abs)
 
 (def-maximum-inspectors
-  :* (keyword '/) :mix :pow)
+  '* 'div 'mix 'pow)
 
-(defmethod inspector :if [x]
+(defmethod inspector 'if [x]
   (or (typeof (nth x 2)) (typeof (nth x 3))))
 
 ;;;
 
 (defn- def-transform-modifier [sym]
   `(defmethod transformer ~sym [x#]
-     (let [x# (second x#)]
-       (add-meta x# :modifiers (into (:modifiers ^x#) [~sym])))))
+     (if (= 2 (count x#))
+       (let [x# (second x#)]
+         (add-meta x# :modifiers (into (:modifiers ^x#) [~sym])))
+       (let [type# (second x#)
+             x# (nth x# 2)]
+         (add-meta x# :modifiers (into (:modifiers ^x#) [~sym]) :tag (keyword type#))))))
 
 (defmacro- def-transform-modifiers [& symbols]
   (let [fns (map def-transform-modifier symbols)]
     `(do ~@fns)))
 
-(def-transform-modifiers :in :out :inout :uniform :attribute :varying)
+(def-transform-modifiers 'in 'out 'inout 'uniform 'attribute 'varying)
 
 ;;;
+
+(defn transform-constructors [x]
+  (tree-map x
+   #(if (and (symbol? %) (-> % keyword type-map)) (-> % keyword type-map name symbol))))
 
 (defn- transform-tags [x]
   (tree-map
@@ -197,7 +201,7 @@
 
 (defn translate-glsl [x]
   (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
-    (-> x transform-expr transform-tags parser)))
+    (-> x transform-expr transform-tags transform-constructors parser)))
 
 (defn transform-glsl [x]
   (binding [*transformer* transformer, *generator* generator, *inspector* inspector, *tagger* c/tagger]

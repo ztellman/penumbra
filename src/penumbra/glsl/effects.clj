@@ -9,15 +9,15 @@
 (ns penumbra.glsl.effects)
 
 (def lighting
-  '((defn vec4 lighting
-      [(in #^int i)
-       (in #^float3 normal)]
+  '((defn float4 lighting
+      [(in int i)
+       (in float3 normal)]
       (let [n-dot-vp (max 0.0 (dot normal (-> :light-source (nth i) .position float3 normalize)))
             n-dot-hv (max 0.0 (dot normal (-> :light-source (nth i) .halfVector float3 normalize)))]
-        (<- #^float pf (if (= n-dot-vp 0.0) 0.0 (pow n-dot-hv (-> :front-material .shininess))))
-        (<- #^float4 ambient  (-> :light-source (nth i) .ambient))
-        (<- #^float4 diffuse  (-> :light-source (nth i) .diffuse (* n-dot-vp)))
-        (<- #^float4 specular (-> :light-source (nth i) .specular (* pf)))
+        (<- #^:float pf (if (= n-dot-vp 0.0) 0.0 (pow n-dot-hv (-> :front-material .shininess))))
+        (<- #^:float4 ambient  (-> :light-source (nth i) .ambient))
+        (<- #^:float4 diffuse  (-> :light-source (nth i) .diffuse (* n-dot-vp)))
+        (<- #^:float4 specular (-> :light-source (nth i) .specular (* pf)))
         (return
          (+
           (-> :front-light-model-product .sceneColor)

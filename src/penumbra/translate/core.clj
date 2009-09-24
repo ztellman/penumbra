@@ -29,8 +29,12 @@
 
 ;;;
 
-(defn keyword* [x]
-  (if (symbol? x) (keyword x) nil))
+(defn id [x]
+  (cond
+    (string? x) (symbol x)
+    (symbol? x) (symbol (name x))
+    (keyword? x) (symbol (name x))
+    :else nil))
 
 (defn meta? [x]
   (instance? clojure.lang.IMeta x))
@@ -134,9 +138,12 @@
   #(realize (*transformer* %))
   "Error while transforming")
 
+(defn- transform-div [x]
+  (tree-map x #(if (and (symbol? %) (= "/" (name %))) 'div)))
+
 (defn- transform-expr* [x]
   (if *transformer*
-    (tree-map x try-transform)
+    (-> x transform-div (tree-map try-transform))
     x))
 
 ;;;
@@ -241,7 +248,7 @@
           types         (zipmap vars (map #(typeof-var % x) vars))
           known-types   (filter (fn [[k v]] v) types)
           unknown-types (filter (fn [[k v]] (not v)) types)
-          x*         (inspect-exprs (reduce (fn [x [k v]] (tag-var k v x)) x known-types))
+          x*            (inspect-exprs (reduce (fn [x [k v]] (tag-var k v x)) x known-types))
           tagged*       (tagged-vars x*)]
       (cond
         (empty? unknown-types)

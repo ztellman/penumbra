@@ -13,9 +13,9 @@
 ;;;;;;;;;;;;;;;;;
 
 (def declarations
-  '((varying #^float noise)
-    (varying #^float4 pos)
-    (varying #^float4 intensity)))
+  '((varying float noise)
+    (varying float4 pos)
+    (varying float4 intensity)))
 
 '(def vertex-shader
   '(let a b))
@@ -32,7 +32,7 @@
          marble-color (float4 0.8 0.7 0.7 1.0)
          vein-color   (float4 0.2 0.15 0.1 1.0)
          mixed-color  (mix vein-color marble-color (pow marble 0.5))]
-     (set! :frag-color (* intensity mixed-color))))
+     (<- :frag-color (* intensity mixed-color))))
 
 ;;;;;;;;;;;;;;;;;
 ;teapot

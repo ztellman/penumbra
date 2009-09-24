@@ -13,21 +13,21 @@
 ;;;;;;;;;;;;;;;;;;;
 
 (defmulti transformer
-  #(if (seq? %) (keyword* (first %)) nil)
+  #(if (seq? %) (id (first %)) nil)
   :default nil)
 
 (defmulti generator
-  #(if (seq? %) (keyword* (first %)) nil)
+  #(if (seq? %) (id (first %)) nil)
   :default nil)
 
 (declare special-parse-case?)
 
 (defmulti parser
-  #(if (special-parse-case? %) nil (keyword* (first %)))
+  #(if (special-parse-case? %) nil (id (first %)))
   :default :function)
 
 (defmulti tagger
-  #(if (seq? %) (keyword* (first %)) nil)
+  #(if (seq? %) (id (first %)) nil)
   :default nil)
 
 (defn translate-c [x]
@@ -46,7 +46,7 @@
 (defmethod transformer nil [x]
   x)
 
-(defmethod transformer :let
+(defmethod transformer 'let
   [x]
   (concat
     '(do)
@@ -60,7 +60,7 @@
     `(~(first x) ~term ~@(rest x))
     `(~x ~term)))
 
-(defmethod transformer :->
+(defmethod transformer '->
   [x]
   (let [term  (second x)
         x  (nnext x)]
@@ -74,7 +74,7 @@
     (apply concat (map try-generate x))
     nil))
 
-(defmethod generator :import [x]
+(defmethod generator 'import [x]
   (apply concat
     (map
       (fn [lst]
@@ -82,7 +82,7 @@
           (map #(var-get (intern namespace (symbol %))) (next lst))))
       (next x))))
 
-(defmethod parser :import [x] "")
+(defmethod parser 'import [x] "")
 
 ;;;;;;;;;;;;;;;;;;;;
 ;shader parser
@@ -216,61 +216,61 @@
     (let [[header# body#] (~scope-fn x#)]
       (str header# "\n{\n" (indent (parse-scope body#)) "}\n"))))
 
-(def-infix-parser :+ "+")
-(def-infix-parser (keyword '/) "/")
-(def-infix-parser :* "*")
-(def-infix-parser := "==")
-(def-infix-parser :and "&&")
-(def-infix-parser :or "||")
-(def-infix-parser :xor "^^")
-(def-infix-parser :< "<")
-(def-infix-parser :<= "<=")
-(def-infix-parser :> ">")
-(def-infix-parser :>= ">=")
-(def-unary-parser :not "!")
-(def-unary-parser :inc "++")
-(def-unary-parser :dec "--")
-(def-assignment-parser :declare "")
-(def-assignment-parser :set! "=")
-(def-assignment-parser :<- "=")
-(def-assignment-parser :+= "+=")
-(def-assignment-parser :-= "-=")
-(def-assignment-parser :*= "*=")
+(def-infix-parser '+ "+")
+(def-infix-parser 'div "/")
+(def-infix-parser '* "*")
+(def-infix-parser '= "==")
+(def-infix-parser 'and "&&")
+(def-infix-parser 'or "||")
+(def-infix-parser 'xor "^^")
+(def-infix-parser '< "<")
+(def-infix-parser '<= "<=")
+(def-infix-parser '> ">")
+(def-infix-parser '>= ">=")
+(def-unary-parser 'not "!")
+(def-unary-parser 'inc "++")
+(def-unary-parser 'dec "--")
+(def-assignment-parser 'declare "")
+(def-assignment-parser 'set! "=")
+(def-assignment-parser '<- "=")
+(def-assignment-parser '+= "+=")
+(def-assignment-parser '-= "-=")
+(def-assignment-parser '*= "*=")
 
-(defmethod parser :-
+(defmethod parser '-
   ;the - symbol can either be a infix or unary operator
   [x]
   (if (>= 2 (count x))
     (str "-" (parse (second x)))
     (concat-operators "-" (reverse (next x)))))
 
-(defmethod parser :nth
+(defmethod parser 'nth
   [x]
   (str (parse (second x)) "[" (third x) "]"))
 
-(defmethod parser :do
+(defmethod parser 'do
   [x]
   (parse-lines (next x) ";"))
 
-(defmethod parser :if
+(defmethod parser 'if
   [x]
   (str "(" (parse (second x))
        " ? " (parse (third x))
        " : " (parse (fourth x)) ")"))
 
-(defmethod parser :return
+(defmethod parser 'return
   [x]
   (str "return " (parse (second x))))
 
 (def-scope-parser
-  :defn
+  'defn
   (fn [x]
     [(str
       (second x) " " (.replace (name (third x)) \- \_)
       "(" (apply str (interpose ", " (map parse-assignment-left (fourth x)))) ")")
      (drop 4 x)]))
 
-(defmethod tagger :defn [x]
+(defmethod tagger 'defn [x]
   (list*
     (first x) (second x) (third x)
     (vec (map #(add-meta % :assignment true, :defines %) (fourth x)))
