@@ -121,24 +121,6 @@
   (cond
    :else (parse x)))
 
-(defn- parse-scope
-  "Parses the top-level of a new scope"
-  [x]
-  (cond
-    (-> x sequential? not)
-      (parse x)
-    (-> x first seq?)
-      (apply str (map parse-scope x))
-    (first= x :if)
-      (str
-       "if (" (parse (second x)) ")"
-       "\n{\n" (indent (parse-scope (third x))) "}\n"
-       (if (< 3 (count x))
-         (str "else\n{\n" (indent (parse-scope (fourth x))) "}\n")
-         ""))
-    :else
-      (parse-lines x ";")))
-
 (defn- special-parse-case? [x]
   (or
     (swizzle? x)
@@ -214,7 +196,7 @@
   [scope-symbol scope-fn]
   `(defmethod parser ~scope-symbol [x#]
     (let [[header# body#] (~scope-fn x#)]
-      (str header# "\n{\n" (indent (parse-scope body#)) "}\n"))))
+      (str header# "\n{\n" (indent (parse body#)) "}\n"))))
 
 (def-infix-parser '+ "+")
 (def-infix-parser 'div "/")
@@ -252,11 +234,20 @@
   [x]
   (parse-lines (next x) ";"))
 
-(defmethod parser 'if
+(defmethod parser '?
   [x]
   (str "(" (parse (second x))
        " ? " (parse (third x))
        " : " (parse (fourth x)) ")"))
+
+(defmethod parser 'if
+  [x]
+  (str
+     "if (" (parse (second x)) ")"
+     "\n{\n" (indent (parse-lines (third x) ";")) "}\n"
+     (if (< 3 (count x))
+       (str "else\n{\n" (indent (parse-lines (fourth x) ";")) "}\n")
+       "")))
 
 (defmethod parser 'return
   [x]

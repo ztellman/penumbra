@@ -28,7 +28,7 @@
     (let [m2 (lookup %1 idx)
           p1 %2, p2 (lookup %2 idx)
           diff (- p1 p2)]
-      (if (= :index (float idx))
+      (? (= :index (float idx))
         (float3 0.0)
         (* (normalize diff)
            (/ (* g m2) (dot diff diff))))))

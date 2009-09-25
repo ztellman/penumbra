@@ -171,6 +171,11 @@
     (typeof (nth x 2))
     (or (typeof (nth x 2)) (typeof (nth x 3)))))
 
+(defmethod inspector '? [x]
+  (if (= 3 (count x))
+    (typeof (nth x 2))
+    (or (typeof (nth x 2)) (typeof (nth x 3)))))
+
 ;;;
 
 (defn- def-transform-modifier [sym]
