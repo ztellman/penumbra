@@ -77,13 +77,17 @@
   (let [facade-fn (prepend "facade" fn)
         direct-fn (prepend "gl" fn)]
     `(defn ~facade-fn [x# y# z#]
-      (let [[xp# yp# zp# wp#] (apply-matrix (~transform-fn @*transform-matrix*) [x# y# z# 1])]
+      (let [[xp# yp# zp# wp#]
+            (if @*intra-primitive-transform*
+              (apply-matrix (~transform-fn @*transform-matrix*) [x# y# z# 1])
+              [x# y# z# 1])]
         (~direct-fn xp# yp# zp#)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn apply-transform
   [matrix transform-fn]
+  (reset! *intra-primitive-transform* true)
   (swap! *transform-matrix* transform-fn matrix))
 
 (defmacro facade-multiply

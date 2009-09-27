@@ -10,6 +10,7 @@
 (def #^GLUT *glut* (new GLUT))
 
 (def *inside-begin-end* false)
+(def *intra-primitive-transform* (atom false))
 (def *transform-matrix* (atom nil))
 (def *program* 0)
 
@@ -23,7 +24,7 @@
   (if (= 0 enum-value)
     "NONE"
     (let [fields (seq (.. *gl* (getClass) (getFields)))]
-      (.getName #^Field (some #(if (= enum-value (.get #^Field % *gl*)) % nil) fields)))))
+      (.getName #^Field (some #(if (= enum-value (.get #^Field % *gl*)) % nil) fields)))))     
 
 (defn check-error []
   (let [error (.glGetError *gl*)]
