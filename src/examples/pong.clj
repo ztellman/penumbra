@@ -65,5 +65,5 @@
   (repaint))
 
 (start
-  {:reshape reshape, :display display, :key-press key-pressed, :key-release key-released, :update update}
+  {:reshape reshape, :display display, :key-press key-press, :key-release key-release, :update update}
   {:left 0, :right 0, :ball [0 0], :v-left 0, :v-right 0, :v-ball [0 0]})

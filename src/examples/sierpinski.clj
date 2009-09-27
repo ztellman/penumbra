@@ -52,7 +52,7 @@
   (enable :light0)
   (enable :fog)
   (shade-model :flat)
-  (assoc state :pyramid (nth (sierpinski) 6)))
+  (assoc state :pyramid (nth (sierpinski) 5)))
 
 (defn reshape [[x y width height] state]
   (frustum-view 50 (/ (double width) height) 0.1 100)
@@ -70,8 +70,8 @@
 
 (defn mouse-drag [[[dx dy] _] state]
   (assoc state
-    :rot-x (- (:rot-x state) dy)
-    :rot-y (- (:rot-y state) dx)))
+    :rot-x (+ (:rot-x state) dy)
+    :rot-y (+ (:rot-y state) dx)))
 
 (defn display [[delta time] state]
   (rotate (:rot-x state) 1 0 0)

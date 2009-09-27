@@ -125,8 +125,8 @@
 
 (defn mouse-drag [[[dx dy] _] state]
   (assoc state
-    :rot-x (- (:rot-x state) dy)
-    :rot-y (- (:rot-y state) dx)))
+    :rot-x (+ (:rot-x state) dy)
+    :rot-y (+ (:rot-y state) dx)))
 
 (defn display [[delta time] state]
   (write-to-screen (format "%d fps" (int (/ 1 delta))) 0 1)
