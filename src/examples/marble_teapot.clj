@@ -22,9 +22,9 @@
 
 (def vertex-shader
   '((import (penumbra.glsl.effects lighting))
-    (let [pos       :vertex
-          noise      (* 1.5 (noise1 pos))
-          intensity  (lighting 0 (normalize (* :normal-matrix :normal)))]
+    (let [pos         :vertex
+          noise       (* 1.5 (noise1 pos))
+          intensity   (lighting 0 (normalize (* :normal-matrix :normal)))]
       (set! :position (* :model-view-projection-matrix :vertex)))))
 
 (def fragment-shader

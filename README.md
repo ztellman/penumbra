@@ -68,7 +68,7 @@ Shaders are supported, via an s-expression representation of GLSL.  It mimics Cl
 	
 Using this representation, Penumbra supports running general-purpose computations on the graphics card (GPGPU).  For sufficiently large data sets, this can be significantly faster than the same operation on the CPU. Currently map and reduce operations are supported, filter and convolve are to follow.
 
-	=> (use 'penumbra.compute)
+	=> (use 'penumbra.compute 'penumbra.slate)
 
   	=> (with-blank-slate
   	     (defmap saxpy (+ %1 (* k %2)))

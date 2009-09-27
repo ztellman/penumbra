@@ -9,6 +9,8 @@
 (ns examples.n-body
   (:use [penumbra slate compute]))
 
+;NOT COMPLETE
+
 (def s (create-slate))
 
 (with-slate s

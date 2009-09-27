@@ -175,7 +175,10 @@
               (bind-gl drawable
                 (. *gl* setSwapInterval 1) ;turn on v-sync
                 (try-call window
-                  :init)))))
+                  :init)))
+
+            (dispose [#^GLAutoDrawable drawable]
+              )))
 
         (.addMouseListener
           (proxy [MouseAdapter] []
@@ -220,11 +223,9 @@
 
       (doto frame
         (.addWindowListener
-                (proxy [WindowAdapter] []
-                  (windowClosing [event]
-                    (. (new Thread
-                      (fn []
-                        (. frame dispose))) start))))
+            (proxy [WindowAdapter] []
+              (windowClosing [event]
+                (.start (new Thread #(.dispose frame))))))
         (.add canvas)
         (.setSize 640 480)
         (.setFocusable true)

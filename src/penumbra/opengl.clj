@@ -388,7 +388,7 @@
 (defn frame-buffer-status []
   (enum-name (gl-check-frame-buffer-status :framebuffer)))
 
-(defn attachment [point]
+(defn-memo attachment [point]
   (enum (keyword (str "color-attachment" point))))
 
 (defn attach [tex point]
