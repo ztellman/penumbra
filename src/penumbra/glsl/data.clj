@@ -100,11 +100,18 @@
   ([tex size]
     (if (nil? (:attach-point tex))
       (throw (Exception. "Cannot read from unattached texture.")))
-    (gl-read-buffer @(:attach-point tex))
+    '(gl-read-buffer @(:attach-point tex))
     (let [[w h] (:dim tex)
           dim   (* w h (:tuple tex))
           a     (create-array size (:internal-type tex))]
-      (gl-read-pixels
+      (bind-texture tex)
+      (gl-get-tex-image
+        (int (enum (:target tex)))
+        0
+        (int (enum (:pixel-format tex)))
+        (int (enum (:internal-type tex)))
+        #^Buffer (array-to-buffer a (:internal-type tex)))
+      '(gl-read-pixels
         0 0 (int w) (int h)
         (int (enum (:pixel-format tex)))
         (int (enum (:internal-type tex)))

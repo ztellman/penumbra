@@ -39,9 +39,9 @@
             (is (= s3 (unwrap* (add-map [tex1 tex2]))))))
 
         (defmap split-map [%1 (* 2.0 %1) (* 3.0 %1)])
-        (doseq [tuple [3 4]]
+        (doseq [tuple [3 4 3 4]]
           (let [tex (wrap s tuple)]
-            (let [[a b c] (map unwrap* (split-map [tex]))]
+            (let [[a b c] (map unwrap* (split-map [ tex ]))]
               (is (= a s))
               (is (= b s2))
               (is (= c s3))))))
@@ -49,7 +49,7 @@
       (testing "Reduce"
 
         (defreduce sum (+ %1 %2))
-        (dotimes [i 60]
+        (dotimes [i 120]
           (let [i (+ 1 i)]
             (let [s (map float (range (* 4 i)))
                   tex (wrap s 4)]

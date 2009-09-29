@@ -81,8 +81,8 @@
             tex
             (list
               'float2
-              (list 'floor ('/ idx '(.x --dim)))
-              (list 'mod (list 'float idx) '(.x --dim)))))))))
+              (list 'mod (list 'float idx) '(.x --dim))
+              (list 'floor (list '/ (list 'float idx) '(.x --dim))))))))))
 
 ;;;
 

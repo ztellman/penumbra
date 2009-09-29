@@ -362,7 +362,8 @@
 (gl-import- glDrawBuffers gl-draw-buffers)
 (gl-import- glDrawBuffer draw-buffer)
 (gl-import- glReadBuffer gl-read-buffer)
-(gl-import- glReadPixels gl-read-pixels)
+(gl-import glReadPixels gl-read-pixels)
+(gl-import glGetTexImage gl-get-tex-image)
 
 (defn gen-frame-buffer []
   (let [a (int-array 1)]
@@ -380,7 +381,6 @@
 
 (defn bind-frame-buffer [fb]
   (gl-bind-frame-buffer :framebuffer fb))
-
 
 (defn frame-buffer-ok? []
   (= (gl-check-frame-buffer-status :framebuffer) (enum :framebuffer-complete)))

@@ -95,6 +95,15 @@
 (defn- replace-with [from to]
   #(if (= from %) to))
 
+(defn process-elements
+  "Marks textures not wrapped in a vector as transient"
+  [coll]
+  (map
+    #(if (vector? %)
+      (first %)
+      (add-meta % :transient true))
+    coll))
+
 ;;;;;;;;;;;;;;;;;;;;;
 
 (def fixed-transform
@@ -271,7 +280,7 @@
   (if (not= (count elements) (count (:elements info)))
     (throw (Exception. (str "Expected " (count (:elements info)) " elements, was given " (count elements) "."))))
   (if (and
-        (not (empty? elements))
+        (> (count elements) 1)
         (apply not= (list* dim (map :dim elements))))
     (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (apply str (map :dim elements))))))
   (let [targets
@@ -285,7 +294,7 @@
       targets)
     (apply draw dim)
     (doseq [e (distinct elements)]
-      (release! e))
+      (if (:transient ^e) (release! e)))
     (if (= 1 (count targets)) (first targets) targets)))
 
 (defn- tag-map-types
@@ -304,10 +313,12 @@
          (replace-with param (add-meta param :tag type)))
        params)))))
 
-(defn- map-cache [x]
+(defn- map-cache
+  "Returns or creates the appropriate shader program for the types"
+  [x]
   (memoize
     (fn [types]
-      (let [x    (tag-map-types x types)
+      (let [x       (tag-map-types x types)
             info    (process-map x)
             program (create-operator (:body info))]
         [info program]))))
@@ -317,7 +328,7 @@
   [x]
   (let [cache     (map-cache x)
         elements? #(and (vector? %) (-> % first number? not))
-        dim       #(:dim (first %))]
+        dim       #(or (:dim (first %)) (:dim (ffirst %)))]
     (fn this
 
       ([elements-or-size]
@@ -338,12 +349,14 @@
           (this params elements size)))
 
       ([params elements size]
-        (let [size
+        (let [elements
+                (process-elements elements)
+              size
                 (if (number? size) (rectangle size) size)
               param-map
                 (zipmap (map #(symbol (name %)) (keys params)) (map typeof-param (vals params)))
               element-map
-                (zipmap (map create-element (range (count elements))) (map typeof-element elements))
+                (zipmap (map create-element (range (count elements))) (map typeof-element (filter texture? elements)))
               [info program]
                 (cache (merge element-map param-map))]
            (with-program program
@@ -373,7 +386,8 @@
       #(if (= 'lookup (:tag ^%)) (add-meta (list (swizzle tuple) (add-meta % :tag type)) :tag nil))
       #(if (= 'result (:tag ^%)) (add-meta (typecast-float4 (add-meta % :tag type)) :tag nil))))))
 
-(defn- process-reduce [x]
+(defn- process-reduce
+  [x]
   (let [params (tree-filter x #(and (symbol? %) (not (element? %)) (:tag ^%)))
         body (->
               x
@@ -455,7 +469,8 @@
       ([data]
         (this {} data))
       ([params data]
-        (let [data-type (typeof-element data)
+        (let [data      (if (vector? data) (-> [data] process-elements first) data)
+              data-type (typeof-element data)
               program   (cache data-type params)]
           (with-program program
             (run-reduce params data)))))))

@@ -131,7 +131,7 @@
                       available)]
     (if (not (empty? equivalent))
       (let [t (first equivalent)]
-        (acquire! t)
+        (dosync (ref-set (:ref-count t) 1))
         (gl-bind-texture (int (enum (:target t))) (:id t))
         t)
       (let [id    (int (gen-texture))
@@ -155,7 +155,7 @@
                   :target type :id id
                   :dim dim :tuple tuple
                   :internal-type internal-type :internal-format internal-format :pixel-format pixel-format
-                  :ref-count (ref 1) :attach-point (ref nil))
+                  :ref-count (ref 1) :attach-point (ref nil) :permanent (ref false))
                 {:tag 'texture-struct})]
           (add-texture tex)
           tex)))))
@@ -178,6 +178,7 @@
       :pixel-format :rgba
       :internal-format :rgba
       :internal-type :unsigned-byte
+      :permanent (ref false)
       :tuple 4
       :ref-count (ref 1))
     {:tag 'texture-struct}))

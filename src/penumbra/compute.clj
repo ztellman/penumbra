@@ -9,6 +9,7 @@
 (ns penumbra.compute
   (:require [penumbra.glsl.data :as glsl-data])
   (:require [penumbra.glsl.operators :as glsl-op])
+  (:require [penumbra.opengl.texture :as tex])
   (:require [clojure.contrib.def :only (defmacro-)]))
 
 (defn wrap
