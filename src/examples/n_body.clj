@@ -63,18 +63,22 @@
   (let [m (gen-mass num 1e3 1e4)
         v (gen-velocity num -1 1)
         p (gen-position num -100 100)
-        dt 1.0]
-    (println "generated")
-    (loop [v v, p p, i 1]
+        dt 0.01]
+    (time
+      (loop [v v, p p, i 1]
       (if (> i iterations)
         nil
-        (let [a  (chunked-add #(gravity {:g 6.673e-11 :idx %} [ [m] [p] ]) 10 num)
+        (let [a  (chunked-add #(gravity {:g 6.673e-11 :idx %} [ [m] [p] ]) 100 num)
               v* (add {:k dt} [ v a ])
               p* (add {:k dt} [ p [v*] ])
               ke (first (sum (kinetic-energy [ [m] [v*] ])))
-              pe (first (sum (chunked-add #(potential-energy {:idx % :g 6.673e-11 } [ [m] [p*] ]) 10 num)))]
-          (println "kinetic:" ke "potential:" pe "total" (+ ke pe))
-          (recur v* p* (inc i)))))))
+              pe (first (sum (chunked-add #(potential-energy {:idx % :g 6.673e-11 } [ [m] [p*] ]) 100 num)))]
+          ;(println "kinetic:" ke "potential:" pe "total" (+ ke pe))
+          (recur v* p* (inc i))))))))
 
 (with-slate slate
-  (run-sim 100 10))
+  (dotimes [i 20]
+    (let [num (* 100 (inc i))]
+      (println num)
+      (dotimes [_ 3]
+        (run-sim num 10)))))

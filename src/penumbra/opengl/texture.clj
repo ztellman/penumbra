@@ -7,7 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.texture
-  (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [clojure.contrib.def :only (defmacro- defn-memo)])
   (:use [clojure.contrib.seq-utils :only (separate)])
   (:use [penumbra.opengl.core])
   (:import (java.nio ByteBuffer FloatBuffer))
@@ -47,13 +47,16 @@
 (defn texture? [t]
   (= 'texture-struct (:tag ^t)))
 
+(defn-memo attachment-lookup [point]
+  (enum (keyword (str "color-attachment" point))))
+
 (defn attach! [t point]
   (dosync
     (ref-set
       (:attach-point t)
       (if (nil? point)
         nil
-        (enum (keyword (str "color-attachment" point)))))))
+        (attachment-lookup point)))))
 
 (defn available? [t]
   (let [permanent (and (not (nil? (:permanent t))) @(:permanent t))

@@ -16,7 +16,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
-(def *check-errors* true) ;makes any OpenGL error throw an exception
+(def *check-errors* false) ;makes any OpenGL error throw an exception
 
 (defn enum-name
   "Takes the numeric value of a gl constant (i.e. GL_LINEAR), and gives the name"

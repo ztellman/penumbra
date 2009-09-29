@@ -12,6 +12,7 @@
   (:use [penumbra.opengl.framebuffer :only (pixel-format write-format)])
   (:use [penumbra.glsl core data])
   (:use [penumbra.translate.core])
+  (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.set :only (difference)])
   (:use [clojure.contrib (seq-utils :only (separate indexed flatten)) (def :only (defvar-)) pprint])
   (:require [clojure.zip :as zip]))
@@ -89,7 +90,7 @@
     0
     (dec (Integer/parseInt (.substring (name param) 1)))))
 
-(defn- create-element [index]
+(defn-memo create-element [index]
   (symbol (str "%" (inc index))))
 
 (defn- replace-with [from to]
@@ -156,12 +157,15 @@
       (wrap-and-prepend fixed-transform)
       body)))
 
+(defn-memo param-lookup [n]
+  (keyword (name n)))
+
 (defn set-params [params]
   (doseq [[n v] params]
     (apply
       uniform
       (list*
-        (keyword (name n))
+        (param-lookup n)
         (seq-wrap v)))))
 
 ;;;;;;;;;;;;;;;;;;;
@@ -212,7 +216,7 @@
        (add-meta (typecast-float4 (add-meta x :result false)) :result false)
        x))))
 
-(defn- rename-element [i]
+(defn-memo rename-element [i]
   (symbol (str "-tex" i)))
 
 (defn- transform-element [e]
@@ -328,7 +332,8 @@
   [x]
   (let [cache     (map-cache x)
         elements? #(and (vector? %) (-> % first number? not))
-        dim       #(or (:dim (first %)) (:dim (ffirst %)))]
+        dim       #(or (:dim (first %)) (:dim (ffirst %)))
+        to-symbol (memoize #(symbol (name %)))]
     (fn this
 
       ([elements-or-size]
@@ -354,7 +359,7 @@
               size
                 (if (number? size) (rectangle size) size)
               param-map
-                (zipmap (map #(symbol (name %)) (keys params)) (map typeof-param (vals params)))
+                (zipmap (map to-symbol (keys params)) (map typeof-param (vals params)))
               element-map
                 (zipmap (map create-element (range (count elements))) (map typeof-element (filter texture? elements)))
               [info program]

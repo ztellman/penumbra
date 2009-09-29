@@ -58,8 +58,10 @@
 (defn viewport
   ([w h] (viewport 0 0 w h))
   ([x y w h]
-    (dosync (ref-set *view-bounds* [x y w h]))
-    (gl-viewport x y w h)))
+    (if (not= [x y w h] @*view-bounds*)
+      (do
+        (dosync (ref-set *view-bounds* [x y w h]))
+        (gl-viewport x y w h)))))
 
 (defmacro with-viewport [[x y w h] & body]
   `(let [[x# y# w# h#] @*view-bounds*]
@@ -388,11 +390,14 @@
 (defn frame-buffer-status []
   (enum-name (gl-check-frame-buffer-status :framebuffer)))
 
-(defn-memo attachment [point]
-  (enum (keyword (str "color-attachment" point))))
+(defn-memo texture-lookup [point]
+  (enum (keyword (str "texture" point))))
+
+(defn-memo uniform-lookup [variable]
+  (.replace (name variable) \- \_))
 
 (defn attach [tex point]
-  (let [p (attachment point)]
+  (let [p (attachment-lookup point)]
     (if (nil? tex)
       (gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle 0 0)
       (do
@@ -400,13 +405,13 @@
         (attach! tex point)))))
 
 (defn bind-read [variable tex point]
-  (let [loc (gl-get-uniform-location *program* (.replace (name variable) \- \_))]
-    (gl-active-texture (enum (keyword (str "texture" point))))
+  (let [loc (gl-get-uniform-location *program* (uniform-lookup variable))]
+    (gl-active-texture (texture-lookup point))
     (gl-bind-texture (enum (:target tex)) (:id tex))
     (uniform-1i loc point)))
 
 (defn bind-write [start end]
-  (gl-draw-buffers (- end start) (int-array (map attachment (range start end))) 0))
+  (gl-draw-buffers (- end start) (int-array (map attachment-lookup (range start end))) 0))
 
 (defn attach-textures [read write]
   (let [read-textures (map #(last %) (partition 2 read))]
