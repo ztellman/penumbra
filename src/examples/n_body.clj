@@ -11,19 +11,17 @@
   (:use [penumbra.opengl.texture])
   (:use [clojure.contrib.seq-utils :only (partition-all flatten)]))
 
-;NOT COMPLETE
-
 (defn gen [min max]
   (+ min (* (rand) (- max min))))
 
 (defn gen-mass [num min max]
-  (wrap (map float (concat [5e12] (take num (repeatedly #(gen min max))))) 1))
+  (wrap (map float (concat [5e12] (take (dec num) (repeatedly #(gen min max))))) 1))
 
 (defn gen-velocity [num min max]
-  (wrap (map float (concat [0.0 0.0 0.0] (take (* 3 num) (repeatedly #(gen min max))))) 3))
+  (wrap (map float (concat [0.0 0.0 0.0] (take (* 3 (dec num)) (repeatedly #(gen min max))))) 3))
 
 (defn gen-position [num min max]
-  (wrap (map float (concat [0.0 0.0 0.0] (take (* 3 num) (repeatedly #(gen min max))))) 3))
+  (wrap (map float (concat [0.0 0.0 0.0] (take (* 3 (dec num)) (repeatedly #(gen min max))))) 3))
 
 (def slate (create-slate))
 
@@ -46,7 +44,7 @@
           diff (- p2 p1)]
       (? (= :index (float idx))
         (float3 0.0)
-        (* (normalize diff) (/ (* g m2) (dot diff diff))))))
+        (/ (* diff g m2) (pow (dot diff diff) 1.5)))))
 
   (defreduce sum (+ %1 %2)))
 
@@ -54,10 +52,14 @@
   (acquire! t)
   (println (partition 3 (unwrap* t))))
 
-(defn chunked-add [f chunk-size coll-size]
-  (let [s (partition-all chunk-size (range coll-size))
-        add #(add {:k 1.0} [%1 %2])]
-    (reduce add (map #(reduce add (map f %)) s))))
+(defn piecewise-add [f size]
+  (let [add #(add {:k 1.0} [%1 %2])]
+    (reduce add (map f (range size)))))
+
+(defn energy [m v p num]
+  (let [ke (first (sum (kinetic-energy [ [m] [v] ])))
+        pe (first (sum (piecewise-add #(potential-energy {:idx % :g 6.673e-11} [ [m] [p] ]) num)))]
+    (println "kinetic:" ke "potential:" pe "total:" (+ ke pe))))
 
 (defn run-sim [num iterations]
   (let [m (gen-mass num 1e3 1e4)
@@ -65,20 +67,23 @@
         p (gen-position num -100 100)
         dt 0.01]
     (time
-      (loop [v v, p p, i 1]
-      (if (> i iterations)
-        nil
-        (let [a  (chunked-add #(gravity {:g 6.673e-11 :idx %} [ [m] [p] ]) 100 num)
-              v* (add {:k dt} [ v a ])
-              p* (add {:k dt} [ p [v*] ])
-              ke (first (sum (kinetic-energy [ [m] [v*] ])))
-              pe (first (sum (chunked-add #(potential-energy {:idx % :g 6.673e-11 } [ [m] [p*] ]) 100 num)))]
-          ;(println "kinetic:" ke "potential:" pe "total" (+ ke pe))
-          (recur v* p* (inc i))))))))
+      (do
+        (energy m v p num)
+        (loop [v v, p p, i 1]
+          (if (> i iterations)
+            (do
+              (energy m v p num)
+              (release! m) (release! v) (release! p))
+            (let [a  (piecewise-add #(gravity {:g 6.673e-11 :idx %} [ [m] [p] ]) num)
+                  v* (add {:k dt} [ v a ])
+                  p* (add {:k dt} [ p [v*] ])]
+              (recur v* p* (inc i)))))))))
 
 (with-slate slate
-  (dotimes [i 20]
+  (dotimes [i 30]
     (let [num (* 100 (inc i))]
       (println num)
-      (dotimes [_ 3]
+      (dotimes [_ 1]
         (run-sim num 10)))))
+
+(destroy slate)

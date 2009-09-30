@@ -122,7 +122,7 @@
         (alter (:texture-size *texture-pool*)
           #(+ % (sizeof t)))
         (alter (:textures *texture-pool*)
-          #(conj % t))))))
+          #(cons t %))))))
 
 (defn create-texture [type dim internal-format pixel-format internal-type tuple]
   (let [available   (if *texture-pool* (filter available? @(:textures *texture-pool*)) ())

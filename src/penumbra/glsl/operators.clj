@@ -97,12 +97,11 @@
   #(if (= from %) to))
 
 (defn process-elements
-  "Marks textures not wrapped in a vector as transient"
   [coll]
   (map
     #(if (vector? %)
-      (first %)
-      (add-meta % :transient true))
+      (add-meta (first %) :persist true)
+      %)
     coll))
 
 ;;;;;;;;;;;;;;;;;;;;;
@@ -298,7 +297,8 @@
       targets)
     (apply draw dim)
     (doseq [e (distinct elements)]
-      (if (:transient ^e) (release! e)))
+      (if (not (:persist ^e))
+        (release! e)))
     (if (= 1 (count targets)) (first targets) targets)))
 
 (defn- tag-map-types
@@ -444,7 +444,8 @@
           (apply uniform (list* :__dim half-dim))
           (attach-textures [:__data input] [target])
           (draw 0 0 w h)
-          (release! input)
+          (if (not (:persist ^input))
+            (release! input))
           (recur half-dim target)))))
 
 (defn- tag-reduce-types

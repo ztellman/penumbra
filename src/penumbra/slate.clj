@@ -115,7 +115,7 @@
       ;(.setPbufferRenderToTextureRectangle cap true)
 
       (let [p-buffer  (.. (javax.media.opengl.GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
-            tex-pool  {:texture-size (ref 0) :textures (ref [])}
+            tex-pool  {:texture-size (ref 0) :textures (ref '())}
             slate     (struct-map slate-struct
                         :p-buffer p-buffer :queue (ref '())
                         :texture-pool tex-pool
