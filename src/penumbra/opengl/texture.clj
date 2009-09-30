@@ -125,7 +125,7 @@
           #(cons t %))))))
 
 (defn create-texture [type dim internal-format pixel-format internal-type tuple]
-  (let [available   (if *texture-pool* (filter available? @(:textures *texture-pool*)) ())
+  (let [available   (if *texture-pool* (filter available? @(:textures *texture-pool*)) '())
         equivalent  (filter
                       (fn [t]
                         (=

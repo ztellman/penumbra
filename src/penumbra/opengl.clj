@@ -309,7 +309,7 @@
   (gl-use-program (if (nil? program) 0 (:program program))))
 
 (defmacro with-program [program & body]
-  `(binding [*program* (:program ~program)]
+  `(binding [*program* (:program ~program), *uniforms* (:uniforms ~program)]
     (bind-program ~program)
     ~@body))
 
@@ -317,8 +317,15 @@
   (let [cls (class p)]
     (if (or (= cls Integer) (= cls Integer/TYPE)) true false)))
 
+(defn get-uniform-location [variable]
+  (if (@*uniforms* variable)
+    (@*uniforms* variable)
+    (let [loc (gl-get-uniform-location *program* (.replace (name variable) \- \_))]
+      (dosync (alter *uniforms* #(assoc % variable loc)))
+      loc)))
+
 (defn uniform [variable & args]
-  (let [loc     (gl-get-uniform-location *program* (name variable))
+  (let [loc     (get-uniform-location variable)
         is-int  (int? (first args))
         args    (vec (map (if is-int int float) args))]
     (condp = (count args)
@@ -393,9 +400,6 @@
 (defn-memo texture-lookup [point]
   (enum (keyword (str "texture" point))))
 
-(defn-memo uniform-lookup [variable]
-  (.replace (name variable) \- \_))
-
 (defn attach [tex point]
   (let [p (attachment-lookup point)]
     (if (nil? tex)
@@ -405,7 +409,7 @@
         (attach! tex point)))))
 
 (defn bind-read [variable tex point]
-  (let [loc (gl-get-uniform-location *program* (uniform-lookup variable))]
+  (let [loc (get-uniform-location variable)]
     (gl-active-texture (texture-lookup point))
     (gl-bind-texture (enum (:target tex)) (:id tex))
     (uniform-1i loc point)))

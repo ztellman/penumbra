@@ -40,7 +40,7 @@
 (gl-import glUniform3fARB uniform-3f)
 (gl-import glUniform4fARB uniform-4f)
 
-(defstruct program-struct :vertex :fragment :program)
+(defstruct program-struct :vertex :fragment :program :uniforms)
 
 ;;;;;;;;;;;;;;;;;;;;
 ;OpenGL shader functions
@@ -97,5 +97,5 @@
       (throw (Exception. (str "*** Error validating program: "(get-program-log program)))))
     (if *verbose* (println "Linked.\n"))
     (struct-map program-struct
-      :vertex vertex-shader :fragment fragment-shader :program program)))
+      :vertex vertex-shader :fragment fragment-shader :program program :uniforms (ref {}))))
 

@@ -13,6 +13,7 @@
 (def *intra-primitive-transform* (atom false))
 (def *transform-matrix* (atom nil))
 (def *program* 0)
+(def *uniforms* nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;
 

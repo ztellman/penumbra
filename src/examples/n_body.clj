@@ -53,8 +53,9 @@
   (println (partition 3 (unwrap* t))))
 
 (defn piecewise-add [f size]
-  (let [add #(add {:k 1.0} [%1 %2])]
-    (reduce add (map f (range size)))))
+  (let [add #(add {:k 1.0} [%1 %2])
+        s (partition-all 10 (range size))]
+    (reduce add (map #(reduce add (doall (map f %))) s))))
 
 (defn energy [m v p num]
   (let [ke (first (sum (kinetic-energy [ [m] [v] ])))
@@ -77,13 +78,14 @@
             (let [a  (piecewise-add #(gravity {:g 6.673e-11 :idx %} [ [m] [p] ]) num)
                   v* (add {:k dt} [ v a ])
                   p* (add {:k dt} [ p [v*] ])]
+              (energy m v* p* num)
               (recur v* p* (inc i)))))))))
 
 (with-slate slate
   (dotimes [i 30]
     (let [num (* 100 (inc i))]
       (println num)
-      (dotimes [_ 1]
+      (dotimes [_ 10]
         (run-sim num 10)))))
 
 (destroy slate)
