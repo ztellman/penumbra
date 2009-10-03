@@ -82,10 +82,10 @@
               (recur v* p* (inc i)))))))))
 
 (with-slate slate
-  (dotimes [i 30]
+  (dotimes [i 1]
     (let [num (* 100 (inc i))]
       (println num)
-      (dotimes [_ 10]
-        (run-sim num 10)))))
+      (dotimes [_ 1]
+        (run-sim num 1)))))
 
 (destroy slate)

@@ -52,7 +52,7 @@
   (enable :light0)
   (enable :fog)
   (shade-model :flat)
-  (assoc state :pyramid (nth (sierpinski) 5)))
+  (assoc state :pyramid (nth (sierpinski) 6)))
 
 (defn reshape [[x y width height] state]
   (frustum-view 50 (/ (double width) height) 0.1 100)
