@@ -40,7 +40,7 @@
     (if (not (zero? error))
       (throw (Exception. (str "OpenGL error: " (enum-name error)))))))
 
-(defn- enum-macro [k]
+(defn enum-macro [k]
  (if (keyword? k)
    (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
     `(. GL2 ~(symbol gl)))

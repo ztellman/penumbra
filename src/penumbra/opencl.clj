@@ -7,7 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opencl
-  (:import (com.nativelibs4java.opencl CLContext CLDevice CLQueue OpenCL4Java))
+  (:import (com.nativelibs4java.opencl CLContext CLDevice CLQueue OpenCL4Java CLEvent CLDevice$QueueProperties))
   (:import (com.nativelibs4java.opencl.library OpenCLLibrary))
   (:use [penumbra.opencl core]))
 
@@ -28,27 +28,54 @@
 (defn get-device [platform]
   (or (first (get-gpu-devices platform)) (first (get-cpu-devices platform))))
 
+(defn enable-profiling [queue enabled]
+  (.setProperty queue CLDevice$QueueProperties/ProfilingEnable enabled))
+
+(defn enable-out-of-order [queue enabled]
+  (.setProperty queue CLDevice$QueueProperties/OutOfOrderExecModeEnable enabled))
+
 (defn create-context
   ([]
      (create-context [(get-device (first (get-platforms)))]))
   ([devices]
-     (OpenCL4Java/createContext (make-array* devices))))
+     (OpenCL4Java/createContext (into-array* devices))))
 
 (defmacro with-device [device & body]
   `(binding [*device* ~device]
      ~@body))
 
-(defmacro sequential [& body]
-  `(binding [*queue* (.createQueue *context* false)]
-     ~@body))
+(defmacro enqueue [& body]
+  `(binding [*queue* (.createQueue *device* *context*)]
+     (enable-profiling *queue* *profiling*)
+     ~@body
+     (dosync (alter *events* (fn [x#] (conj x# (.enqueueMarker *queue*)))))))
 
-(defmacro parallel [& body]
-  `(binding [*queue* (.createQueue *context* true)]
-     ~@body))
+(defmacro execute [& body]
+  `(binding [*queue* (.createQueue *device* *context*)
+             *events* (ref [])]
+     (enable-profiling *queue* *profiling*)
+     ~@body
+     (if (not (empty @*events*))
+       (CLEvent/waitFor (into-array* @*events*)))
+     (.finish *queue*)))
+
+(defmacro profile [& body]
+  `(do
+     (binding [*profiling* true]
+       (enable-profiling *queue* true)
+       ~@body
+       (enable-profiling *queue* false))))
 
 (defmacro with-context [context & body]
-  `(binding [*context* ~context, *device* (first (.getDevices ~context))]
-     (sequential
+  `(binding [*context* ~context
+             *device* (first (.getDevices ~context))]
+     (execute
        ~@body)))
 
+(defmacro with-empty-context [& body]
+  `(with-context (create-context)
+     ~@body))
+
 ;;;
+
+

@@ -18,11 +18,13 @@
 (def *context* nil)
 (def *device* nil)
 (def *queue* nil)
+(def *profiling* false)
+(def *events* nil)
 (def *cl* (OpenCLLibrary/INSTANCE))
 
 ;;;
 
-(defn make-array* [coll]
+(defn into-array* [coll]
   (let [ary (make-array (.getClass (first coll)) (count coll))]
     (dotimes [i (count coll)]
       (aset ary i (nth coll i)))
