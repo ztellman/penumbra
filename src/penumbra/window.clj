@@ -71,11 +71,12 @@
 (defn- get-key [#^KeyEvent event]
   (let [key (.getKeyCode event)]
     (cond
-      (= key KeyEvent/VK_UP) "UP"
-      (= key KeyEvent/VK_DOWN) "DOWN"
-      (= key KeyEvent/VK_LEFT) "LEFT"
-      (= key KeyEvent/VK_RIGHT) "RIGHT"
-      :else (KeyEvent/getKeyText key))))
+      (= key KeyEvent/VK_UP) :up
+      (= key KeyEvent/VK_DOWN) :down
+      (= key KeyEvent/VK_LEFT) :left
+      (= key KeyEvent/VK_RIGHT) :right
+      (= key KeyEvent/VK_SPACE) :space
+      :else (keyword (KeyEvent/getKeyText key)))))
 
 ;;;
 
@@ -229,4 +230,5 @@
         (.add canvas)
         (.setSize 640 480)
         (.setFocusable true)
+        (.setFocusableWindowState true)
         (.show)))))
