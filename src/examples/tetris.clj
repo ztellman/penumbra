@@ -1,10 +1,10 @@
-;   Copyright (c) Zachary Tellman. All rights reserved.
-;   The use and distribution terms for this software are covered by the
-;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-;   which can be found in the file epl-v10.html at the root of this distribution.
-;   By using this software in any fashion, you are agreeing to be bound by
-;   the terms of this license.
-;   You must not remove this notice, or any other, from this software.
+;;   Copyright (c) Zachary Tellman. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;;   which can be found in the file epl-v10.html at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
 
 (ns examples.tetris
   (:use [penumbra window opengl])
@@ -31,10 +31,10 @@
         height    (even (count lines))
         offset    [(/ width 2) (/ height 2)]
         positions (apply
-                    concat
-                    (map
-                      (fn [[x y]] (partition 3 (interleave x (iterate inc 0) (repeat y))))
-                      lines))
+                   concat
+                   (map
+                    (fn [[x y]] (partition 3 (interleave x (iterate inc 0) (repeat y))))
+                    lines))
         filtered  (filter #(-> % first (= \X)) positions)
         relative  (map #(map - (rest %) offset) filtered)]
     relative))
@@ -121,13 +121,13 @@
         shape (:shape tetra)
         offset (:offset state)
         blocks (reduce
-                 (fn [b [x y]] (assoc b y (assoc (b y) x color)))
-                 (:blocks state)
-                 (map #(translate* offset %) shape))
+                (fn [b [x y]] (assoc b y (assoc (b y) x color)))
+                (:blocks state)
+                (map #(translate* offset %) shape))
         cleared (filter #(not-every? identity %) blocks)
         padded (concat
-                 (take (- height (count cleared)) (repeat (take width (repeat nil))))
-                 cleared)]
+                (take (- height (count cleared)) (repeat (take width (repeat nil))))
+                cleared)]
     (assoc state
       :blocks (apply vector (map #(apply vector %) padded)))))
 
@@ -155,30 +155,30 @@
 
 (defn key-press [key state]
   (cond
-    (= key :up)
-    (assoc state
-      :tetra
-      (let [tetra (:tetra state)
-            fns (:fns tetra)
-            shape (:shape tetra)]
-        (assoc tetra
-          :fns (rest fns)
-          :shape (:shape (:tetra (try-move identity #((first fns) %) state))))))
-    (= key :left)
-    (try-move #(translate* [-1 0] %) identity state)
-    (= key :right)
-    (try-move #(translate* [1 0] %) identity state)
-    (= key :down)
-    (descend state)
-    :else
-    state))
+   (= key :up)
+   (assoc state
+     :tetra
+     (let [tetra (:tetra state)
+           fns (:fns tetra)
+           shape (:shape tetra)]
+       (assoc tetra
+         :fns (rest fns)
+         :shape (:shape (:tetra (try-move identity #((first fns) %) state))))))
+   (= key :left)
+   (try-move #(translate* [-1 0] %) identity state)
+   (= key :right)
+   (try-move #(translate* [1 0] %) identity state)
+   (= key :down)
+   (descend state)
+   :else
+   state))
 
 (defn rectangle [x y]
   (push-matrix
-    (translate x y 0)
-    (dotimes [_ 4]
-      (rotate 90 0 0 1)
-      (vertex 0.5 0.5 0))))
+   (translate x y 0)
+   (dotimes [_ 4]
+     (rotate 90 0 0 1)
+     (vertex 0.5 0.5 0))))
 
 (defn draw-bordered-block [col [x y]]
   (if (<= 0 y)
@@ -197,12 +197,12 @@
   (scale (/ 2 width) (/ 2 height) 1)
   (scale 0.49 0.99 1)
   (push-matrix
-    (scale 0.99 0.99 1)
-    (translate (+ 0.5 (/ width -2)) (+ 0.5 (/ height -2)) 0)
-    (draw-tetra (:tetra state) (:offset state))
-    (doseq [[y row] (indexed (:blocks state))]
-      (doseq [[x block] (indexed row)]
-        (if block (draw-bordered-block block [x y])))))
+   (scale 0.99 0.99 1)
+   (translate (+ 0.5 (/ width -2)) (+ 0.5 (/ height -2)) 0)
+   (draw-tetra (:tetra state) (:offset state))
+   (doseq [[y row] (indexed (:blocks state))]
+     (doseq [[x block] (indexed row)]
+       (if block (draw-bordered-block block [x y])))))
   (translate (/ width -2) (/ height -2) 0)
   (draw-line-loop
    (vertex 0 0 0) (vertex width 0 0)
@@ -211,6 +211,6 @@
 
 (start
  {:init init, :display display, :reshape reshape, :key-press key-press}
- (initialize-state {:drop false}))
+ (initialize-state {}))
 
 
