@@ -44,7 +44,10 @@
 (def tetras
      (map
       (fn [[a b c]] {:shape (parse-shape a) :color b :fns c})
-      [["XXXX"
+      [["X
+         X
+         X
+         X"
         [1 0 0]
         two-way]
        ["X..
