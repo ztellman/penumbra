@@ -11,8 +11,6 @@
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [clojure.contrib.pprint]))
 
-(set! *print-length* 25)
-
 ;;;
 
 (defn rotate* [clockwise [x y]]
@@ -72,7 +70,7 @@
         four-way]
        ["XX.
          .XX"
-        [1 1 1]
+        [0.5 0.5 0.5]
         two-way]]))
 
 ;;;
