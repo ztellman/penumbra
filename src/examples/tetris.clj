@@ -137,7 +137,6 @@
       (try
        (next-block (add-to-blocks state))
        (catch Exception e
-         (.printStackTrace e)
          (initialize-state state)))
       state*)))
 
