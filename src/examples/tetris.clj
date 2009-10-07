@@ -7,17 +7,24 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns examples.tetris
-  (:use [penumbra window opengl]))
+  (:use [penumbra window opengl])
+  (:use [clojure.contrib.seq-utils :only (indexed)])
+  (:use [clojure.contrib.pprint]))
 
-(defn rotate* [angle [x y]]
-  (let [angle (* angle (/ Math/PI 180.0))
-        sin (Math/sin angle)
-        cos (Math/cos angle)]
-    [(- (* x cos) (* y sin)) (+ (* y cos) (* x sin))]))
+(set! *print-length* 25)
 
-(def two-way (cycle [#(rotate* 90 %) #(rotate* -90 %)]))
-(def four-way  (repeat #(rotate* 90 %)))
+;;;
+
+(defn rotate* [clockwise [x y]]
+  (let [k (if clockwise -1 1)]
+    [(* k y) (* (- k) x)]))
+
+(defn translate* [[dx dy] [x y]]
+  [(+ x dx) (+ y dy)])
+
 (def one-way (repeat identity))
+(def two-way (cycle [#(rotate* true %) #(rotate* false %)]))
+(def four-way (repeat #(rotate* true %)))
 
 (defn parse-shape [shape]
   (let [even       #(if (even? %) % (dec %))
@@ -34,33 +41,110 @@
         relative  (map #(map - (rest %) offset) filtered)]
     relative))
 
-(def shapes
+(def tetras
      (map
-      (fn [[a b]] [(parse-shape a) b])
+      (fn [[a b c]] {:shape (parse-shape a) :color b :fns c})
       [["XXXX"
+        [1 0 0]
         two-way]
        ["X..
          XXX"
+        [0 1 0]
         four-way]
        ["XXX
          ..X"
+        [0 0 1]
         four-way]
        ["XX
          XX"
+        [1 1 0]
         one-way]
        [".XX
          XX."
+        [1 0 1]
         two-way]
        [".X.
          XXX"
+        [0 1 1]
         four-way]
        ["XX.
          .XX"
-        four-way]]))
+        [1 1 1]
+        two-way]]))
+
+;;;
+
+(def width 10)
+(def height 20)
+
+(defn gen-tetra []
+  (nth tetras (rand-int (count tetras))))
+
+(defn initialize-state [state]
+  (assoc state
+    :blocks (apply vector (take height (repeat (apply vector (take width (repeat nil))))))
+    :offset [(/ width 2) 0]
+    :tetra  (gen-tetra)
+    :next-tetra (gen-tetra))) 
+
+(defn next-block [state]
+  (assoc state
+    :next-tetra (gen-tetra)
+    :offset [(/ width 2) 0]
+    :tetra (:next-tetra state)))
+
+(defn try-move [offset-transform shape-transform state]
+  (let [shape   (map shape-transform (:shape (:tetra state)))
+        offset  (offset-transform (:offset state))
+        shape*  (filter
+                 (fn [[x y]] (<= 0 y)) ;we don't care if it's too high
+                 (map #(translate* offset %) shape))
+        overlap (try
+                 (some
+                  identity
+                  (map (fn [[x y]] (((:blocks state) y) x)) shape*))
+                 (catch Exception e
+                   true))]
+    (if overlap
+      state
+      (assoc state
+        :tetra
+        (assoc (:tetra state)
+          :shape shape)
+        :offset
+        offset))))
+
+(defn add-to-blocks [state]
+  (let [tetra (:tetra state)
+        color (:color tetra)
+        shape (:shape tetra)
+        offset (:offset state)
+        blocks (reduce
+                 (fn [b [x y]] (assoc b y (assoc (b y) x color)))
+                 (:blocks state)
+                 (map #(translate* offset %) shape))
+        cleared (filter #(not-every? identity %) blocks)
+        padded (concat
+                 (take (- height (count cleared)) (repeat (take width (repeat nil))))
+                 cleared)]
+    (assoc state
+      :blocks (apply vector (map #(apply vector %) padded)))))
+
+(defn descend [state]
+  (let [state* (try-move #(translate* [0 1] %) identity state)]
+    (if (identical? state state*)
+      (try
+       (next-block (add-to-blocks state))
+       (catch Exception e
+         (.printStackTrace e)
+         (initialize-state state)))
+      state*)))
+
+;;;
 
 (defn init [state]
-  (assoc state
-    :shapes shapes))
+  (start-update-loop 3 descend)
+  state)
 
 (defn reshape [[x y w h] state]
   (let [aspect (/ (float w) h)
@@ -72,29 +156,61 @@
 (defn key-press [key state]
   (cond
     (= key :up)
-    (let [[blocks fns] (first (:shapes state))]
-      (assoc state
-        :shapes (cons [(map #((first fns) %) blocks) (rest fns)] (rest (:shapes state)))))
-    (= key :space)
     (assoc state
-      :shapes (rest (:shapes state)))
+      :tetra
+      (let [tetra (:tetra state)
+            fns (:fns tetra)
+            shape (:shape tetra)]
+        (assoc tetra
+          :fns (rest fns)
+          :shape (:shape (:tetra (try-move identity #((first fns) %) state))))))
+    (= key :left)
+    (try-move #(translate* [-1 0] %) identity state)
+    (= key :right)
+    (try-move #(translate* [1 0] %) identity state)
+    (= key :down)
+    (descend state)
     :else
     state))
 
-(defn draw-quad [x y]
+(defn rectangle [x y]
   (push-matrix
     (translate x y 0)
-    (scale 0.975 0.975 1)
     (dotimes [_ 4]
       (rotate 90 0 0 1)
       (vertex 0.5 0.5 0))))
 
-(defn display [_ state]
-  (scale 0.25 0.25 1)
-  (draw-quads
-   (doseq [block (ffirst (:shapes state))]
-     (apply draw-quad block))))
+(defn draw-bordered-block [col [x y]]
+  (if (<= 0 y)
+    (do
+      (apply color col)
+      (draw-quads (rectangle x y))
+      (color 0 0 0)
+      (draw-line-loop (rectangle x y))
+      (color 1 1 1))))
 
-(start {:init init, :display display, :reshape reshape, :key-press key-press} {})
+(defn draw-tetra [tetra offset]
+  (doseq [block (map #(translate* offset %) (:shape tetra))]
+    (draw-bordered-block (:color tetra) block)))
+
+(defn display [_ state]
+  (scale (/ 2 width) (/ 2 height) 1)
+  (scale 0.49 0.99 1)
+  (push-matrix
+    (scale 0.99 0.99 1)
+    (translate (+ 0.5 (/ width -2)) (+ 0.5 (/ height -2)) 0)
+    (draw-tetra (:tetra state) (:offset state))
+    (doseq [[y row] (indexed (:blocks state))]
+      (doseq [[x block] (indexed row)]
+        (if block (draw-bordered-block block [x y])))))
+  (translate (/ width -2) (/ height -2) 0)
+  (draw-line-loop
+   (vertex 0 0 0) (vertex width 0 0)
+   (vertex width height 0) (vertex 0 height 0))
+  (draw-tetra (:next-tetra state) [13 5]))
+
+(start
+ {:init init, :display display, :reshape reshape, :key-press key-press}
+ (initialize-state {:drop false}))
 
 

@@ -237,7 +237,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;Effects
 
-(gl-import glColor3d color)
+(gl-import glColor3d color-3)
+(gl-import glColor4d color-4)
 (gl-import glCullFace cull-face)
 (gl-import glLineWidth line-width)
 
@@ -250,6 +251,22 @@
 (gl-import- glShadeModel shade-model)
 
 (gl-import- glHint hint)
+(gl-import- glBlendFunc blend-func)
+
+(defn enable-high-quality-rendering []
+  (hint :point-smooth-hint :nicest)
+  (hint :line-smooth-hint :nicest)
+  (hint :polygon-smooth-hint :nicest)
+  (hint :fog-hint :nicest)
+  (hint :perspective-correction-hint :nicest)
+  (enable :point-smooth)
+  (enable :line-smooth)
+  (enable :polygon-smooth)
+  (blend-func :src-alpha-saturate :one))
+
+(defn color
+  ([r g b] (color-3 r g b))
+  ([r g b a] (color-4 r g b a)))
 
 (defn light [num & params]
   (let [light-num (enum (keyword (str "light" num)))]

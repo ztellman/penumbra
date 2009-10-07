@@ -80,24 +80,45 @@
 
 ;;;
 
+(def *period* nil)
+
+(defn set-frequency [hertz]
+  (println "setting frequency:" hertz)
+  (dosync (ref-set *period* (/ 1e9 hertz))))
+
+(defn get-frequency []
+  (/ 1e9 @*period*))
+
 (defn- start-update-loop-
   [hertz f executor]
   (let [window *window*
         state  (get-state)
-        period (/ 1e9 hertz)]
-    (.start
-      (Thread.
-        (fn []
-          (Thread/sleep (/ 1000 hertz))
-          (binding [*window* window]
-            (loop []
-              (let [time (clock)]
-                (executor state)
-                (repaint)
-                (let [diff  (- (clock) time)
-                      sleep (max 0 (- period diff))]
-                  (Thread/sleep (long (/ sleep 1e6)) (long (rem sleep 1e6)))
-                  (recur))))))))))
+        period (ref (/ 1e9 hertz))
+        run (ref true)
+        thread (Thread.
+                (fn []
+                  (try
+                   (Thread/sleep (/ 1000 hertz))
+                   (binding [*window* window, *period* period]
+                     (loop []
+                       (let [time (clock)]
+                         (executor state)
+                         (repaint)
+                         (let [diff  (- (clock) time)
+                               sleep (max 0 (- @period diff))]
+                           (Thread/sleep (long (/ sleep 1e6)) (long (rem sleep 1e6)))
+                           (if @run (recur))))))
+                   (catch Exception e
+                     (println "Error in update loop:\n" (with-out-str (.printStackTrace e)))))))]
+    (doto (:canvas window)
+      (.addGLEventListener
+       (proxy [GLEventListener] []
+         (display [_])
+         (reshape [_ _ _ _ _])
+         (init [_])
+         (dispose [_] (dosync (ref-set run false))))))
+    (.start thread)
+    thread))
 
 (defn start-update-loop
   "Creates an update loop on a separate thread that repeats 'hertz' times a second.
@@ -129,13 +150,7 @@
   :key-release    [key state]"
   [callbacks initial-state]
   (let
-      [chooser (proxy [GLCapabilitiesChooser] []
-                 (chooseCapabilities
-                  [desired available recommended]
-                  (doseq [cap available]
-                    (println (.getNumSamples cap)))
-                  0))
-       frame (new Frame)
+      [frame (new Frame)
        profile (GLProfile/get GLProfile/GL2)
        cap (new GLCapabilities profile)
        state (ref initial-state)]
@@ -150,6 +165,7 @@
           window (struct-map window-struct :canvas canvas :frame frame :state state :callbacks callbacks)]
 
       (doto canvas
+        (.requestFocus)
         (.addGLEventListener
           (proxy [GLEventListener] []
 
@@ -175,6 +191,7 @@
             (init [#^GLAutoDrawable drawable]
               (bind-gl drawable
                 (. *gl* setSwapInterval 1) ;turn on v-sync
+                ;(enable-high-quality-rendering)
                 (try-call window
                   :init)))
 
@@ -225,10 +242,11 @@
       (doto frame
         (.addWindowListener
             (proxy [WindowAdapter] []
+              (windowOpened [event]
+                (.requestFocus canvas))
               (windowClosing [event]
                 (.start (new Thread #(.dispose frame))))))
         (.add canvas)
         (.setSize 640 480)
         (.setFocusable true)
-        (.setFocusableWindowState true)
         (.show)))))
