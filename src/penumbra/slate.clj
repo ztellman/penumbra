@@ -87,7 +87,9 @@
 ;;;;;;;;;;;;;;;;;
 
 (defn- draw* []
+  (ortho-view 0 0 1 1 -1 1)
   (gl-active-texture :texture0)
+  (println @*view-bounds*)
   (push-matrix
     (draw-quads
       (texture 0 1) (vertex 0 0 0)
@@ -99,8 +101,10 @@
   ([w h]
     (draw 0 0 w h))
   ([x y w h]
-    (viewport x y w h)
-    (call-display-list @(:display-list *slate*))))
+    (with-viewport [x y w h]
+      (if *slate*
+        (call-display-list @(:display-list *slate*))
+        (draw*)))))
 
 ;;;;;;;;;;;;;;;;;;
 

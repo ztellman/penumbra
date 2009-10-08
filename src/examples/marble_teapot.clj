@@ -17,9 +17,6 @@
     (varying float4 pos)
     (varying float4 intensity)))
 
-'(def vertex-shader
-  '(let a b))
-
 (def vertex-shader
   '((import (penumbra.glsl.effects lighting))
     (let [pos         :vertex

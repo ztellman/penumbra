@@ -251,6 +251,7 @@
           (apply-transforms
            (list*
             (replace-with :coord '--coord)
+            (replace-with :dim '--dim)
             (map #(replace-with % (transform-element %)) elements)))
           transform-operator-results
           wrap-and-prepend

@@ -65,11 +65,11 @@
 
 (defmacro with-viewport [[x y w h] & body]
   `(let [[x# y# w# h#] @*view-bounds*]
-    (gl-viewport ~x ~y ~w ~h)
+    (viewport ~x ~y ~w ~h)
     (try
       ~@body
       (finally
-        (gl-viewport x# y# w# h#)))))
+        (viewport x# y# w# h#)))))
 
 (gl-import- glOrtho gl-ortho)
 (glu-import- gluPerspective glu-perspective)
@@ -210,12 +210,12 @@
 (gl-import- glIsList gl-is-list)
 
 (defn is-display-list [display-list]
-  (and
-    (-> display-list meta :id nil? not)
-    (-> display-list meta :id gl-is-list)))
+  (if (nil? display-list)
+    false
+    (gl-is-list display-list)))
 
 (defn delete-display-list [display-list]
-  (gl-delete-lists (:id ^display-list) 1))
+  (gl-delete-lists display-list 1))
 
 (defn call-display-list [display-list]
   (gl-call-list display-list))
