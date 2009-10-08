@@ -161,7 +161,7 @@
   '>= :bool)
 
 (def-identity-inspectors
-  '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil 'abs)
+  '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil 'abs 'log 'log2)
 
 (def-maximum-inspectors
   '* 'div 'mix 'pow)

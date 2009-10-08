@@ -10,12 +10,14 @@
   (:use [clojure.contrib.def :only (defmacro-)])
   (:use [penumbra opengl])
   (:use [penumbra.opengl core])
+  (:use [penumbra.opengl.texture :only (*texture-pool*)])
   (:import (java.awt
               Frame Dimension
               GraphicsDevice GraphicsEnvironment))
   (:import (java.awt.event
               MouseAdapter MouseListener MouseEvent
               MouseMotionListener MouseMotionAdapter
+              MouseWheelListener MouseWheelEvent
               WindowListener WindowAdapter
               KeyAdapter KeyListener KeyEvent))
   (:import (javax.media.opengl
@@ -33,7 +35,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct window-struct :canvas :frame :state :callbacks)
+(defstruct window-struct :canvas :frame :state :callbacks :texture-pool)
 
 (defn get-canvas [] #^GLCanvas (:canvas *window*))
 (defn get-canvas-size [] [(.getWidth (get-canvas)) (.getHeight (get-canvas))])
@@ -55,7 +57,7 @@
   (dosync (ref-set state new-value)))
 
 (defmacro- try-call [window k & args]
-  `(binding [*window* ~window]
+  `(binding [*window* ~window, *texture-pool* (:texture-pool ~window)]
     (if (~k (get-callbacks))
       (update-state (get-state)
         ((~k (get-callbacks)) ~@args (deref (get-state)))))))
@@ -153,7 +155,8 @@
       [frame (new Frame)
        profile (GLProfile/get GLProfile/GL2)
        cap (new GLCapabilities profile)
-       state (ref initial-state)]
+       state (ref initial-state)
+       texture-pool  {:texture-size (ref 0) :textures (ref '())}]
 
     '(doto cap
       (.setSampleBuffers true)
@@ -162,7 +165,12 @@
     (let [canvas (GLCanvas. cap)
           last-render (ref (clock))
           last-pos (ref [0 0])
-          window (struct-map window-struct :canvas canvas :frame frame :state state :callbacks callbacks)]
+          window (struct-map window-struct
+                    :canvas canvas
+                    :frame frame
+                    :state state
+                    :callbacks callbacks
+                    :texture-pool texture-pool)]
 
       (doto canvas
         (.requestFocus)
@@ -179,7 +187,7 @@
                   (try-call window
                     :update time)
                   (push-matrix
-                    (binding [*window* window]
+                    (binding [*window* window, *texture-pool* texture-pool]
                       ((:display callbacks) time @state))))))
 
             (reshape [#^GLAutoDrawable drawable x y width height]
@@ -223,6 +231,13 @@
             (mouseMoved [#^MouseEvent event]
               (mouse-motion window last-pos
                 event :mouse-move))))
+
+        (.addMouseWheelListener
+          (proxy [MouseWheelListener] []
+
+            (mouseWheelMoved [#^MouseWheelEvent event]
+              (try-call window
+                :mouse-wheel (.getWheelRotation event)))))
 
         (.addKeyListener
           (proxy [KeyListener] []

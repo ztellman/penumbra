@@ -124,6 +124,9 @@
         (alter (:textures *texture-pool*)
           #(cons t %))))))
 
+(defn num-textures []
+  (count (filter (complement available?) @(:textures *texture-pool*))))
+
 (defn create-texture [type dim internal-format pixel-format internal-type tuple]
   (let [available   (if *texture-pool* (filter available? @(:textures *texture-pool*)) '())
         equivalent  (filter
