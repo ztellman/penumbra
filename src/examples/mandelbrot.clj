@@ -52,7 +52,7 @@
 (defn update-bounds [state]
   (let [[w h]  (:dim state)
         center (:offset state)
-        radius (map #(/ % (:zoom state)) [(* (/ (float w) h) 1.5) 1])
+        radius (map #(/ % (:zoom state)) [(/ (float w) h) 1])
         ul     (map - center radius)
         lr     (map + center radius)]
     (assoc (reset-fractal state)
@@ -74,10 +74,10 @@
     (assoc state
       :dim [w h])))
 
-(def iterations-per-frame 1)
+(def iterations-per-frame 10)
 
 (defn update [_ state]
-  (let [max-iterations (* 30 (inc (Math/log (:zoom state))))]
+  (let [max-iterations (* 100 (inc (Math/log (:zoom state))))]
     (if (< (:iterations state) max-iterations)
       (with-frame-buffer
         (let [ul    (:upper-left state)
@@ -91,6 +91,7 @@
                       iterations-per-frame)
               image (color-fractal {:max-iterations max-iterations} [[next]])]
           (bind-program nil)
+          (repaint)
           (if (:image state)
             (release! (:image state)))
           (assoc state
@@ -106,8 +107,7 @@
       (texture 0 0) (vertex 0 0 0)
       (texture w 0) (vertex 1 0 0)
       (texture w h) (vertex 1 1 0)
-      (texture 0 h) (vertex 0 1 0)))
-  (repaint))
+      (texture 0 h) (vertex 0 1 0))))
 
 (start
   {:init init, :reshape reshape, :update update, :display display, :mouse-click mouse-click}
