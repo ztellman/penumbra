@@ -49,15 +49,12 @@
     :image nil
     :data nil))
 
-(defn get-radius [state]
-  (let [[w h] (:dim state)]
-    (map #(/ % (:zoom state)) [(* (/ (float w) h) 1.5) 1])))
-
 (defn update-bounds [state]
   (let [[w h]  (:dim state)
         center (:offset state)
-        ul     (map - center (get-radius state))
-        lr     (map + center (get-radius state))]
+        radius (map #(/ % (:zoom state)) [(* (/ (float w) h) 1.5) 1])
+        ul     (map - center radius)
+        lr     (map + center radius)]
     (assoc (reset-fractal state)
       :upper-left ul
       :lower-right lr)))
@@ -77,16 +74,20 @@
     (assoc state
       :dim [w h])))
 
+(def steps-per-frame 1)
+
 (defn update [_ state]
   (if (< (:iterations state) (* 30 (inc (Math/log (:zoom state)))))
     (with-frame-buffer
       (let [ul    (:upper-left state)
             lr    (:lower-right state)
-            iters (inc (:iterations state))
+            iters (+ (:iterations state) steps-per-frame)
             data  (or
                     (:data state)
                     (initialize-fractal {:upper-left ul :lower-right lr} (:dim state)))
-            next  (iterate-fractal {:upper-left ul :lower-right lr} [data])
+            next  (nth
+                    (iterate #(iterate-fractal {:upper-left ul :lower-right lr} [%]) data)
+                    steps-per-frame)
             image (color-fractal {:max-iterations 30} [[next]])]
         (bind-program nil)
         (if (:image state)
