@@ -23,7 +23,7 @@
       (? (< 4.0 (dot z z))
          val
          (float3
-          (+ c (float2 (- (pow (.x z) 2.0) (pow (.y z) 2.0)) (* 2.0 (.x z) (.y z)))) ;;next location on complex plane
+          (+ c (float2 (- (* (.x z) (.x z)) (* (.y z) (.y z))) (* 2.0 (.x z) (.y z)))) ;;next location on complex plane
           (+ 1.0 iterations)))))
 
   (defmap color-fractal
