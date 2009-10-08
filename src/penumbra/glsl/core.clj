@@ -147,6 +147,10 @@
   'float3 :float3
   'float2 :float2
   'float :float
+  'color4 :color4
+  'color3 :color3
+  'color2 :color2
+  'color :color
   'noise4 :float4
   'noise3 :float3
   'noise2 :float2
