@@ -74,29 +74,30 @@
     (assoc state
       :dim [w h])))
 
-(def steps-per-frame 1)
+(def iterations-per-frame 1)
 
 (defn update [_ state]
-  (if (< (:iterations state) (* 30 (inc (Math/log (:zoom state)))))
-    (with-frame-buffer
-      (let [ul    (:upper-left state)
-            lr    (:lower-right state)
-            iters (+ (:iterations state) steps-per-frame)
-            data  (or
-                    (:data state)
-                    (initialize-fractal {:upper-left ul :lower-right lr} (:dim state)))
-            next  (nth
-                    (iterate #(iterate-fractal {:upper-left ul :lower-right lr} [%]) data)
-                    steps-per-frame)
-            image (color-fractal {:max-iterations 30} [[next]])]
-        (bind-program nil)
-        (if (:image state)
-          (release! (:image state)))
-        (assoc state
-          :iterations iters
-          :data next
-          :image image)))
-    state))
+  (let [max-iterations (* 30 (inc (Math/log (:zoom state))))]
+    (if (< (:iterations state) max-iterations)
+      (with-frame-buffer
+        (let [ul    (:upper-left state)
+              lr    (:lower-right state)
+              iters (+ (:iterations state) iterations-per-frame)
+              data  (or
+                      (:data state)
+                      (initialize-fractal {:upper-left ul :lower-right lr} (:dim state)))
+              next  (nth
+                      (iterate #(iterate-fractal {:upper-left ul :lower-right lr} [%]) data)
+                      iterations-per-frame)
+              image (color-fractal {:max-iterations max-iterations} [[next]])]
+          (bind-program nil)
+          (if (:image state)
+            (release! (:image state)))
+          (assoc state
+            :iterations iters
+            :data next
+            :image image)))
+      state)))
 
 (defn display [_ state]
   (let [[w h] (:dim state)]
