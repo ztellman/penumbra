@@ -24,7 +24,10 @@
 (def two-way (cycle [#(rotate* true %) #(rotate* false %)]))
 (def four-way (repeat #(rotate* true %)))
 
-(defn parse-shape [shape]
+(defn parse-shape
+  "Takes the string representation of a shape, and turns it into a sequence of
+  offsets from the shape's center."
+  [shape]
   (let [even       #(if (even? %) % (dec %))
         lines     (map vector (map #(.trim %) (.split shape "\n")) (iterate inc 0))
         width     (even (count (ffirst lines)))
@@ -81,20 +84,28 @@
 (defn gen-tetra []
   (nth tetras (rand-int (count tetras))))
 
-(defn initialize-state [state]
+(defn initialize-state
+  "Clears out the pit, and generates first two shapes."
+  [state]
   (assoc state
     :blocks (apply vector (take height (repeat (apply vector (take width (repeat nil))))))
     :offset [(/ width 2) 0]
     :tetra  (gen-tetra)
-    :next-tetra (gen-tetra))) 
+    :next-tetra (gen-tetra)))
 
-(defn next-block [state]
+(defn next-block
+  "Advances next-tetra to tetra, and generates new next-tetra."
+  [state]
   (assoc state
     :next-tetra (gen-tetra)
     :offset [(/ width 2) 0]
     :tetra (:next-tetra state)))
 
-(defn try-move [offset-transform shape-transform state]
+(defn try-move
+  "Applies transforms to tetra. If the new shape exceeds the boundaries of the pit or
+  overlaps existing blocks, returns an unchanged state.  Otherwise, returns state with
+  transformed tetra."
+  [offset-transform shape-transform state]
   (let [shape   (map shape-transform (:shape (:tetra state)))
         offset  (offset-transform (:offset state))
         shape*  (filter
@@ -115,7 +126,10 @@
         :offset
         offset))))
 
-(defn add-to-blocks [state]
+(defn add-to-blocks
+  "Adds the current tetra to the pit, removes any full rows, and adds
+  an equal number of rows to the top."
+  [state]
   (let [tetra (:tetra state)
         color (:color tetra)
         shape (:shape tetra)
@@ -131,7 +145,10 @@
     (assoc state
       :blocks (apply vector (map #(apply vector %) padded)))))
 
-(defn descend [state]
+(defn descend
+  "Moves the block down one step. If that's not possible, adds the tetra to the pit.
+  If that's not possible, the tetra is above the pit, so the game is restarted."
+  [state]
   (let [state* (try-move #(translate* [0 1] %) identity state)]
     (if (identical? state state*)
       (try
