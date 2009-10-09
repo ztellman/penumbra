@@ -30,9 +30,9 @@
     (let [val %
           z (.xy val)
           n (.z val)
-          value (/ n (float max-iterations))]
+          escape (/ n (float max-iterations))]
       (? (< 4.0 (dot z z))
-         (color3 value value (mix 0.2 1.0 value))
+         (color3 escape escape (mix 0.2 1.0 escape))
          (color3 0.0 0.0 0.0))))
 
   (enable :texture-rectangle)
