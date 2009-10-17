@@ -29,13 +29,19 @@
 (gl-import glEnable enable)
 (gl-import glDisable disable)
 (gl-import glGetIntegerv get-integer)
+(gl-import glGetString get-string)
 
 (gl-import glMatrixMode gl-matrix-mode)
 (gl-import glPushMatrix gl-push-matrix)
 (gl-import glPopMatrix gl-pop-matrix)
 (gl-import glLoadIdentity gl-load-identity-matrix)
 
-;;;;;;;;;;;;;;;;;;;;;;
+;;;
+
+(defn get-extensions []
+  (set (.split (get-string :extensions) " ")))
+
+;;;
 
 (def *view-bounds* (ref [0 0 0 0]))
 

@@ -134,6 +134,12 @@
   [hertz f]
   (start-update-loop- hertz f (fn [s] (f s))))
 
+(defn enable-vsync []
+  (. *gl* setSwapInterval 1))
+
+(defn disable-vysnc []
+  (. *gl* setSwapInterval 0))
+
 ;;;
 
 (defn start
@@ -198,7 +204,7 @@
 
             (init [#^GLAutoDrawable drawable]
               (bind-gl drawable
-                (. *gl* setSwapInterval 1) ;turn on v-sync
+                (println (get-extensions))
                 ;(enable-high-quality-rendering)
                 (try-call window
                   :init)))
