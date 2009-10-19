@@ -7,10 +7,12 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.window
-  (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [clojure.contrib.def :only (defmacro- defn-memo)])
+  (:use [clojure.contrib.str-utils :only (str-join)])
   (:use [penumbra opengl])
   (:use [penumbra.opengl core])
   (:use [penumbra.opengl.texture :only (*texture-pool*)])
+  (:import (java.lang.reflect Field))
   (:import (java.awt
               Frame Dimension
               GraphicsDevice GraphicsEnvironment))
@@ -70,17 +72,20 @@
     (try-call ~window
       ~k [delta# [x# y#]] ~@args)))
 
+(defn-memo get-keycode-keyword [#^KeyEvent event keycode]
+  (let [fields (seq (-> event .getClass .getFields))
+        name (.getName #^Field (some #(if (= keycode (.get #^Field % event)) % nil) fields))]
+    (keyword (.toLowerCase (str-join "-" (next (.split name "_")))))))
+
 (defn- get-key [#^KeyEvent event]
   (let [key (.getKeyCode event)
         char (.getKeyChar event)]
     (cond
-      (not= char KeyEvent/CHAR_UNDEFINED) (keyword (str char))
-      (= key KeyEvent/VK_UP) :up
-      (= key KeyEvent/VK_DOWN) :down
-      (= key KeyEvent/VK_LEFT) :left
-      (= key KeyEvent/VK_RIGHT) :right
-      (= key KeyEvent/VK_SPACE) :space
-      :else (keyword (.toLowerCase (KeyEvent/getKeyText key))))))
+      (= key KeyEvent/VK_ESCAPE) :escape
+      (= key KeyEvent/VK_TAB) :tab
+      (= key KeyEvent/VK_ENTER) :enter
+      (not= char KeyEvent/CHAR_UNDEFINED) (str char)
+      :else (get-keycode-keyword event key))))
 
 (defn- get-button [#^MouseEvent event]
   (let [button (.getButton event)]
@@ -95,7 +100,6 @@
 (def *period* nil)
 
 (defn set-frequency [hertz]
-  (println "setting frequency:" hertz)
   (dosync (ref-set *period* (/ 1e9 hertz))))
 
 (defn get-frequency []
