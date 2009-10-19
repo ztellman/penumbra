@@ -220,7 +220,6 @@
 
             (init [#^GLAutoDrawable drawable]
               (bind-gl drawable
-                (println (get-extensions))
                 ;(enable-high-quality-rendering)
                 (try-call window
                   :init)))
