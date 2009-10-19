@@ -61,7 +61,7 @@
   (translate 0 0 2)
   state)
 
-(defn mouse-drag [mouse state]
+(defn mouse-drag [mouse button state]
   (let [[delta pos] mouse
         [dx dy] delta
         [x y] pos

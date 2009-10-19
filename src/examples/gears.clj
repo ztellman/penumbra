@@ -123,7 +123,7 @@
   (light 0 :position [1 1 1 0])
   state)
 
-(defn mouse-drag [[[dx dy] _] state]
+(defn mouse-drag [[[dx dy] _] button state]
   (assoc state
     :rot-x (+ (:rot-x state) dy)
     :rot-y (+ (:rot-y state) dx)))

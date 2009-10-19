@@ -62,23 +62,33 @@
       (update-state (get-state)
         ((~k (get-callbacks)) ~@args (deref (get-state)))))))
 
-(defmacro- mouse-motion [window last-pos event k]
+(defmacro- mouse-motion [window last-pos event k & args]
   `(let [x# (. ~event getX), y# (. ~event getY)
          [last-x# last-y#] (deref ~last-pos)
          delta# [(- x# last-x#) (- y# last-y#)]]
     (dosync (ref-set ~last-pos [x# y#]))
     (try-call ~window
-      ~k [delta# [x# y#]])))
+      ~k [delta# [x# y#]] ~@args)))
 
 (defn- get-key [#^KeyEvent event]
-  (let [key (.getKeyCode event)]
+  (let [key (.getKeyCode event)
+        char (.getKeyChar event)]
     (cond
+      (not= char KeyEvent/CHAR_UNDEFINED) (keyword (str char))
       (= key KeyEvent/VK_UP) :up
       (= key KeyEvent/VK_DOWN) :down
       (= key KeyEvent/VK_LEFT) :left
       (= key KeyEvent/VK_RIGHT) :right
       (= key KeyEvent/VK_SPACE) :space
-      :else (keyword (KeyEvent/getKeyText key)))))
+      :else (keyword (.toLowerCase (KeyEvent/getKeyText key))))))
+
+(defn- get-button [#^MouseEvent event]
+  (let [button (.getButton event)]
+    (cond
+      (= button MouseEvent/NOBUTTON) :none
+      (= button MouseEvent/BUTTON1) :left
+      (= button MouseEvent/BUTTON2) :right
+      (= button MouseEvent/BUTTON3) :center)))
 
 ;;;
 
@@ -134,6 +144,8 @@
   [hertz f]
   (start-update-loop- hertz f (fn [s] (f s))))
 
+;;;
+
 (defn enable-vsync []
   (. *gl* setSwapInterval 1))
 
@@ -148,11 +160,11 @@
   :display        [[delta time] state]
   :reshape        [[x y width height] state]
   :init           [state]
-  :mouse-drag     [[[dx dy] [x y]] state]
+  :mouse-drag     [[[dx dy] [x y]] button state]
   :mouse-move     [[[dx dy] [x y]] state]
-  :mouse-up       [[x y] state]
-  :mouse-click    [[x y] state]
-  :mouse-down     [[x y] state]
+  :mouse-up       [[x y] button state]
+  :mouse-click    [[x y] button state]
+  :mouse-down     [[x y] button state]
   :key-type       [key state]
   :key-press      [key state]
   :key-release    [key state]"
@@ -217,22 +229,22 @@
 
             (mouseClicked [#^MouseEvent event]
               (try-call window
-                :mouse-click [(.getX event) (.getY event)]))
+                :mouse-click [(.getX event) (.getY event)] (get-button event)))
 
             (mousePressed [#^MouseEvent event]
               (try-call window
-                :mouse-down [(.getX event) (.getY event)]))
+                :mouse-down [(.getX event) (.getY event)] (get-button event)))
 
             (mouseReleased [#^MouseEvent event]
               (try-call window
-                :mouse-up [(.getX event) (.getY event)]))))
+                :mouse-up [(.getX event) (.getY event)] (get-button event)))))
 
         (.addMouseMotionListener
           (proxy [MouseMotionAdapter] []
 
             (mouseDragged [#^MouseEvent event]
               (mouse-motion window last-pos
-                event :mouse-drag))
+                event :mouse-drag (get-button event)))
 
             (mouseMoved [#^MouseEvent event]
               (mouse-motion window last-pos

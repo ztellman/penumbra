@@ -53,10 +53,10 @@
   (assoc state
     :program (create-program declarations vertex-shader fragment-shader)))
 
-(defn mouse-drag [[[dx dy] _] state]
+(defn mouse-drag [[[dx dy] _] button state]
   (assoc state
-    :rot-x (- (:rot-x state) dy)
-    :rot-y (- (:rot-y state) dx)))
+    :rot-x (+ (:rot-x state) dy)
+    :rot-y (+ (:rot-y state) dx)))
 
 (defn display [[delta time] state]
   (rotate (:rot-x state) 1 0 0)

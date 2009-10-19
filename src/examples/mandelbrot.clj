@@ -59,13 +59,15 @@
       :upper-left ul
       :lower-right lr)))
 
-(defn mouse-click [[x y] state]
+(defn mouse-click [[x y] button state]
   (let [ul    (:upper-left state)
         lr    (:lower-right state)
         coord (map / [x y] (:dim state))]
     (update-bounds
       (assoc state
-        :zoom (* 2 (:zoom state))
+        :zoom (max 1
+                   (* (:zoom state)
+                      (if (= button :left) 2 0.5)))
         :offset (map + ul (map * coord (map - lr ul)))))))
 
 (defn reshape [[x y w h] state]
