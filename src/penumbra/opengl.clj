@@ -477,13 +477,18 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
-(def #^TextRenderer *text* (TextRenderer. (Font. "Tahoma" java.awt.Font/PLAIN 20) true true))
+(def #^TextRenderer *text* (ref nil))
+
+(defn init-text []
+  (dosync
+   (ref-set *text* (TextRenderer. (Font. "Tahoma" java.awt.Font/PLAIN 20) true true))))
 
 (defn write-to-screen
   "writes string at normalized coordinates (x,y)"
   [string x y]
   (let [[_ _ w h] @*view-bounds*
-        text-height (.. *text* (getBounds string) getHeight)]
-    (.beginRendering *text* w h)
-    (.draw *text* string (int (* x w)) (int (* y (- h text-height))))
-    (.endRendering *text*)))
+		text @*text*
+        text-height (.. text (getBounds string) getHeight)]
+    (.beginRendering text w h)
+    (.draw text string (int (* x w)) (int (* y (- h text-height))))
+    (.endRendering text)))
