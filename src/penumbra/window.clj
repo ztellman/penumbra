@@ -220,10 +220,9 @@
 
             (init [#^GLAutoDrawable drawable]
               (bind-gl drawable
-				(init-text)
-                 ;(enable-high-quality-rendering)
-                (try-call window
-                  :init)))
+				      (init-text)
+              (try-call window
+                :init)))
 
             (dispose [#^GLAutoDrawable drawable]
               )))
