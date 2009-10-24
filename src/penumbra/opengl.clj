@@ -18,6 +18,7 @@
   (:import (java.awt Font))
   (:import (com.sun.opengl.util.awt TextRenderer))
   (:import (com.sun.opengl.util.texture TextureIO))
+  (:import (java.nio ByteBuffer))
   (:import (java.io File)))
 
 (defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & body]
@@ -178,6 +179,19 @@
         tex  (TextureIO/newTexture data)]
     (texture-from-texture-io tex)))
 
+(defn copy-to-texture
+  [tex ary]
+  (bind-texture tex)
+  (let [target  (enum (:target tex))
+        p-f     (enum (:pixel-format tex))
+        i-t     (enum (:internal-type tex))
+        dim     (vec (:dim tex))
+        buf     (ByteBuffer/wrap ary)]
+    (condp = (count (filter #(not= 1 %) dim))
+      1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
+      2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
+      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
+
 (defn draw-to-subsampled-texture
   [tex fun]
   (bind-texture tex)
@@ -204,6 +218,22 @@
       1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
       2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
       3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
+
+;;;
+
+(defn blit [tex]
+  (let [[w h] (if (= :texture-rectangle (:target tex))
+                (:dim tex)
+                [1 1])]
+    (push-matrix
+      (load-identity)
+      (bind-texture tex)
+      (with-projection (ortho-view 0 0 1 1 -1 1)
+        (draw-quads
+         (texture 0 0) (vertex 0 0 0)
+         (texture w 0) (vertex 1 0 0)
+         (texture w h) (vertex 1 1 0)
+         (texture 0 h) (vertex 0 1 0))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;Display Lists

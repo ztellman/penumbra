@@ -206,10 +206,10 @@
                 (dosync (ref-set last-render current))
                 (bind-gl drawable
                   (clear)
-                  (try-call window
-                    :update time)
                   (push-matrix
                     (binding [*window* window, *texture-pool* texture-pool]
+                      (if (:update callbacks)
+                        (dosync (ref-set state ((:update callbacks) time @state))))
                       ((:display callbacks) time @state))))))
 
             (reshape [#^GLAutoDrawable drawable x y width height]
@@ -281,6 +281,8 @@
               (windowOpened [event]
                 (.requestFocus canvas))
               (windowClosing [event]
+                (try-call window
+                  :close)         
                 (.start (new Thread #(.dispose frame))))))
         (.add canvas)
         (.setSize 640 480)

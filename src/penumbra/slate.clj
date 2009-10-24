@@ -87,22 +87,14 @@
 ;;;;;;;;;;;;;;;;;
 
 (defn- draw* []
-  (gl-matrix-mode :projection)
-  (gl-push-matrix)
-  (ortho-view 0 0 1 1 -1 1)
-  (gl-matrix-mode :modelview)
-
-  (gl-active-texture :texture0)
-  (push-matrix
-    (draw-quads
-      (texture 0 1) (vertex 0 0 0)
-      (texture 1 1) (vertex 1 0 0)
-      (texture 1 0) (vertex 1 1 0)
-      (texture 0 0) (vertex 0 1 0)))
-
-  (gl-matrix-mode :projection)
-  (gl-pop-matrix)
-  (gl-matrix-mode :modelview))
+  (with-projection (ortho-view 0 0 1 1 -1 1)
+    (gl-active-texture :texture0)
+    (push-matrix
+      (draw-quads
+       (texture 0 1) (vertex 0 0 0)
+       (texture 1 1) (vertex 1 0 0)
+       (texture 1 0) (vertex 1 1 0)
+       (texture 0 0) (vertex 0 1 0)))))
 
 (defn draw
   ([w h]

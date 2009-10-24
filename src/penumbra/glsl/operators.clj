@@ -25,21 +25,21 @@
     :float2  (list 'float4 x 1.0 1.0)
     :float3  (list 'float4 x 1.0)
     :float4  x
-    :color   (list 'float4 x)
-    :color2  (list 'float4 x 1.0 1.0)
-    :color3  (list 'float4 x 1.0)
-    :color4  x
+    :byte   (list 'float4 x)
+    :byte2  (list 'float4 x 1.0 1.0)
+    :byte3  (list 'float4 x 1.0)
+    :byte4  x
     :int     (list 'float4 x)
     :int2    (list 'float4 x 1 1)
     :int3    (list 'float4 x 1)
     :int4    x
-    nil     (throw (Exception. (str "Cannot typecast \n" (with-out-str (print-tree x)))))))
+    nil      (throw (Exception. (str "Cannot typecast \n" (with-out-str (print-tree x)))))))
 
 (defvar- type-format
-  {:color :unsigned-byte
-   :color2 :unsigned-byte
-   :color3 :unsigned-byte
-   :color4 :unsigned-byte
+  {:byte :unsigned-byte
+   :byte2 :unsigned-byte
+   :byte3 :unsigned-byte
+   :byte4 :unsigned-byte
    :float :float       
    :float2 :float
    :float3 :float
@@ -191,7 +191,7 @@
 
 
 (defn- transform-operator-results
-  "Tranforms the final xession into one or more assignments to gl_FragData[n]"
+  "Tranforms the final expression into one or more assignments to gl_FragData[n]"
   [x]
   (transform-results
     x
@@ -481,6 +481,10 @@
               program   (cache data-type params)]
           (with-program program
             (run-reduce params data)))))))
+
+;;;
+
+
 
 
 
