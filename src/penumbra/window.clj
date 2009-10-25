@@ -209,7 +209,7 @@
           last-render (ref (clock))
           last-pos (ref [0 0])
           keys (atom #{})
-          key-timestamp (atom {})
+          key-timestamp (atom {}) ;;workaround for key repeat in linux
           window (struct-map window-struct
                     :canvas canvas
                     :frame frame
@@ -306,18 +306,18 @@
              [#^KeyEvent event]
               (let [key (get-key event)
                     timestamp (.getWhen event)]
-                (swap! key-timestamp #(assoc % key timestamp))
                 (when (not (@keys key))
                   (swap! keys #(conj % key))
-                  (try-call window
-                    :key-press key))))
+                  (if (not= timestamp (@key-timestamp key))
+                    (try-call window
+                      :key-press key)))))
 
             (keyReleased
              [#^KeyEvent event]
              (let [key (get-key event)
                    timestamp (.getWhen event)]
-               (if (not= timestamp (@key-timestamp key))
-                 (swap! keys #(disj % key)))
+               (swap! key-timestamp #(assoc % key timestamp))
+               (swap! keys #(disj % key))
                (try-call window
                  :key-release key))))))
 
