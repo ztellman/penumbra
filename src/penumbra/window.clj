@@ -37,7 +37,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct window-struct :canvas :frame :state :callbacks :texture-pool :key-pressed?)
+(defstruct window-struct :canvas :frame :state :callbacks :texture-pool :keys)
 
 (defn get-canvas [] #^GLCanvas (:canvas *window*))
 (defn get-canvas-size [] [(.getWidth (get-canvas)) (.getHeight (get-canvas))])
@@ -51,22 +51,28 @@
 
 (defn- get-callbacks [] (:callbacks *window*))
 
-(defn key-pressed? [key] (@(:key-pressed? *window*) key))
+(defn key-pressed? [key] (@(:keys *window*) key))
 
 ;;;
 
-(defn- update-state [state new-value]
+(defn- update-state
+  "Updates state ref, and triggers repaint if ref has been altered."
+  [state new-value]
   (if (not (identical? @state new-value))
     (repaint))
   (dosync (ref-set state new-value)))
 
-(defmacro- try-call [window k & args]
+(defmacro- try-call
+  "If callback exists, calls it and updates state ref."
+  [window k & args]
   `(binding [*window* ~window, *texture-pool* (:texture-pool ~window)]
     (if (~k (get-callbacks))
       (update-state (get-state)
         ((~k (get-callbacks)) ~@args (deref (get-state)))))))
 
-(defmacro- mouse-motion [window last-pos event k & args]
+(defmacro- mouse-motion
+  "Calculates delta from previous mouse position, and invokes try-call."
+  [window last-pos event k & args]
   `(let [x# (. ~event getX), y# (. ~event getY)
          [last-x# last-y#] (deref ~last-pos)
          delta# [(- x# last-x#) (- y# last-y#)]]
@@ -74,12 +80,18 @@
     (try-call ~window
       ~k [delta# [x# y#]] ~@args)))
 
-(defn-memo get-keycode-keyword [#^KeyEvent event keycode]
+(defn-memo get-keycode-keyword
+  "Walks through VK_* constants in KeyEvent, and converts the matching value into a keyword."
+  [#^KeyEvent event keycode]
   (let [fields (seq (-> event .getClass .getFields))
         name (.getName #^Field (some #(if (= keycode (.get #^Field % event)) % nil) fields))]
     (keyword (.toLowerCase (str-join "-" (next (.split name "_")))))))
 
-(defn- get-key [#^KeyEvent event]
+(defn- get-key
+  "Returns friendlier representation of KeyEvent.
+  Alphanumeric values will return as a string, special characters as a keyword.
+  a -> 'a', caps lock -> :caps-lock"
+  [#^KeyEvent event]
   (let [key (.getKeyCode event)
         char (.getKeyChar event)]
     (cond
@@ -101,7 +113,9 @@
 
 (def *period* nil)
 
-(defn set-frequency [hertz]
+(defn set-frequency
+  "Sets the frequency of the update loop surrounding the call, in hertz."
+  [hertz]
   (dosync (ref-set *period* (/ 1e9 hertz))))
 
 (defn get-frequency []
@@ -112,7 +126,7 @@
   (let [window *window*
         state  (get-state)
         period (ref (/ 1e9 hertz))
-        run (ref true)
+        run (atom true)
         thread (Thread.
                 (fn []
                   (try
@@ -134,7 +148,7 @@
          (display [_])
          (reshape [_ _ _ _ _])
          (init [_])
-         (dispose [_] (dosync (ref-set run false))))))
+         (dispose [_] (reset! run false)))))
     (.start thread)
     thread))
 
@@ -152,10 +166,14 @@
 
 ;;;
 
-(defn enable-vsync []
+(defn enable-vsync
+  "Enables vertical sync.  Generally will clamp frame rate to <=60fps."
+  []
   (. *gl* setSwapInterval 1))
 
-(defn disable-vysnc []
+(defn disable-vysnc
+  "Disables vertical sync."
+  []
   (. *gl* setSwapInterval 0))
 
 ;;;
@@ -166,6 +184,7 @@
   :display        [[delta time] state]
   :reshape        [[x y width height] state]
   :init           [state]
+  :close          [state]
   :mouse-drag     [[[dx dy] [x y]] button state]
   :mouse-move     [[[dx dy] [x y]] state]
   :mouse-up       [[x y] button state]
@@ -190,6 +209,7 @@
           last-render (ref (clock))
           last-pos (ref [0 0])
           keys (atom #{})
+          key-timestamp (atom {})
           window (struct-map window-struct
                     :canvas canvas
                     :frame frame
@@ -203,7 +223,8 @@
         (.addGLEventListener
           (proxy [GLEventListener] []
 
-            (display [#^GLAutoDrawable drawable]
+            (display
+             [#^GLAutoDrawable drawable]
               (let [current (clock)
                     delta (/ (- current @last-render) 1e9)
                     time [delta (/ current 1e9)]]
@@ -216,73 +237,89 @@
                         (dosync (ref-set state ((:update callbacks) time @state))))
                       ((:display callbacks) time @state))))))
 
-            (reshape [#^GLAutoDrawable drawable x y width height]
-              (bind-gl drawable
-                (viewport 0 0 width height)
-                (try-call window
-                  :reshape [x y width height])))
+            (reshape
+             [#^GLAutoDrawable drawable x y width height]
+             (bind-gl drawable
+               (viewport 0 0 width height)
+               (try-call window
+                 :reshape [x y width height])))
 
-            (init [#^GLAutoDrawable drawable]
-              (bind-gl drawable
-	      (init-text)
-              (try-call window
-                :init)))
+            (init
+             [#^GLAutoDrawable drawable]
+             (bind-gl drawable
+               (init-text)
+               (try-call window
+                 :init)))
 
-            (dispose [#^GLAutoDrawable drawable]
+            (dispose
+             [#^GLAutoDrawable drawable]
               )))
 
         (.addMouseListener
           (proxy [MouseAdapter] []
 
-            (mouseClicked [#^MouseEvent event]
-              (try-call window
-                :mouse-click [(.getX event) (.getY event)] (get-button event)))
+            (mouseClicked
+             [#^MouseEvent event]
+             (try-call window
+              :mouse-click [(.getX event) (.getY event)] (get-button event)))
 
-            (mousePressed [#^MouseEvent event]
-              (try-call window
-                :mouse-down [(.getX event) (.getY event)] (get-button event)))
+            (mousePressed
+             [#^MouseEvent event]
+             (try-call window
+              :mouse-down [(.getX event) (.getY event)] (get-button event)))
 
-            (mouseReleased [#^MouseEvent event]
-              (try-call window
-                :mouse-up [(.getX event) (.getY event)] (get-button event)))))
+            (mouseReleased
+             [#^MouseEvent event]
+             (try-call window
+              :mouse-up [(.getX event) (.getY event)] (get-button event)))))
 
         (.addMouseMotionListener
           (proxy [MouseMotionAdapter] []
 
-            (mouseDragged [#^MouseEvent event]
-              (mouse-motion window last-pos
-                event :mouse-drag (get-button event)))
+            (mouseDragged
+             [#^MouseEvent event]
+             (mouse-motion window last-pos
+              event :mouse-drag (get-button event)))
 
-            (mouseMoved [#^MouseEvent event]
-              (mouse-motion window last-pos
-                event :mouse-move))))
+            (mouseMoved
+             [#^MouseEvent event]
+             (mouse-motion window last-pos
+              event :mouse-move))))
 
         (.addMouseWheelListener
           (proxy [MouseWheelListener] []
 
-            (mouseWheelMoved [#^MouseWheelEvent event]
-              (try-call window
-                :mouse-wheel (.getWheelRotation event)))))
+            (mouseWheelMoved
+             [#^MouseWheelEvent event]
+             (try-call window
+               :mouse-wheel (.getWheelRotation event)))))
 
         (.addKeyListener
           (proxy [KeyListener] []
 
-            (keyTyped [#^KeyEvent event]
-              (try-call window
-                :key-type (get-key event)))
+            (keyTyped
+             [#^KeyEvent event]
+             (try-call window
+               :key-type (get-key event)))
 
-            (keyPressed [#^KeyEvent event]
-              (let [key (get-key event)]
+            (keyPressed
+             [#^KeyEvent event]
+              (let [key (get-key event)
+                    timestamp (.getWhen event)]
+                (swap! key-timestamp #(assoc % key timestamp))
                 (when (not (@keys key))
                   (swap! keys #(conj % key))
                   (try-call window
                     :key-press key))))
 
-            (keyReleased [#^KeyEvent event]
-              (let [key (get-key event)]
-                (swap! keys #(disj % key))
-                (try-call window
-                  :key-release key))))))
+            (keyReleased
+             [#^KeyEvent event]
+             (let [key (get-key event)
+                   timestamp (.getWhen event)]
+               (if (not= timestamp (@key-timestamp key))
+                 (swap! keys #(disj % key)))
+               (try-call window
+                 :key-release key))))))
 
       (doto frame
         (.addWindowListener
