@@ -160,7 +160,13 @@
 ;;;
 
 (defn init [state]
-  (start-update-loop 3 descend)
+  (start-update-loop
+   3
+   (fn [state]
+     (if (key-pressed? :down)
+       (set-frequency 15)
+       (set-frequency 3))
+     (descend state)))
   state)
 
 (defn reshape [[x y w h] state]
@@ -170,7 +176,7 @@
     (ortho-view (- aspect) (- height) aspect height -1 1)
     state))
 
-(defn key-press [key state]
+(defn key-press [key state] 
   (cond
    (= key :up)
    (assoc state
@@ -185,8 +191,6 @@
    (try-move #(translate* [-1 0] %) identity state)
    (= key :right)
    (try-move #(translate* [1 0] %) identity state)
-   (= key :down)
-   (descend state)
    :else
    state))
 

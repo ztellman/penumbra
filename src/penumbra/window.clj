@@ -37,7 +37,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct window-struct :canvas :frame :state :callbacks :texture-pool)
+(defstruct window-struct :canvas :frame :state :callbacks :texture-pool :key-pressed?)
 
 (defn get-canvas [] #^GLCanvas (:canvas *window*))
 (defn get-canvas-size [] [(.getWidth (get-canvas)) (.getHeight (get-canvas))])
@@ -50,6 +50,8 @@
 (defn get-state [] (:state *window*))
 
 (defn- get-callbacks [] (:callbacks *window*))
+
+(defn key-pressed? [key] (@(:key-pressed? *window*) key))
 
 ;;;
 
@@ -187,12 +189,14 @@
     (let [canvas (GLCanvas. cap)
           last-render (ref (clock))
           last-pos (ref [0 0])
+          keys (atom #{})
           window (struct-map window-struct
                     :canvas canvas
                     :frame frame
                     :state state
                     :callbacks callbacks
-                    :texture-pool texture-pool)]
+                    :texture-pool texture-pool
+                    :key-pressed? keys)]
 
       (doto canvas
         (.requestFocus)
@@ -220,7 +224,7 @@
 
             (init [#^GLAutoDrawable drawable]
               (bind-gl drawable
-				      (init-text)
+	      (init-text)
               (try-call window
                 :init)))
 
@@ -268,12 +272,17 @@
                 :key-type (get-key event)))
 
             (keyPressed [#^KeyEvent event]
-              (try-call window
-                :key-press (get-key event)))
+              (let [key (get-key event)]
+                (when (not (@keys key))
+                  (swap! keys #(conj % key))
+                  (try-call window
+                    :key-press key))))
 
             (keyReleased [#^KeyEvent event]
-              (try-call window
-                :key-release (get-key event))))))
+              (let [key (get-key event)]
+                (swap! keys #(disj % key))
+                (try-call window
+                  :key-release key))))))
 
       (doto frame
         (.addWindowListener
