@@ -166,15 +166,15 @@
 
 ;;;
 
-(defn enable-vsync
-  "Enables vertical sync.  Generally will clamp frame rate to <=60fps."
-  []
-  (. *gl* setSwapInterval 1))
+(defn vsync-enabled
+  "Toggles vertical sync.  Generally will clamp frame rate to <=60fps."
+  [enabled]
+  (. *gl* setSwapInterval (if enabled 1 0)))
 
-(defn disable-vysnc
-  "Disables vertical sync."
-  []
-  (. *gl* setSwapInterval 0))
+(defn key-repeat
+  "If enabled, allows auto-repeat of key presses."
+  [enabled]
+  (reset! (:repeat-enabled *window*) enabled))
 
 ;;;
 
@@ -208,15 +208,17 @@
     (let [canvas (GLCanvas. cap)
           last-render (ref (clock))
           last-pos (ref [0 0])
+          repeat-enabled (atom false)
           keys (atom #{})
-          key-timestamp (atom {}) ;;workaround for key repeat in linux
+          timestamps (atom {}) ;;workaround for key repeat in linux
           window (struct-map window-struct
                     :canvas canvas
                     :frame frame
                     :state state
                     :callbacks callbacks
                     :texture-pool texture-pool
-                    :key-pressed? keys)]
+                    :keys keys
+                    :repeat-enabled repeat-enabled)]
 
       (doto canvas
         (.requestFocus)
@@ -306,9 +308,9 @@
              [#^KeyEvent event]
               (let [key (get-key event)
                     timestamp (.getWhen event)]
-                (when (not (@keys key))
+                (when (or @repeat-enabled (not (@keys key)))
                   (swap! keys #(conj % key))
-                  (if (not= timestamp (@key-timestamp key))
+                  (if (not= timestamp (@timestamps key))
                     (try-call window
                       :key-press key)))))
 
@@ -316,7 +318,7 @@
              [#^KeyEvent event]
              (let [key (get-key event)
                    timestamp (.getWhen event)]
-               (swap! key-timestamp #(assoc % key timestamp))
+               (swap! timestamps #(assoc % key timestamp))
                (swap! keys #(disj % key))
                (try-call window
                  :key-release key))))))

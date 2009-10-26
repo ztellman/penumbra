@@ -167,6 +167,7 @@
        (set-frequency 15)
        (set-frequency 3))
      (descend state)))
+  (key-repeat true)
   state)
 
 (defn reshape [[x y w h] state]
