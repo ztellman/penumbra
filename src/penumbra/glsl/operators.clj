@@ -25,10 +25,10 @@
     :float2  (list 'float4 x 1.0 1.0)
     :float3  (list 'float4 x 1.0)
     :float4  x
-    :byte   (list 'float4 x)
-    :byte2  (list 'float4 x 1.0 1.0)
-    :byte3  (list 'float4 x 1.0)
-    :byte4  x
+    :color   (list 'float4 x)
+    :color2  (list 'float4 x 1.0 1.0)
+    :color3  (list 'float4 x 1.0)
+    :color4  x
     :int     (list 'float4 x)
     :int2    (list 'float4 x 1 1)
     :int3    (list 'float4 x 1)
@@ -36,10 +36,10 @@
     nil      (throw (Exception. (str "Cannot typecast \n" (with-out-str (print-tree x)))))))
 
 (defvar- type-format
-  {:byte :unsigned-byte
-   :byte2 :unsigned-byte
-   :byte3 :unsigned-byte
-   :byte4 :unsigned-byte
+  {:color :unsigned-byte
+   :color2 :unsigned-byte
+   :color3 :unsigned-byte
+   :color4 :unsigned-byte
    :float :float       
    :float2 :float
    :float3 :float
@@ -281,12 +281,6 @@
 (defn- run-map
   "Executes the map"
   [info params elements dim]
-  (if (not= (count elements) (count (:elements info)))
-    (throw (Exception. (str "Expected " (count (:elements info)) " elements, was given " (count elements) "."))))
-  (if (and
-        (> (count elements) 1)
-        (apply not= (list* dim (map :dim elements))))
-    (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (apply str (map :dim elements))))))
   (let [targets
         (map
           (fn [[typ dim]] (create-write-texture typ dim))
@@ -331,12 +325,12 @@
 (defn create-map-template
   "Creates a template for a map, which will lazily create a set of shader programs based on the types passed in."
   [x]
-  (let [cache     (map-cache x)
-        elements? #(and (vector? %) (-> % first number? not))
-        dim       #(or (:dim (first %)) (:dim (ffirst %)))
-        to-symbol (memoize #(symbol (name %)))]
+  (let [cache        (map-cache x)
+        elements?    #(and (vector? %) (-> % first number? not))
+        dim          #(or (:dim (first %)) (:dim (ffirst %)))
+        to-symbol    (memoize #(symbol (name %)))
+        num-elements (count (distinct (tree-filter x element?)))]
     (fn this
-
       ([elements-or-size]
         (if (elements? elements-or-size)
           (this {} elements-or-size (dim elements-or-size))
@@ -356,17 +350,29 @@
 
       ([params elements size]
         (let [elements
-                (process-elements elements)
+              (process-elements elements)
               size
-                (if (number? size) (rectangle size) size)
-              param-map
+              (if (number? size) (rectangle size) size)]
+          ;;verify none of the elements are nil
+          (doseq [[idx e] (indexed elements)]
+            (if (nil? e)
+              (throw (Exception. (str "Element at position " idx " is nil")))))
+          ;;verify element count
+          (if (not= (count elements) num-elements)
+            (throw (Exception. (str "Expected " num-elements " elements, was given " (count elements) "."))))
+          ;;verify all elements are the same size
+          (if (and
+               (> (count elements) 1)
+               (apply not= (list* (map :dim elements))))
+            (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (apply str (map :dim elements))))))
+          (let [param-map
                 (zipmap (map to-symbol (keys params)) (map typeof-param (vals params)))
-              element-map
+                element-map
                 (zipmap (map create-element (range (count elements))) (map typeof-element (filter texture? elements)))
-              [info program]
+                [info program]
                 (cache (merge element-map param-map))]
            (with-program program
-             (run-map info params elements size)))))))
+             (run-map info params elements size))))))))
 
 ;;;;;;;;;;;;;;;;;;
 

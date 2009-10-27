@@ -29,12 +29,12 @@
 (def type-map
   {:float :float, :float2 :vec2, :float3 :vec3, :float4 :vec4
    :int :int, :int2 :ivec2, :int3 :ivec3, :int4 :ivec4
-   :byte :float, :byte2 :vec2, :byte3 :vec3, :byte4 :vec4})
+   :color :float, :color2 :vec2, :color3 :vec3, :color4 :vec4})
 
 (def type-tuple
   {:float 1, :float2 2, :float3 3, :float4 4
    :int 1, :int2 2, :int3 3, :int4 4
-   :byte 1, :byte2 2, :byte3 3, :byte4 4})
+   :color 1, :color2 2, :color3 3, :color4 4})
       
 ;;;
 
@@ -147,10 +147,10 @@
   'float3 :float3
   'float2 :float2
   'float :float
-  'byte4 :byte4
-  'byte3 :byte3
-  'byte2 :byte2
-  'byte :byte
+  'color4 :color4
+  'color3 :color3
+  'color2 :color2
+  'color :color
   'noise4 :float4
   'noise3 :float3
   'noise2 :float2

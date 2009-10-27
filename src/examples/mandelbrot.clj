@@ -32,8 +32,8 @@
           n (.z val)
           escape (/ n (float max-iterations))]
       (? (< 4.0 (dot z z))
-         (byte3 escape escape (mix 0.2 1.0 escape))
-         (byte3 0.0 0.0 0.0))))
+         (color3 escape escape (mix 0.2 1.0 escape))
+         (color3 0.0 0.0 0.0))))
 
   (enable :texture-rectangle)
     

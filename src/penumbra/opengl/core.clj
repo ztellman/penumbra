@@ -20,7 +20,7 @@
 (def *inside-begin-end* false)
 (def *intra-primitive-transform* (atom false))
 (def *transform-matrix* (atom nil))
-(def *program* 0)
+(def *program* nil)
 (def *uniforms* nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;

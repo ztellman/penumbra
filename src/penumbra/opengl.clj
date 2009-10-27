@@ -362,9 +362,14 @@
   (gl-use-program (if (nil? program) 0 (:program program))))
 
 (defmacro with-program [program & body]
-  `(binding [*program* (:program ~program), *uniforms* (:uniforms ~program)]
-    (bind-program ~program)
-    ~@body))
+  `(let [prev-program# *program*]
+     (try
+       (binding [*program* (:program ~program), *uniforms* (:uniforms ~program)]
+         (bind-program ~program)
+         ~@body)
+       (finally
+         (if (and prev-program# (not= prev-program# ~program))
+           (bind-program prev-program#))))))
 
 (defn- int? [p]
   (let [cls (class p)]

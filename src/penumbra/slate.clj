@@ -90,6 +90,7 @@
   (with-projection (ortho-view 0 0 1 1 -1 1)
     (gl-active-texture :texture0)
     (push-matrix
+      (load-identity)
       (draw-quads
        (texture 0 1) (vertex 0 0 0)
        (texture 1 1) (vertex 1 0 0)

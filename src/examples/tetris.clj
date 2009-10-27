@@ -221,14 +221,18 @@
   (push-matrix
    (scale 0.99 0.99 1)
    (translate (+ 0.5 (/ width -2)) (+ 0.5 (/ height -2)) 0)
+   ;;draw shape
    (draw-tetra (:tetra state) (:offset state))
+   ;;draw blocks in pit
    (doseq [[y row] (indexed (:blocks state))]
      (doseq [[x block] (indexed row)]
        (if block (draw-bordered-block block [x y])))))
   (translate (/ width -2) (/ height -2) 0)
+  ;;draw border
   (draw-line-loop
    (vertex 0 0 0) (vertex width 0 0)
    (vertex width height 0) (vertex 0 height 0))
+  ;;draw next shape
   (draw-tetra (:next-tetra state) [13 5]))
 
 (start
