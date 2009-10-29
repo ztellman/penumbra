@@ -136,7 +136,8 @@
     (not (sequential? x))
     (and
       (-> x first sequential? not)
-      (-> x transformer first (not= 'do)))))
+      (-> x transformer first (not= 'do))
+      (-> x transformer first (not= 'scope)))))
 
 (defn- results [x]
   (if (result? x)

@@ -48,7 +48,7 @@
 
 (defn- wrap-scope [x body]
   (if (empty? x)
-    body
+    (list 'scope body)
     (add-meta
      (list 'scope (list '<- (first x) (second x)) (wrap-scope (nnext x) body))
      :scope true)))
@@ -56,6 +56,15 @@
 (defmethod transformer 'let
   [x]
   (wrap-scope (second x) (nnext x)))
+
+'(defmethod transformer 'let
+  [x]
+  (concat
+   '(do)
+   (map
+    #(list 'set! (first %) (second %))
+    (partition 2 (second x)))
+   (nnext x)))
 
 (defn- unwind-stack [term x]
   (if (seq? x)
