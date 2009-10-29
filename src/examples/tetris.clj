@@ -161,11 +161,11 @@
 
 (defn init [state]
   (start-update-loop
-   3
+   2
    (fn [state]
      (if (key-pressed? :down)
-       (set-frequency 15)
-       (set-frequency 3))
+       (set-frequency 10)
+       (set-frequency 2))
      (descend state)))
   (key-repeat true)
   state)

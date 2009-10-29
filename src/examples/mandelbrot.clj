@@ -7,8 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns examples.mandelbrot
-  (:use [penumbra opengl compute window])
-  (:use [penumbra.opengl.texture]))
+  (:use [penumbra opengl compute window]))
 
 (defn init [state]
 
@@ -103,13 +102,7 @@
       state)))
 
 (defn display [_ state]
-  (let [[w h] (:dim state)]
-    (bind-texture (:image state))
-    (draw-quads
-      (texture 0 0) (vertex 0 0 0)
-      (texture w 0) (vertex 1 0 0)
-      (texture w h) (vertex 1 1 0)
-      (texture 0 h) (vertex 0 1 0))))
+  (blit (:image state)))
 
 (start
   {:init init, :reshape reshape, :update update, :display display, :mouse-click mouse-click}

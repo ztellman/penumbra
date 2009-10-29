@@ -73,24 +73,24 @@
       (merge ^a ^b))
     b))
 
-(defn tree-filter [x pred]
-  (filter pred (tree-seq sequential? seq x)))
+(defn tree-filter [f x]
+  (filter f (tree-seq sequential? seq x)))
 
-(defn- do-tree* [x f depth]
+(defn- do-tree* [f x depth]
   (cond
     (not (sequential? x))
       (f x depth)
     :else
       (do
         (f x depth)
-        (doseq [i x] (do-tree* i f (inc depth))))))
+        (doseq [i x] (do-tree* f i (inc depth))))))
             
-(defn- do-tree [x f]
-  (do-tree* x f 0))
+(defn- do-tree [f x]
+  (do-tree* f x 0))
   
 (defn tree-map
   "A post-order recursion, so that we can build transforms upwards."
-  [x f]
+  [f x]
   (cond
     (not (meta? x))
       (or (f x) x)
@@ -100,12 +100,12 @@
     (empty? x)
       ()
     :else
-      (let [x* (mimic-expr x (realize (map #(tree-map % f) x)))]
+      (let [x* (mimic-expr x (realize (map #(tree-map f %) x)))]
         (mimic-expr x* (or (f x*) x*)))))
 
-(defn tree-map* [x f]
-  (loop [x (tree-map x f)]
-    (let [x* (tree-map x f)]
+(defn tree-map* [f x]
+  (loop [x (tree-map f x)]
+    (let [x* (tree-map f x)]
       (if (= x x*) x (recur x*)))))
 
 (defn print-tree [x]
@@ -139,11 +139,11 @@
   "Error while transforming")
 
 (defn- transform-div [x]
-  (tree-map x #(if (and (symbol? %) (= "/" (name %))) 'div)))
+  (tree-map #(if (and (symbol? %) (= "/" (name %))) 'div) x))
 
 (defn- transform-expr* [x]
   (if *transformer*
-    (-> x transform-div (tree-map try-transform))
+    (->> x transform-div (tree-map try-transform))
     x))
 
 ;;;
@@ -172,21 +172,22 @@
 
 (defn inspect-exprs [x]
   (if *inspector*
-    (tree-map x try-inspect)
+    (tree-map try-inspect x)
     x))
 
 ;;;
 
 (defn tag-first-appearance [x]
   (let [vars (atom #{})]
-    (tree-map
-     x
-     (fn [x]
-       (if (and (symbol? x) (:assignment ^x) (not (@vars x)))
-        (do
-          (swap! vars #(conj % x))
-          (add-meta x :first-appearance true))
-        x)))))
+    (->>
+      x
+      (tree-map
+       (fn [x]
+         (if (and (symbol? x) (:assignment ^x) (not (@vars x)))
+          (do
+            (swap! vars #(conj % x))
+            (add-meta x :first-appearance true))
+          x))))))
 
 (defn-try try-tag
   #(realize (*tagger* %))
@@ -194,7 +195,7 @@
 
 (defn- tag-exprs [x]
   (if *tagger*
-    (-> x (tree-map try-tag) tag-first-appearance)
+    (->> x (tree-map try-tag) tag-first-appearance)
     x))
 
 ;;;
@@ -207,13 +208,53 @@
     (:numeric-value ^x) (typeof (:numeric-value ^x))
     :else (:tag ^x)))
 
+(defn- scope? [x]
+  (and (meta? x) (:scope ^x)))
+
+(defn- do-scope [f x]
+  (when (not (scope? x))
+    (f x)
+    (if (seq? x)
+      (doseq [y x] (do-scope f y)))))
+
+(defn- scope-seq [x]
+  (tree-seq (and (sequential? x) (scope? x)) seq x))
+
+(defn- sub-scopes [x]
+  (filter scope? (scope-seq x)))
+
+(defn- scope-filter [f x]
+  (filter (and (f x) (not (scope? x))) (scope-seq x)))
+
+(defn scope-map
+  [f x]
+  (cond
+    (scope? x)
+      x
+    (not (meta? x))
+      (or (f x) x)
+    (not (sequential? x))
+      (let [x* (or (f x) x)]
+        (with-meta x* (merge ^x ^x*)))
+    (empty? x)
+      ()
+    :else
+      (let [x* (mimic-expr x (realize (map #(tree-map f %) x)))]
+        (mimic-expr x* (or (f x*) x*)))))
+
+(defn- transform-scopes [f x]
+  (loop [z (zip/seq-zip x)]
+    (if (scope? (zip/node z))
+      (zip/root (zip/replace z (f (with-meta z (dissoc ^z :scope)))))
+      (recur (-> z zip/down zip/rightmost)))))
+
 (defn declared-vars [x]
-  (distinct (tree-filter x #(:assignment ^%))))
+  (distinct (tree-filter #(:assignment ^%) x)))
 
 (defn typeof-var
   "Determine type, if possible, of var within x"
   [var x]
-  (let [vars  (tree-filter x #(or (= var %) (and (meta? %) (= var (:defines ^%)))))
+  (let [vars  (tree-filter #(or (= var %) (and (meta? %) (= var (:defines ^%)))) x)
         types (distinct (filter identity (map typeof vars)))]
     (cond
       (empty? types)
@@ -226,19 +267,17 @@
 (defn- tagged-vars [x]
   (let [vars (atom [])]
     (tree-map
-      x
       (fn [x]
         (if (:tag ^x)
           (swap! vars #(conj % x)))
-        x))
+        x)
+      x)
     @vars))
 
 (defn tag-var
   "Add :tag metadata to all instances of var in x"
   [var type x]
-  (tree-map
-   x
-   #(if (= var %) (add-meta % :tag type))))
+  (tree-map #(if (= var %) (add-meta % :tag type)) x))
 
 (defn infer-types
   "Repeatedly applies inspect-exprs and tag-var until everything is typed"
@@ -284,7 +323,7 @@
 
 (defn transform-expr
   [x]
-  (-> x
+  (->> x
     transform-expr*
     generate-exprs reverse
     tag-exprs

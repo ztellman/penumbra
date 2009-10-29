@@ -79,8 +79,8 @@
     (if (int? p) :int :float)
     (keyword (str (if (-> p first int?) "int" "float") (count p)))))
 
-(defn- apply-transforms [tree funs]
-  (reduce #(tree-map %1 %2) tree funs))
+(defn- apply-transforms [funs tree]
+  (reduce #(tree-map %2 %1) tree funs))
 
 (defn- element? [s]
   (and (symbol? s) (.startsWith (name s) "%")))
@@ -118,7 +118,7 @@
     (if (contains? (set (flatten x)) :index)
       (concat
         index
-        (apply-transforms x [(replace-with :index '--index)]))
+        (apply-transforms [(replace-with :index '--index)] x))
       x)))
 
 (defn wrap-and-prepend [x]
@@ -143,10 +143,10 @@
     (if (vector? x) x (list x))
     (results (last x))))
 
-(defn- transform-results [x fun]
+(defn- transform-results [f x]
   (loop [z (zip/seq-zip x)]
     (if (result? (zip/node z))
-      (zip/root (zip/replace z (fun (results x))))
+      (zip/root (zip/replace z (f (results x))))
       (recur (-> z zip/down zip/rightmost)))))
 
 (defn create-operator
@@ -172,7 +172,7 @@
 (defn- validate-elements
   "Make sure that there is one and only one type for each element"
   [x]
-  (let [elements (tree-filter x element?)]
+  (let [elements (tree-filter element? x)]
     (doseq [e (distinct (filter typeof elements))]
       (let [typs (distinct (map typeof (filter #(= e %) elements)))]
         (if (empty? typs)
@@ -183,7 +183,7 @@
 (defn- validate-params
   "Make sure there isn't more than one type for each parameter"
   [x]
-  (let [params (tree-filter x #(and (not (element? %)) (typeof %)))]
+  (let [params (tree-filter #(and (not (element? %)) (typeof %)) x)]
     (doseq [e (distinct (filter typeof params))]
       (let [typs (distinct (map typeof (filter #(= e %) params)))]
         (if (< 1 (count typs))
@@ -194,7 +194,6 @@
   "Tranforms the final expression into one or more assignments to gl_FragData[n]"
   [x]
   (transform-results
-    x
     (fn [results]
       (list* 'do
         (realize
@@ -203,17 +202,18 @@
               (list '<-
                 (list '-> :frag-data (list 'nth idx))
                 (add-meta e :result true)))
-            (indexed results)))))))
+            (indexed results)))))
+    x))
 
 (defn typecast-results
   "Results must be of type float4, so we have to pad any different type to equal that"
   [x]
   (tree-map
-   x
    (fn [x]
      (if (:result ^x)
        (add-meta (typecast-float4 (add-meta x :result false)) :result false)
-       x))))
+       x))
+   x))
 
 (defn-memo rename-element [i]
   (symbol (str "-tex" i)))
@@ -235,7 +235,7 @@
   (validate-elements x)
   (validate-params x)
   (let [[elements params]
-          (separate element? (realize (tree-filter x #(and (symbol? %) (typeof %)))))
+          (separate element? (realize (tree-filter #(and (symbol? %) (typeof %)) x)))
         declarations
           (list
            'do
@@ -246,7 +246,7 @@
             #(wrap-uniform (add-meta % :tag (typeof %)))
             (distinct params)))
        body
-         (->
+         (->>
           x
           (apply-transforms
            (list*
@@ -257,7 +257,7 @@
           wrap-and-prepend
           transform-glsl)
        results
-         (map #(:tag ^%) (tree-filter body #(:result ^%)))  
+         (map #(:tag ^%) (tree-filter #(:result ^%) body))
        body
          (list
           'do
@@ -300,17 +300,18 @@
   "Applies types to map, so that we can create a program"
   [x types]
   (let [[elements params] (separate #(-> % first element?) types)]
-    (apply-transforms
-     x
-     (concat 
-      (map
-       (fn [[element type]]
-         #(if (and (element? %) (apply = (map element-index [element %]))) (add-meta % :tag type)))
-       elements)
-      (map
-       (fn [[param type]]
-         (replace-with param (add-meta param :tag type)))
-       params)))))
+    (->>
+      x
+      (apply-transforms
+       (concat
+        (map
+         (fn [[element type]]
+           #(if (and (element? %) (apply = (map element-index [element %]))) (add-meta % :tag type)))
+         elements)
+        (map
+         (fn [[param type]]
+           (replace-with param (add-meta param :tag type)))
+         params))))))
 
 (defn- map-cache
   "Returns or creates the appropriate shader program for the types"
@@ -329,7 +330,7 @@
         elements?    #(and (vector? %) (-> % first number? not))
         dim          #(or (:dim (first %)) (:dim (ffirst %)))
         to-symbol    (memoize #(symbol (name %)))
-        num-elements (count (distinct (tree-filter x element?)))]
+        num-elements (count (distinct (tree-filter element? x)))]
     (fn this
       ([elements-or-size]
         (if (elements? elements-or-size)
@@ -392,21 +393,21 @@
 (defn- transform-reduce-program [type]
   (let [tuple (type-tuple type)]
     (apply-transforms
-     reduce-program
      (list
       #(if (= 'type (:tag ^%)) (add-meta % :tag type))
       #(if (= 'lookup (:tag ^%)) (add-meta (list (swizzle tuple) (add-meta % :tag type)) :tag nil))
-      #(if (= 'result (:tag ^%)) (add-meta (typecast-float4 (add-meta % :tag type)) :tag nil))))))
+      #(if (= 'result (:tag ^%)) (add-meta (typecast-float4 (add-meta % :tag type)) :tag nil)))
+      reduce-program)))
 
 (defn- process-reduce
   [x]
-  (let [params (tree-filter x #(and (symbol? %) (not (element? %)) (:tag ^%)))
-        body (->
+  (let [params (tree-filter #(and (symbol? %) (not (element? %)) (:tag ^%)) x)
+        body (->>
               x
               transform-glsl
               (transform-results (fn [x] (map #(add-meta % :result true) x)))) 
-        type (first (map #(:tag ^%) (tree-filter body #(:result ^%))))
-        body (->
+        type (first (map #(:tag ^%) (tree-filter #(:result ^%) body)))
+        body (->>
               body
               (apply-transforms
                (list
@@ -458,13 +459,13 @@
 (defn- tag-reduce-types
   [x data params]
   (apply-transforms
-    x
     (list*
       #(if (element? %) (add-meta % :tag data))
       (map
         (fn [[param type]]
           (replace-with param (with-meta param :tag type)))
-        params))))
+        params))
+    x))
 
 (defn- reduce-cache
   [x]

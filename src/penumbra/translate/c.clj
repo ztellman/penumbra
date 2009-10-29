@@ -46,14 +46,16 @@
 (defmethod transformer nil [x]
   x)
 
+(defn- wrap-scope [x body]
+  (if (empty? x)
+    body
+    (add-meta
+     (list 'scope (list '<- (first x) (second x)) (wrap-scope (nnext x) body))
+     :scope true)))
+
 (defmethod transformer 'let
   [x]
-  (concat
-    '(do)
-    (map
-      #(list 'set! (first %) (second %))
-      (partition 2 (second x)))
-    (nnext x)))
+  (wrap-scope (second x) (nnext x)))
 
 (defn- unwind-stack [term x]
   (if (seq? x)
@@ -62,8 +64,8 @@
 
 (defmethod transformer '->
   [x]
-  (let [term  (second x)
-        x  (nnext x)]
+  (let [term (second x)
+        x    (nnext x)]
     (reduce unwind-stack term x)))
 
 ;;;;;;;;;;;;;;;;;;;;
@@ -252,6 +254,10 @@
 (defmethod parser 'return
   [x]
   (str "return " (parse (second x))))
+
+(defmethod parser 'scope
+  [x]
+  (str "{\n" (indent (parse-lines (next x) ";")) "}\n"))
 
 (def-scope-parser
   'defn

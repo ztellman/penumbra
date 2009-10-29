@@ -55,20 +55,16 @@
 
 ;;;
 
-(defn- update-state
-  "Updates state ref, and triggers repaint if ref has been altered."
-  [state new-value]
-  (if (not (identical? @state new-value))
-    (repaint))
-  (dosync (ref-set state new-value)))
-
 (defmacro- try-call
   "If callback exists, calls it and updates state ref."
   [window k & args]
   `(binding [*window* ~window, *texture-pool* (:texture-pool ~window)]
     (if (~k (get-callbacks))
-      (update-state (get-state)
-        ((~k (get-callbacks)) ~@args (deref (get-state)))))))
+      (dosync
+       (if (not=
+              @(get-state)
+              (commute (get-state) (fn [state#] ((~k (get-callbacks)) ~@args state#))))
+        (repaint))))))
 
 (defmacro- mouse-motion
   "Calculates delta from previous mouse position, and invokes try-call."
@@ -156,7 +152,7 @@
   "Creates an update loop on a separate thread that repeats 'hertz' times a second.
   Assumes that callback will execute in less than the update period."
   [hertz f]
-  (start-update-loop- hertz f (fn [s] (dosync (alter s f)))))
+  (start-update-loop- hertz f (fn [s] (dosync (commute s f)))))
 
 (defn start-update-loop*
   "Same as start-upate-loop, but passes in the ref to the state rather than just the state.
@@ -235,8 +231,9 @@
                   (push-matrix
                     (binding [*window* window, *texture-pool* texture-pool]
                       (if (:update callbacks)
-                        (dosync (ref-set state ((:update callbacks) time @state))))
-                      ((:display callbacks) time @state))))))
+                        (dosync (alter state #((:update callbacks) time %))))
+                      (if (:display callbacks)
+                        ((:display callbacks) time @state)))))))
 
             (reshape
              [#^GLAutoDrawable drawable x y width height]

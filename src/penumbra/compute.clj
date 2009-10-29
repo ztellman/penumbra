@@ -35,3 +35,9 @@
 
 (defmacro defreduce [name & body]
   `(def ~name (glsl-op/create-reduce-template (quote ~body))))
+
+(defn release! [& args]
+  (apply tex/release! args))
+
+(defn acquire! [& args]
+  (apply tex/acquire! args))

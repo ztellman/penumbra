@@ -200,15 +200,16 @@
 ;;;
 
 (defn transform-constructors [x]
-  (tree-map x
-   #(if (and (symbol? %) (-> % keyword type-map)) (-> % keyword type-map name symbol))))
+  (tree-map
+   #(if (and (symbol? %) (-> % keyword type-map)) (-> % keyword type-map name symbol))
+   x))
 
 (defn- transform-tags [x]
   (tree-map
-   x
    #(if (meta? %)
      (add-meta % :tag (or (type-map (:tag ^%)) (:tag ^%)))
-     %)))
+     %)
+   x))
 
 (defn translate-glsl [x]
   (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
