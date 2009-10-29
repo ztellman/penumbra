@@ -8,7 +8,6 @@
 
 (ns examples.n-body
   (:use [penumbra slate compute])
-  (:use [penumbra.opengl.texture])
   (:use [clojure.contrib.seq-utils :only (partition-all flatten)]))
 
 (defn gen [min max]
