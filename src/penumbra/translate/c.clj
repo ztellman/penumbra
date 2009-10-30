@@ -105,7 +105,7 @@
   (and (seq? x) (-> x first symbol?) (= \. (-> x first name first))))
 
 (defn- third [x] (-> x next second))
-(defn- fourth [x] (-> x next next second))
+(defn- fourth [x] (-> x nnext second))
 (defn- first= [x k] (and (seq? x) (= k (keyword (first x)))))
 
 (defn- parse-assignment-left

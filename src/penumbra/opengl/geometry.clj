@@ -22,7 +22,7 @@
   [1 0 0 x
    0 1 0 y
    0 0 1 z
-   0 0 0 1])                                              
+   0 0 0 1])
 
 (defn scaling-matrix [x y z]
   [x 0 0 0
@@ -48,7 +48,7 @@
 
 (defn apply-matrix [m v]
   (let [traverse-fn (fn [i] #(* (v %) (index m % i)))]
-    (map #(apply + (map (traverse-fn %) (range 4))) (range 4))))
+    (vec (map #(apply + (map (traverse-fn %) (range 4))) (range 4)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -60,7 +60,7 @@
     - a macro which directly calls the OpenGL function (glVertex3d -> gl-vertex)"
   [import-from import-as]
   (let [facade-fn (prepend "facade" import-as)
-        direct-fn (prepend "gl" import-as)]
+        direct-fn (prepend "direct" import-as)]
     `(do
       (defmacro ~import-as [& a#]
         `(if *inside-begin-end*
@@ -75,7 +75,7 @@
   "Forwards the transformed vector from fn to the OpenGL function fn represents."
   [fn transform-fn]
   (let [facade-fn (prepend "facade" fn)
-        direct-fn (prepend "gl" fn)]
+        direct-fn (prepend "direct" fn)]
     `(defn ~facade-fn [x# y# z#]
       (let [[xp# yp# zp# wp#]
             (if @*intra-primitive-transform*

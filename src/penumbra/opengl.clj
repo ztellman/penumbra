@@ -113,25 +113,41 @@
         (finally
           (if (not *inside-begin-end*) (gl-pop-matrix))))))
 
-(gl-facade-import glVertex3d vertex)
-(gl-facade-import glNormal3d normal)
-(gl-facade-import glRotated rotate)
-(gl-facade-import glTranslated translate)
-(gl-facade-import glScaled scale)
+(gl-facade-import glVertex3d gl-vertex)
+(gl-facade-import glNormal3d gl-normal)
+(gl-facade-import glRotated gl-rotate)
+(gl-facade-import glTranslated gl-translate)
+(gl-facade-import glScaled gl-scale)
 (gl-facade-import glLoadIdentity load-identity)
 
 (defn- undo-translation [matrix] (vec (concat (subvec matrix 0 12) [0 0 0 0]))) ;we don't want to translate normals
 
-(facade-transform vertex identity)
-(facade-transform normal undo-translation)
+(facade-transform gl-vertex identity)
+(facade-transform gl-normal undo-translation)
 
-(facade-multiply rotate penumbra.opengl.geometry/rotation-matrix)
-(facade-multiply scale penumbra.opengl.geometry/scaling-matrix)
-(facade-multiply translate penumbra.opengl.geometry/translation-matrix)
+(facade-multiply gl-rotate penumbra.opengl.geometry/rotation-matrix)
+(facade-multiply gl-scale penumbra.opengl.geometry/scaling-matrix)
+(facade-multiply gl-translate penumbra.opengl.geometry/translation-matrix)
 
 ;This should really be the inverse matrix of the current model-view matrix
 ;Right now, it only resets the intra-primitive transformations
 (facade-multiply load-identity penumbra.opengl.geometry/identity-matrix #(%2))
+
+(defn vertex
+  ([x y] (gl-vertex x y 0))
+  ([x y z] (gl-vertex x y z))
+  ([x y z w] (gl-vertex x y z)))
+
+(defn translate
+  ([x y] (gl-translate x y 0))
+  ([x y z] (gl-translate x y z)))
+
+(defn scale
+  ([x y] (gl-scale x y 1))
+  ([x y z] (gl-scale x y z)))
+
+(defn normal [x y z] (gl-normal x y z))
+(defn rotate [t x y z] (gl-rotate t x y z))
 
 (defn-draw :quads)
 (defn-draw :line-strip)
