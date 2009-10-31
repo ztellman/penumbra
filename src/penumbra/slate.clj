@@ -148,13 +148,13 @@
 
 (defmacro with-slate
   [slate & body]
-    `(invoke ~slate (fn [] ~@body)))
+  `(invoke ~slate (fn [] ~@body)))
 
 (defmacro with-blank-slate
   [& body]
   `(let [slate# (create-slate)]
-    (try
+     (try
       (with-slate slate#
         ~@body)
       (finally
-        (destroy slate#)))))
+       (destroy slate#)))))

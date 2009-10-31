@@ -203,13 +203,12 @@
      (vertex 0.5 0.5 0))))
 
 (defn draw-bordered-block [col [x y]]
-  (if (<= 0 y)
-    (do
-      (apply color col)
-      (draw-quads (rectangle x y))
-      (color 0 0 0)
-      (draw-line-loop (rectangle x y))
-      (color 1 1 1))))
+  (when (<= 0 y)
+    (apply color col)
+    (draw-quads (rectangle x y))
+    (color 0 0 0)
+    (draw-line-loop (rectangle x y))
+    (color 1 1 1)))
 
 (defn draw-tetra [tetra offset]
   (doseq [block (map #(translate* offset %) (:shape tetra))]

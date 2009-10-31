@@ -8,7 +8,9 @@
 
 (ns penumbra.translate.c
   (:use [penumbra.translate core])
-  (:use [clojure.contrib (def :only (defmacro-)) (seq-utils :only (flatten))]))
+  (:use [clojure.contrib
+         (def :only (defmacro-))
+         (seq-utils :only (flatten))]))
   
 ;;;;;;;;;;;;;;;;;;;
 
@@ -77,6 +79,11 @@
         x    (nnext x)]
     (reduce unwind-stack term x)))
 
+(defmethod transformer 'dotimes
+  [x]
+  (let [[var limit] (second x)]
+    (list* 'for `[(<- ~var 0) (< ~var ~limit) (++ ~var)] (nnext x))))
+
 ;;;;;;;;;;;;;;;;;;;;
 ;shader generators
 
@@ -138,13 +145,15 @@
     (not (seq? x))
     (-> x first seq?)))
 
+(def *line-terminator* ";")
+
 (defmethod parser nil
   ;handle base cases
   [x]
   (cond
     (swizzle? x)      (str (-> x second parse) (-> x first str))
     (not (seq? x))    (.replace (str x) \- \_)
-    (-> x first seq?) (parse-lines x ";")
+    (-> x first seq?) (parse-lines x *line-terminator*)
     :else                ""))
 
 (defmethod parser :function
@@ -243,7 +252,7 @@
 
 (defmethod parser 'do
   [x]
-  (parse-lines (next x) ";"))
+  (parse (next x)))
 
 (defmethod parser '?
   [x]
@@ -267,6 +276,21 @@
 (defmethod parser 'scope
   [x]
   (str "{\n" (indent (parse-lines (next x) ";")) "}\n"))
+
+(defmethod parser 'for
+  [x]
+  (let [[a b c] (second x)]
+    (str
+     "for ("
+     (binding [*line-terminator* ", "]
+       (.replace
+        (str (parse a) "; "
+             (parse b) "; "
+             (parse c) ")")
+        "\n" ""))
+     "\n{\n"
+     (indent (parse (nnext x)))
+     "}")))
 
 (def-scope-parser
   'defn

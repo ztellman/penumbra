@@ -112,10 +112,10 @@
   (println
    (with-out-str
      (do-tree
-      x
       #(print
         (apply str (realize (take (* 2 %2) (repeat "  "))))
-        (realize %) "^" ^(realize %) "\n")))))
+        (realize %) "^" ^(realize %) "\n")
+      x))))
 
 ;;;
 

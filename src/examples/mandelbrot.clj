@@ -16,14 +16,20 @@
 
   (defmap iterate-fractal
     (let [val %
-          z (.xy val)
-          c (mix upper-left lower-right (/ :coord :dim))
-          iterations (.z val)]
-      (? (< 4.0 (dot z z))
-         val
-         (float3
-          (+ c (float2 (- (* (.x z) (.x z)) (* (.y z) (.y z))) (* 2.0 (.x z) (.y z)))) ;;next location on complex plane
-          (+ 1.0 iterations)))))
+          c (mix upper-left lower-right (/ :coord :dim))]      
+      (dotimes [i num-iterations]
+        (let [z (.xy val)
+              iterations (.z val)]
+          (<- val
+            (? (< 4.0 (dot z z))
+               val
+               (float3
+                (+ c
+                   (float2
+                    (- (* (.x z) (.x z)) (* (.y z) (.y z)))
+                    (* 2.0 (.x z) (.y z))))
+                (+ 1.0 iterations))))))
+      val))
 
   (defmap color-fractal
     (let [val %
@@ -75,10 +81,10 @@
     (assoc state
       :dim [w h])))
 
-(def iterations-per-frame 10)
+(def iterations-per-frame 200)
 
 (defn update [_ state]
-  (let [max-iterations (* 100 (inc (Math/log (:zoom state))))]
+  (let [max-iterations (* 100 (Math/sqrt (:zoom state)))]
     (if (< (:iterations state) max-iterations)
       (with-frame-buffer
         (let [ul    (:upper-left state)
@@ -87,9 +93,7 @@
               data  (or
                       (:data state)
                       (initialize-fractal {:upper-left ul :lower-right lr} (:dim state)))
-              next  (nth
-                      (iterate #(iterate-fractal {:upper-left ul :lower-right lr} [%]) data)
-                      iterations-per-frame)
+              next  (iterate-fractal {:upper-left ul :lower-right lr :num-iterations iterations-per-frame} [data])
               image (color-fractal {:max-iterations max-iterations} [[next]])]
           (bind-program nil)
           (repaint)
