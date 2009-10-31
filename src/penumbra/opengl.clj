@@ -89,7 +89,7 @@
 
 (defn ortho-view
   "Create orthographic view, where distant objects don't get smaller."
-  [left top right bottom near far]
+  [left right bottom top near far]
   (gl-matrix-mode :projection)
   (gl-load-identity-matrix)
   (gl-ortho left right bottom top near far)
@@ -244,7 +244,7 @@
     (push-matrix
       (load-identity)
       (bind-texture tex)
-      (with-projection (ortho-view 0 0 1 1 -1 1)
+      (with-projection (ortho-view 0 1 1 0 -1 1)
         (draw-quads
          (texture 0 0) (vertex 0 0 0)
          (texture w 0) (vertex 1 0 0)

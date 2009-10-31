@@ -70,7 +70,7 @@
         :offset (map + ul (map * coord (map - lr ul)))))))
 
 (defn reshape [[x y w h] state]
-  (ortho-view 0 0 1 1 -1 1)
+  (ortho-view 0 1 1 0 -1 1)
   (update-bounds
     (assoc state
       :dim [w h])))

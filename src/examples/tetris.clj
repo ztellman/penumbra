@@ -174,7 +174,7 @@
   (let [aspect (/ (float w) h)
         height (if (> 1 aspect) (/ 1.0 aspect) 1)
         aspect (max 1 aspect)]
-    (ortho-view (- aspect) (- height) aspect height -1 1)
+    (ortho-view (- aspect) aspect height (- height) -1 1)
     state))
 
 (defn key-press [key state] 

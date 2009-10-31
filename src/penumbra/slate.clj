@@ -87,7 +87,7 @@
 ;;;;;;;;;;;;;;;;;
 
 (defn- draw* []
-  (with-projection (ortho-view 0 0 1 1 -1 1)
+  (with-projection (ortho-view 0 1 1 0 -1 1)
     (gl-active-texture :texture0)
     (push-matrix
       (load-identity)

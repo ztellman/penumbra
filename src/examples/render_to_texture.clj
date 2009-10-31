@@ -117,7 +117,7 @@
     ;draw a dividing line
     (disable :lighting)
     (disable :texture-2d)
-    (with-projection (ortho-view 0 0 1 1 0 10)
+    (with-projection (ortho-view 0 1 0 1 0 10)
       (draw-lines (vertex 0.5 0 5) (vertex 0.5 1 5)))))
 
 (start
