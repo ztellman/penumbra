@@ -67,6 +67,9 @@
 
 ;;;
 
+(defn- first= [x y]
+  (and (seq? x) (= (first x) y)))
+
 (defn- typeof-element [s]
   (texture-type [(:internal-type s) (:tuple s)]))
 
@@ -168,7 +171,32 @@
         (param-lookup n)
         (seq-wrap v)))))
 
-;;;;;;;;;;;;;;;;;;;
+;;;
+
+(defn- transform-offset [x]
+  (let [[_ element offset] x]
+    (if (not (symbol? element))
+      (let [[swizzle [_ tex _]] element]
+        (list swizzle (list 'texture2DRect tex (list '+ '--coord offset)))))))
+
+(defn- transform-dim [x]
+  (let [index (element-index (second x))]
+    (symbol (str "--dim" (if (= index 0) "" index)))))
+
+(defn- transform-convolve [x]
+  (let [[_ element & body] x]
+    (list
+     'dotimes (vector 'i (list '.x (list 'dim element)))
+     (list
+      'dotimes (vector 'j (list '.y (list 'dim element)))
+      (list
+       'if
+       '(and (< i (.x --dim)) (< j (.y --dim)))
+       (list*
+        (list '<- '--offset (transform-offset (list 'offset element '(float2 (float i) (float j)))))
+        (tree-map #(if (= '%% %) '--offset) body)))))))
+
+;;;
 
 (defn- validate-elements
   "Make sure that there is one and only one type for each element"
@@ -244,6 +272,9 @@
             #(wrap-uniform (add-meta (rename-element (element-index %)) :tag 'sampler2DRect))
             (distinct elements))
            (map
+            #(wrap-uniform (add-meta (symbol (str "--dim" %)) :tag 'vec2))
+            (range 1 (count elements)))
+           (map
             #(wrap-uniform (add-meta % :tag (typeof %)))
             (distinct params)))
        body
@@ -253,6 +284,9 @@
            (list*
             (replace-with :coord '--coord)
             (replace-with :dim '--dim)
+            #(if (first= % 'convolve) (transform-convolve %))
+            #(if (first= % 'dim) (transform-dim %))
+            #(if (first= % 'offset) (transform-offset %))
             (map #(replace-with % (transform-element %)) elements)))
           transform-operator-results
           wrap-and-prepend
@@ -281,13 +315,13 @@
 
 (defn- run-map
   "Executes the map"
-  [info params elements dim]
-  (let [targets
-        (map
-          (fn [[typ dim]] (create-write-texture typ dim))
-          (map (fn [x] [x dim]) (:results info)))]
+  [info params elements dims]
+  (let [targets (map #(create-write-texture % (first dims)) (:results info))
+        dim (first dims)]
     (set-params params)
     (apply uniform (list* :__dim (map float dim)))
+    (doseq [[idx d] (indexed (next dims))]
+      (apply uniform (list* (symbol (str "--dim" (inc idx))) (map float d))))
     (attach-textures
       (interleave (map rename-element (range (count elements))) elements)
       targets)
@@ -329,13 +363,13 @@
   [x]
   (let [cache        (map-cache x)
         elements?    #(and (vector? %) (-> % first number? not))
-        dim          #(or (:dim (first %)) (:dim (ffirst %)))
+        dim          #(or (:dim %) (:dim (first %)))
         to-symbol    (memoize #(symbol (name %)))
         num-elements (count (distinct (tree-filter element? x)))]
     (fn this
       ([elements-or-size]
         (if (elements? elements-or-size)
-          (this {} elements-or-size (dim elements-or-size))
+          (this {} elements-or-size (map dim elements-or-size))
           (this {} [] elements-or-size)))
 
       ([params-or-elements elements-or-size]
@@ -346,15 +380,14 @@
                          elements-or-size
                          [])
               size     (if (elements? elements-or-size)
-                         (dim elements-or-size)
+                         (map dim elements-or-size)
                          elements-or-size)]
           (this params elements size)))
 
       ([params elements size]
-        (let [elements
-              (process-elements elements)
-              size
-              (if (number? size) (rectangle size) size)]
+        (let [elements (process-elements elements)
+              size (if (number? size) (rectangle size) size)
+              dims (if (-> size first number?) [size] size)]
           ;;verify none of the elements are nil
           (doseq [[idx e] (indexed elements)]
             (if (nil? e)
@@ -362,11 +395,6 @@
           ;;verify element count
           (if (not= (count elements) num-elements)
             (throw (Exception. (str "Expected " num-elements " elements, was given " (count elements) "."))))
-          ;;verify all elements are the same size
-          (if (and
-               (> (count elements) 1)
-               (apply not= (list* (map :dim elements))))
-            (throw (Exception. (str "All data must be of the same dimension.  Given dimensions are " (apply str (map :dim elements))))))
           (let [param-map
                 (zipmap (map to-symbol (keys params)) (map typeof-param (vals params)))
                 element-map
@@ -374,7 +402,7 @@
                 [info program]
                 (cache (merge element-map param-map))]
            (with-program program
-             (run-map info params elements size))))))))
+             (run-map info params elements dims))))))))
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -491,8 +519,5 @@
             (run-reduce params data)))))))
 
 ;;;
-
-
-
 
 

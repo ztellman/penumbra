@@ -10,27 +10,64 @@
   (:use [penumbra opengl window])
   (:use [penumbra.opengl geometry]))
 
-(def detail 20)
+;;;
 
-(defn sphere-vertices []
-  (let [rotate-x (rotation-matrix (/ 180 detail) 1 0 0)
+(defn sphere-vertices [lod]
+  (let [rotate-x (rotation-matrix (/ 180 lod) 1 0 0)
         arc (take
-             (inc detail)
+             (inc lod)
              (iterate (partial apply-matrix rotate-x) [0 1 0 0]))
-        rotate-y (rotation-matrix (/ 360 detail) 0 1 0)]
+        rotate-y (rotation-matrix (/ 180 lod) 0 1 0)]
     (take
-     (* 2 detail)
+     (inc (* 2 lod))
      (iterate
       (partial map (partial apply-matrix rotate-y))
       arc))))
 
-(def points (sphere-vertices))
+(defn dot [u v]
+  (apply + (map * u v)))
+
+(defn normalize [v]
+  (let [len (Math/sqrt (dot v v))]
+    (map #(/ % len) v)))
+
+(defn rand-vector []
+  (normalize (map #(- % 1) (take 3 (repeatedly #(rand 2))))))
+
+(defn offset-vertex [v vertex]
+  (if (neg? (dot v (normalize vertex)))
+    (map + vertex (repeat 0.05))
+    (map - vertex (repeat 0.05))))
+
+(defn offset-sphere [v vertices]
+  (map
+   (fn [arc] (map #(offset-vertex v %) arc))
+   vertices))
+
+(defn gen-asteroid [lod iterations]
+  (nth
+   (iterate
+    #(offset-sphere (rand-vector) %)
+    (sphere-vertices lod))
+   iterations))
+
+;;;
+
+(defn init [state]
+  (draw-wireframe)
+  state)
 
 (defn reshape [[x y w h] state]
   (frustum-view 50 (/ w h) 0.1 100)
   (load-identity)
   (translate 0 0 -3)
   state)
+
+(defn key-press [key state]
+  (if (= " " key)
+    (assoc state
+      :asteroid (offset-sphere (rand-vector) (:asteroid state)))
+    state))
 
 (defn mouse-drag [[[dx dy] _] button state]
   (assoc state
@@ -40,11 +77,11 @@
 (defn display [_ state]
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
-  (draw-points
-   (doseq [arc points]
-     (doseq [p arc]
-       (apply vertex p)))))
+  (doseq [arcs (partition 2 1 (:asteroid state))]
+    (draw-quad-strip
+     (doseq [[a b] (map list (first arcs) (second arcs))]
+        (apply vertex a) (apply vertex b)))))
    
 (start
- {:reshape reshape, :display display, :mouse-drag mouse-drag}
- {:rot-x 0, :rot-y 0})
+ {:reshape reshape, :display display, :mouse-drag mouse-drag, :init init, :key-press key-press}
+ {:rot-x 0, :rot-y 0, :asteroid (gen-asteroid 6 15)})

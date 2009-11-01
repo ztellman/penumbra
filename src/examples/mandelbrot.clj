@@ -16,8 +16,8 @@
 
   (defmap iterate-fractal
     (let [val %
-          c (mix upper-left lower-right (/ :coord :dim))]      
-      (dotimes [i num-iterations]
+          c (mix upper-left lower-right (/ :coord :dim))]   
+      (dotimes [_ num-iterations]
         (let [z (.xy val)
               iterations (.z val)]
           (<- val

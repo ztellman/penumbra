@@ -177,15 +177,40 @@
 
 ;;;
 
+(defn- scope? [x]
+  (and (meta? x) (:scope ^x)))
+
+(defn- let? [x]
+  (and (meta? x) (:let ^x)))
+
+(defvar- *vars* nil)
+(defvar- *let* false)
+
+(defn scope-map
+  [f x]
+  (binding [*vars* (if (scope? x) (atom @*vars*) *vars*)
+            *let*  (if (let? x) true false)]
+    (cond
+      (not (meta? x))
+      (or (f x) x)
+      (not (sequential? x))
+      (let [x* (or (f x) x)]
+        (with-meta x* (merge ^x ^x*)))
+      (empty? x)
+      ()
+      :else
+      (let [x* (mimic-expr x (realize (map #(scope-map f %) x)))]
+        (mimic-expr x* (or (f x*) x*))))))
+
 (defn tag-first-appearance [x]
-  (let [vars (atom #{})]
+  (binding [*vars* (atom #{})]
     (->>
       x
-      (tree-map
+      (scope-map
        (fn [x]
-         (if (and (symbol? x) (:assignment ^x) (not (@vars x)))
+         (if (and (symbol? x) (:assignment ^x) (or *let* (not (@*vars* x))))
           (do
-            (swap! vars #(conj % x))
+            (swap! *vars* #(conj % x))
             (add-meta x :first-appearance true))
           x))))))
 
@@ -207,46 +232,6 @@
     (not (meta? x)) nil
     (:numeric-value ^x) (typeof (:numeric-value ^x))
     :else (:tag ^x)))
-
-(defn- scope? [x]
-  (and (meta? x) (:scope ^x)))
-
-(defn- do-scope [f x]
-  (when (not (scope? x))
-    (f x)
-    (if (seq? x)
-      (doseq [y x] (do-scope f y)))))
-
-(defn- scope-seq [x]
-  (tree-seq (and (sequential? x) (scope? x)) seq x))
-
-(defn- sub-scopes [x]
-  (filter scope? (scope-seq x)))
-
-(defn- scope-filter [f x]
-  (filter (and (f x) (not (scope? x))) (scope-seq x)))
-
-(defn scope-map
-  [f x]
-  (cond
-    (scope? x)
-      x
-    (not (meta? x))
-      (or (f x) x)
-    (not (sequential? x))
-      (let [x* (or (f x) x)]
-        (with-meta x* (merge ^x ^x*)))
-    (empty? x)
-      ()
-    :else
-      (let [x* (mimic-expr x (realize (map #(tree-map f %) x)))]
-        (mimic-expr x* (or (f x*) x*)))))
-
-(defn- transform-scopes [f x]
-  (loop [z (zip/seq-zip x)]
-    (if (scope? (zip/node z))
-      (zip/root (zip/replace z (f (with-meta z (dissoc ^z :scope)))))
-      (recur (-> z zip/down zip/rightmost)))))
 
 (defn declared-vars [x]
   (distinct (tree-filter #(:assignment ^%) x)))

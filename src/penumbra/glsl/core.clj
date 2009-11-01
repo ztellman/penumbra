@@ -70,7 +70,7 @@
 
 ;;;
 
-(defmethod transformer 'lookup [x]
+(defn- linear-lookup [x]
   (let [[_ element idx] x]
     (if (not (symbol? element))
       (let [[swizzle [_ tex _]] element]
@@ -83,6 +83,17 @@
               'float2
               (list 'mod (list 'float idx) '(.x --dim))
               (list 'floor (list '/ (list 'float idx) '(.x --dim))))))))))
+
+(defn- rect-lookup [x]
+  (let [[_ element i j] x]
+    (if (not (symbol? element))
+      (let [[swizzle [_ tex _]] element]
+        (list swizzle (list 'texture2DRect tex (list 'float2 i j)))))))
+
+(defmethod transformer 'lookup [x]
+  (cond
+    (= 3 (count x)) (linear-lookup x)
+    (= 4 (count x)) (rect-lookup x)))
 
 ;;;
 

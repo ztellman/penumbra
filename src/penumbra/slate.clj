@@ -143,7 +143,7 @@
                 (bind-gl drawable
                   (set-display-list (:display-list slate)
                     (draw*))
-                  (ortho-view 0 0 1 1 -1 1))))))
+                  (ortho-view 0 1 1 0 -1 1))))))
         slate))))
 
 (defmacro with-slate

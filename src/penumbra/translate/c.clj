@@ -36,11 +36,21 @@
   (binding [*generator* generator, *transformer* transformer, *parser* parser, *tagger* tagger]
     (translate-expr x)))
 
+(defn transform-c [x]
+  (binding [*generator* generator, *transformer* transformer, *tagger* tagger]
+    (transform-expr x)))
+
 ;;;;;;;;;;;;;;;;;;;;
 ;;symbol metadata tagging
 
 (defmethod tagger nil [x]
   x)
+
+(defmethod tagger 'for [x]
+  (add-meta x :scope true))
+
+(defmethod tagger 'defn [x]
+  (add-meta x :scope true))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;shader macros
@@ -52,21 +62,12 @@
   (if (empty? x)
     (list 'scope body)
     (add-meta
-     (list 'scope (list '<- (first x) (second x)) (wrap-scope (nnext x) body))
+     (list 'scope (add-meta (list '<- (first x) (second x)) :let true) (wrap-scope (nnext x) body))
      :scope true)))
 
 (defmethod transformer 'let
   [x]
   (wrap-scope (second x) (nnext x)))
-
-'(defmethod transformer 'let
-  [x]
-  (concat
-   '(do)
-   (map
-    #(list 'set! (first %) (second %))
-    (partition 2 (second x)))
-   (nnext x)))
 
 (defn- unwind-stack [term x]
   (if (seq? x)
