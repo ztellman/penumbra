@@ -191,7 +191,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro to-byte [num] `(byte (* 255 (double ~num)))) ;this is a macro for performance reasons
+(defmacro to-byte [num] `(byte (* 255 (double ~num)))) ;;this is a macro for performance reasons
 
 (defn put [#^ByteBuffer buf [r g b a]]
   (doto buf
@@ -206,9 +206,12 @@
     (condp = (num-dimensions tex)
       1 (dotimes [x (dim 0)]
           (put buf (fun [x] [(/ x (double (dim 0)))])))
-      2 (dotimes [x (dim 0)] (dotimes [y (dim 1)]
-          (put buf (fun [x y] [(/ x (double (dim 0))) (/ y (double (dim 1)))]))))
-      3 (dotimes [x (dim 0)] (dotimes [y (dim 1)] (dotimes [z (dim 2)]
-          (put buf (fun [x y z] [(/ x (double (dim 0))) (/ y (double (dim 1))) (/ z (double (dim 2)))]))))))
+      2 (dotimes [x (dim 0)]
+          (dotimes [y (dim 1)]
+            (put buf (fun [x y] [(/ x (double (dim 0))) (/ y (double (dim 1)))]))))
+      3 (dotimes [x (dim 0)]
+          (dotimes [y (dim 1)]
+            (dotimes [z (dim 2)]
+              (put buf (fun [x y z] [(/ x (double (dim 0))) (/ y (double (dim 1))) (/ z (double (dim 2)))]))))))
     (.rewind buf)
     buf))

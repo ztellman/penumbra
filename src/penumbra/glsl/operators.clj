@@ -1,10 +1,10 @@
-;   Copyright (c) Zachary Tellman. All rights reserved.
-;   The use and distribution terms for this software are covered by the
-;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-;   which can be found in the file epl-v10.html at the root of this distribution.
-;   By using this software in any fashion, you are agreeing to be bound by
-;   the terms of this license.
-;   You must not remove this notice, or any other, from this software.
+;;   Copyright (c) Zachary Tellman. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;;   which can be found in the file epl-v10.html at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.glsl.operators
   (:use [penumbra opengl slate])
@@ -107,6 +107,9 @@
       %)
     coll))
 
+(defn-memo rename-element [i]
+  (symbol (str "-tex" i)))
+
 ;;;;;;;;;;;;;;;;;;;;;
 
 (def fixed-transform
@@ -183,18 +186,33 @@
   (let [index (element-index (second x))]
     (symbol (str "--dim" (if (= index 0) "" index)))))
 
+(defvar- convolve-program
+  '(let [--half-dim (/ (dim #^element x) 2.0)
+         --start    (max (float2 0.0) (- :coord (floor --half-dim)))
+         --end      (min :dim (+ :coord (ceil --half-dim)))]
+     (for [(<- i (.x --start)) (< i (.x --end)) (+= i 1.0)]
+       (for [(<- j (.y --start)) (< j (.y --end)) (+= j 1.0)]
+         (let [--location (float2 i j)
+               --offset   (- --location :coord)
+               --lookup   (texture2DRect #^texture x (+ --location --half-dim))])
+         #^body x))))
+
+(defn- tag= [x t]
+  (and (meta? x) (= t (:tag ^x))))
+
 (defn- transform-convolve [x]
-  (let [[_ element & body] x]
-    (list
-     'dotimes (vector 'i (list '.x (list 'dim element)))
+  (let [[_ element & body] x
+        body (apply-transforms
+              (list
+               #(if (element? %) (list 'offset % '--offset))
+               (replace-with '%* '--lookup))
+              body)]
+    (apply-transforms
      (list
-      'dotimes (vector 'j (list '.y (list 'dim element)))
-      (list
-       'if
-       '(and (< i (.x --dim)) (< j (.y --dim)))
-       (list*
-        (list '<- '--offset (transform-offset (list 'offset element '(float2 (float i) (float j)))))
-        (tree-map #(if (= '%% %) '--offset) body)))))))
+      #(if (tag= % 'element) element)
+      #(if (tag= % 'texture) (rename-element (element-index element)))
+      #(if (tag= % 'body) (list* 'do body)))
+     convolve-program)))
 
 ;;;
 
@@ -244,9 +262,6 @@
        x))
    x))
 
-(defn-memo rename-element [i]
-  (symbol (str "-tex" i)))
-
 (defn- transform-element [e]
   (let [tuple (type-tuple (typeof e))]
     (with-meta
@@ -282,11 +297,11 @@
           x
           (apply-transforms
            (list*
-            (replace-with :coord '--coord)
-            (replace-with :dim '--dim)
             #(if (first= % 'convolve) (transform-convolve %))
             #(if (first= % 'dim) (transform-dim %))
             #(if (first= % 'offset) (transform-offset %))
+            (replace-with :coord '--coord)
+            (replace-with :dim '--dim)
             (map #(replace-with % (transform-element %)) elements)))
           transform-operator-results
           wrap-and-prepend

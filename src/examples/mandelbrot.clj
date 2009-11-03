@@ -81,7 +81,7 @@
     (assoc state
       :dim [w h])))
 
-(def iterations-per-frame 200)
+(def iterations-per-frame 60)
 
 (defn update [_ state]
   (let [max-iterations (* 100 (Math/sqrt (:zoom state)))]
@@ -95,7 +95,6 @@
                       (initialize-fractal {:upper-left ul :lower-right lr} (:dim state)))
               next  (iterate-fractal {:upper-left ul :lower-right lr :num-iterations iterations-per-frame} [data])
               image (color-fractal {:max-iterations max-iterations} [[next]])]
-          (bind-program nil)
           (repaint)
           (if (:image state)
             (release! (:image state)))

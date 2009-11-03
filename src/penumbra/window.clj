@@ -37,7 +37,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct window-struct :canvas :frame :state :callbacks :texture-pool :keys)
+(defstruct window-struct :canvas :frame :state :callbacks :texture-pool :keys :queue)
 
 (defn get-canvas [] #^GLCanvas (:canvas *window*))
 (defn get-canvas-size [] [(.getWidth (get-canvas)) (.getHeight (get-canvas))])
@@ -53,6 +53,17 @@
 
 (defn key-pressed? [key] (@(:keys *window*) key))
 
+(defn get-queue [] (:queue *window*))
+(defn enqueue [f]
+  (alter (get-queue) #(conj % f))
+  (repaint))
+(defn execute-queue []
+  (println @(get-queue))
+  (when (pos? (count @(get-queue)))
+    (dosync
+     (alter (get-state) (fn [state] (reduce #(%2 %1) state @(get-queue))))
+     (ref-set (get-queue) []))))
+
 ;;;
 
 (defmacro- try-call
@@ -63,7 +74,7 @@
       (dosync
        (if (not=
               @(get-state)
-              (commute (get-state) (fn [state#] ((~k (get-callbacks)) ~@args state#))))
+              (alter (get-state) (fn [state#] ((~k (get-callbacks)) ~@args state#))))
         (repaint))))))
 
 (defmacro- mouse-motion
@@ -152,7 +163,7 @@
   "Creates an update loop on a separate thread that repeats 'hertz' times a second.
   Assumes that callback will execute in less than the update period."
   [hertz f]
-  (start-update-loop- hertz f (fn [s] (dosync (commute s f)))))
+  (start-update-loop- hertz f (fn [s] (dosync (alter s f)))))
 
 (defn start-update-loop*
   "Same as start-upate-loop, but passes in the ref to the state rather than just the state.
@@ -206,6 +217,7 @@
           last-pos (ref [0 0])
           repeat-enabled (atom false)
           keys (atom #{})
+          queue (ref [])
           window (struct-map window-struct
                     :canvas canvas
                     :frame frame
@@ -213,7 +225,8 @@
                     :callbacks callbacks
                     :texture-pool texture-pool
                     :keys keys
-                    :repeat-enabled repeat-enabled)]
+                    :repeat-enabled repeat-enabled
+                    :queue queue)]
 
       (doto canvas
         (.requestFocus)
@@ -230,6 +243,7 @@
                   (clear)
                   (push-matrix
                     (binding [*window* window, *texture-pool* texture-pool]
+                      (execute-queue)
                       (if (:update callbacks)
                         (dosync (alter state #((:update callbacks) time %))))
                       (if (:display callbacks)
@@ -277,12 +291,12 @@
             (mouseDragged
              [#^MouseEvent event]
              (mouse-motion window last-pos
-              event :mouse-drag (get-button event)))
+                event :mouse-drag (get-button event)))
 
             (mouseMoved
              [#^MouseEvent event]
              (mouse-motion window last-pos
-              event :mouse-move))))
+                event :mouse-move))))
 
         (.addMouseWheelListener
           (proxy [MouseWheelListener] []

@@ -29,6 +29,7 @@
 
 (gl-import glEnable enable)
 (gl-import glDisable disable)
+(gl-import glIsEnabled enabled?)
 (gl-import glGetIntegerv get-integer)
 (gl-import glGetString get-string)
 
@@ -36,6 +37,22 @@
 (gl-import glPushMatrix gl-push-matrix)
 (gl-import glPopMatrix gl-pop-matrix)
 (gl-import glLoadIdentity gl-load-identity-matrix)
+
+(defmacro with-enabled [e & body]
+  `(let [prev# (enabled? ~e)]
+     (enable ~e)
+     (try ~@body
+      (finally
+       (if (not prev#)
+         (disable ~e))))))
+
+(defmacro with-disabled [e & body]
+  `(let [prev# (enabled? ~e)]
+     (disable ~e)
+     (try ~@body
+      (finally
+       (if prev#
+         (enable ~e))))))
 
 ;;;
 
@@ -49,6 +66,7 @@
 (gl-import glClear gl-clear)
 (gl-import glClearColor clear-color)
 (gl-import glDepthFunc depth-test)
+(gl-import glFlush gl-flush)
 
 (defn clear
   ([]
@@ -175,13 +193,16 @@
   ([u v w] (gl-tex-coord-3 u v w)))
 
 (defn bind-texture [t]
-  (gl-bind-texture (enum (:target t)) (:id t)))
+  (if t (gl-bind-texture (enum (:target t)) (:id t))))
 
 (defn destroy-texture [tex]
   (gl-delete-textures 1 (int-array (:id tex)) 0))
 
-(defn create-color-texture [w h]
+(defn create-color-texture* [w h]
   (create-texture :texture-2d [w h] :rgba :rgba :unsigned-byte 4))
+
+(defn create-color-texture [w h]
+  (create-texture :texture-rectangle [w h] :rgba :rgba :unsigned-byte 4))
 
 (defn load-texture-from-file [filename subsample]
   (let [rgba (enum :rgba)
@@ -236,23 +257,6 @@
       3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
 
 ;;;
-
-(defn blit [tex]
-  (let [[w h] (if (= :texture-rectangle (:target tex))
-                (:dim tex)
-                [1 1])]
-    (push-matrix
-      (load-identity)
-      (bind-texture tex)
-      (with-projection (ortho-view 0 1 1 0 -1 1)
-        (draw-quads
-         (texture 0 0) (vertex 0 0 0)
-         (texture w 0) (vertex 1 0 0)
-         (texture w h) (vertex 1 1 0)
-         (texture 0 h) (vertex 0 1 0))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;Display Lists
 
 (gl-import- glCallList gl-call-list)
 (gl-import- glGenLists gl-gen-lists)
@@ -504,27 +508,44 @@
 
 (defmacro with-frame-buffer
   [& body]
-    `(let [fb# (gen-frame-buffer)]
-      (bind-frame-buffer fb#)
-      (try
-        ~@body
-        (finally
-          (destroy-frame-buffer fb#)))))
+  `(let [fb# (gen-frame-buffer)]
+     (bind-frame-buffer fb#)
+     (try
+      ~@body
+      (finally
+       (bind-frame-buffer 0)
+       (destroy-frame-buffer fb#)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
+
+(defn blit [tex]
+  (if tex
+    (let [[w h]
+          (if (= :texture-rectangle (:target tex))
+            (:dim tex)
+            [1 1])]
+      (push-matrix
+        (bind-texture tex)
+        (color 1 1 1)
+        (with-projection (ortho-view 0 1 1 0 -1 1)
+          (with-program nil
+            (draw-quads
+             (texture 0 0) (vertex 0 0 0)
+             (texture w 0) (vertex 1 0 0)
+             (texture w h) (vertex 1 1 0)
+             (texture 0 h) (vertex 0 1 0))))))))
 
 (defmacro render-to-texture
   "Renders a scene to a texture."
   [tex & body]
-  `(do
-    (let [[w# h#] (:dim ~tex)]
-      (with-frame-buffer [w# h#]
-        (with-viewport [0 0 w# h#]
-          (attach-depth-buffer [w# h#])
-          (attach-textures [] [~tex])
-          (clear)
-          (push-matrix
-            ~@body))))))
+  `(let [[w# h#] (:dim ~tex)]
+     (with-frame-buffer [w# h#]
+       (with-viewport [0 0 w# h#]
+         (attach-depth-buffer [w# h#])
+         (attach-textures [] [~tex])
+         (clear)
+         (push-matrix
+           ~@body)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
