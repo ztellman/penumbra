@@ -10,7 +10,7 @@
   (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [penumbra.opengl core geometry shader texture])
-  (:use [penumbra.glsl.core])
+  (:use [penumbra.glsl core data])
   (:import (javax.media.opengl GL2))
   (:import (javax.media.opengl.glu.gl2 GLUgl2))
   (:import (com.sun.opengl.util.gl2 GLUT))
@@ -198,11 +198,14 @@
 (defn destroy-texture [tex]
   (gl-delete-textures 1 (int-array (:id tex)) 0))
 
-(defn create-color-texture* [w h]
+(defn create-byte-texture [w h]
   (create-texture :texture-2d [w h] :rgba :rgba :unsigned-byte 4))
 
-(defn create-color-texture [w h]
+(defn create-byte-texture* [w h]
   (create-texture :texture-rectangle [w h] :rgba :rgba :unsigned-byte 4))
+
+(defn create-float-texture [w h]
+  (wrap (float-array (* w h 4)) 4 [w h]))
 
 (defn load-texture-from-file [filename subsample]
   (let [rgba (enum :rgba)

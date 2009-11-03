@@ -86,7 +86,7 @@
   (reduce #(tree-map %2 %1) tree funs))
 
 (defn- element? [s]
-  (and (symbol? s) (.startsWith (name s) "%")))
+  (and (symbol? s) (re-find #"%$|%[0-9]+" (name s))))
 
 (defn- element-index [param]
   (if (= '% param)
@@ -182,11 +182,17 @@
       (let [[swizzle [_ tex _]] element]
         (list swizzle (list 'texture2DRect tex (list '+ '--coord offset)))))))
 
+;;;
+
 (defn- transform-dim [x]
   (let [index (element-index (second x))]
-    (symbol (str "--dim" (if (= index 0) "" index)))))
+    (add-meta
+     (symbol (str "--dim" (if (= index 0) "" index)))
+     :tag :float2)))
 
-(defvar- convolve-program
+;;;
+
+(defvar- convolution-program
   '(let [--half-dim (/ (dim #^element x) 2.0)
          --start    (max (float2 0.0) (- :coord (floor --half-dim)))
          --end      (min :dim (+ :coord (ceil --half-dim)))]
@@ -194,25 +200,24 @@
        (for [(<- j (.y --start)) (< j (.y --end)) (+= j 1.0)]
          (let [--location (float2 i j)
                --offset   (- --location :coord)
-               --lookup   (texture2DRect #^texture x (+ --location --half-dim))])
-         #^body x))))
+               --lookup   (lookup* #^element x (+ --location --half-dim))]
+           #^body x)))))
 
 (defn- tag= [x t]
   (and (meta? x) (= t (:tag ^x))))
 
-(defn- transform-convolve [x]
+(defn- transform-convolution [x]
   (let [[_ element & body] x
         body (apply-transforms
               (list
-               #(if (element? %) (list 'offset % '--offset))
-               (replace-with '%* '--lookup))
+               (replace-with :offset '--offset)
+               #(if (element? %) (list 'offset % '--offset)))
               body)]
     (apply-transforms
      (list
-      #(if (tag= % 'element) element)
-      #(if (tag= % 'texture) (rename-element (element-index element)))
-      #(if (tag= % 'body) (list* 'do body)))
-     convolve-program)))
+      #(if (tag= % 'element) (add-meta element :tag nil))
+      #(if (tag= % 'body) (add-meta (list* 'do body) :tag nil)))
+     convolution-program)))
 
 ;;;
 
@@ -273,51 +278,6 @@
 (defn- wrap-uniform [x]
   (list 'declare (list 'uniform x)))
 
-(defn- process-map
-  "Transforms the body, and pulls out all the relevant information."
-  [x]
-  (validate-elements x)
-  (validate-params x)
-  (let [[elements params]
-          (separate element? (realize (tree-filter #(and (symbol? %) (typeof %)) x)))
-        declarations
-          (list
-           'do
-           (map
-            #(wrap-uniform (add-meta (rename-element (element-index %)) :tag 'sampler2DRect))
-            (distinct elements))
-           (map
-            #(wrap-uniform (add-meta (symbol (str "--dim" %)) :tag 'vec2))
-            (range 1 (count elements)))
-           (map
-            #(wrap-uniform (add-meta % :tag (typeof %)))
-            (distinct params)))
-       body
-         (->>
-          x
-          (apply-transforms
-           (list*
-            #(if (first= % 'convolve) (transform-convolve %))
-            #(if (first= % 'dim) (transform-dim %))
-            #(if (first= % 'offset) (transform-offset %))
-            (replace-with :coord '--coord)
-            (replace-with :dim '--dim)
-            (map #(replace-with % (transform-element %)) elements)))
-          transform-operator-results
-          wrap-and-prepend
-          transform-glsl)
-       results
-         (map #(:tag ^%) (tree-filter #(:result ^%) body))
-       body
-         (list
-          'do
-          declarations
-          (typecast-results body))]
-    {:body body
-     :elements (zipmap elements (map typeof elements))
-     :params (zipmap params (map typeof params))
-     :results results}))
-
 (defn- create-write-texture
   "Given the type (float4, etc.), creates the appropriate target texture"
   [typecast dim]
@@ -346,6 +306,50 @@
         (release! e)))
     (if (= 1 (count targets)) (first targets) targets)))
 
+(defn- process-map
+  "Transforms the body, and pulls out all the relevant information."
+  [x]
+  (validate-elements x)
+  (validate-params x)
+  (let [[elements params]
+          (separate element? (realize (tree-filter #(and (symbol? %) (typeof %)) x)))
+        declarations
+          (list
+           'do
+           (map
+            #(wrap-uniform (add-meta (rename-element (element-index %)) :tag 'sampler2DRect))
+            (distinct elements))
+           (comment (map
+             #(wrap-uniform (add-meta (symbol (str "--dim" %)) :tag :float2))
+             (range 1 (count elements))))
+           (map
+            #(wrap-uniform (add-meta % :tag (typeof %)))
+            (distinct params)))
+       body
+         (->>
+          x
+          (apply-transforms
+           (flatten
+            (list
+             (replace-with :coord '--coord)
+             (replace-with :dim '--dim)
+             (map #(replace-with % (transform-element %)) elements)
+             #(if (first= % 'offset) (transform-offset %)))))
+          transform-operator-results
+          wrap-and-prepend
+          transform-glsl)
+       results
+         (map #(:tag ^%) (tree-filter #(:result ^%) body))
+       body
+         (list
+          'do
+          declarations
+          (typecast-results body))]
+    {:body body
+     :elements (zipmap elements (map typeof elements))
+     :params (zipmap params (map typeof params))
+     :results results}))
+
 (defn- tag-map-types
   "Applies types to map, so that we can create a program"
   [x types]
@@ -373,10 +377,21 @@
             program (create-operator (:body info))]
         [info program]))))
 
+(defn- pre-process-map
+  "Applies transforms that must be performed before type tagging"
+  [x]
+  (->>
+   x
+   (apply-transforms
+    (list
+     #(if (first= % 'convolution) (transform-convolution %))
+     #(if (first= % 'dim) (add-meta (transform-dim %) :tag :float2))))))
+
 (defn create-map-template
   "Creates a template for a map, which will lazily create a set of shader programs based on the types passed in."
   [x]
-  (let [cache        (map-cache x)
+  (let [x            (pre-process-map x)
+        cache        (map-cache x)
         elements?    #(and (vector? %) (-> % first number? not))
         dim          #(or (:dim %) (:dim (first %)))
         to-symbol    (memoize #(symbol (name %)))

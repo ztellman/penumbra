@@ -69,11 +69,11 @@
 
 (defn- seq-to-texture
   ([s] (seq-to-texture s 1))
-  ([s tuple]
+  ([s tuple] (seq-to-texture s 1 (rectangle (/ (count s) tuple))))
+  ([s tuple dim]
     (let [type                (seq-type s)
           [internal pixel _]  (read-format type tuple)
           ary                 (if (array? s) s (create-array s type))
-          dim                 (rectangle (/ (count ary) tuple))
           tex                 (create-texture :texture-rectangle dim internal pixel type tuple)]
       (write-to-texture tex ary)
       (assoc tex :size (count s)))))
@@ -92,7 +92,11 @@
   ([s tuple]
     (cond
       (texture? s) s
-      :else (seq-to-texture s tuple))))
+      :else (seq-to-texture s tuple)))
+  ([s tuple dim]
+     (cond
+       (texture? s) s
+       :else (seq-to-texture s tuple dim))))
 
 (defn unwrap
   ([tex]

@@ -63,16 +63,25 @@
     (gl-get-shader-info-log shader 4096 (int-array 1) 0 buf 0)
     (.trim #^String (apply str (map #(char %) buf)))))
 
+(defn- replace-string [regex replacement s]
+  (.replaceAll (re-matcher regex s) replacement))
+
+(defn- cleanup-braces [source]
+  (->> source
+       (replace-string #"\n\s[\s]+\{" " {")
+       (replace-string #"\}[;\n]?[\s]+\}" "}}")))
+
 (defn- load-source [shader source]
-  (let [a (make-array String 1)]
+  (let [source (-> source cleanup-braces cleanup-braces)
+        a (make-array String 1)]
     (aset a 0 source)
-    (gl-shader-source shader 1 a nil))
-  (gl-compile-shader shader)
-  (if *verbose*
-    (println (indent source)))
-  (if (shader-compiled? shader)
-    (if *verbose* (println "Compiled.\n"))
-    (throw (Exception. (str "*** Error compiling shader: " (get-shader-log shader))))))
+    (gl-shader-source shader 1 a nil)
+    (gl-compile-shader shader)
+    (if *verbose*
+      (println (indent source)))
+    (if (shader-compiled? shader)
+      (if *verbose* (println "Compiled.\n"))
+      (throw (Exception. (str "*** Error compiling shader: " (get-shader-log shader)))))))
 
 (defn- get-program-log [program]
   (let [buf (make-array Byte/TYPE 4096)]

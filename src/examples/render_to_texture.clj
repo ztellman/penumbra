@@ -31,8 +31,8 @@
 (defn xor [a b] (or (and a (not b)) (and (not a) b)))
 
 (defn init-textures []
-  (let [view (create-color-texture* 256 256)
-        checkers (create-color-texture* 128 128)]
+  (let [view (create-byte-texture 256 256)
+        checkers (create-byte-texture 128 128)]
     (draw-to-subsampled-texture
       checkers
       (fn [[x y] _]

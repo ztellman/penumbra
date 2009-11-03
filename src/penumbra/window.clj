@@ -40,8 +40,10 @@
 (defstruct window-struct :canvas :frame :state :callbacks :texture-pool :keys :queue)
 
 (defn get-canvas [] #^GLCanvas (:canvas *window*))
+
 (defn get-canvas-size [] [(.getWidth (get-canvas)) (.getHeight (get-canvas))])
 (defn set-canvas-size [w h] (.setSize (get-canvas) (Dimension. w h)))
+
 (defn repaint [] (.repaint (get-canvas)))
 
 (defn get-frame [] #^Frame (:frame *window*))
@@ -54,11 +56,12 @@
 (defn key-pressed? [key] (@(:keys *window*) key))
 
 (defn get-queue [] (:queue *window*))
+
 (defn enqueue [f]
   (alter (get-queue) #(conj % f))
   (repaint))
+
 (defn execute-queue []
-  (println @(get-queue))
   (when (pos? (count @(get-queue)))
     (dosync
      (alter (get-state) (fn [state] (reduce #(%2 %1) state @(get-queue))))

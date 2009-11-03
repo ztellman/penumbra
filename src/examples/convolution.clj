@@ -17,23 +17,45 @@
      (vertex (+ x w) (+ y h))
      (vertex x (+ y h)))))
 
-(defn create-image [tex w h]
-  (let [tex (create-color-texture w h)]
-    (render-to-texture tex
-      (with-projection (ortho-view 0 2 2 0 -1 1)
-        (dotimes [_ 100]
-          (apply color (take 3 (repeatedly rand)))
-          (apply draw-rect (take 4 (repeatedly rand))))))
-    tex))
+(defn reset-image [tex w h]
+  (render-to-texture tex
+    (with-projection (ortho-view 0 2 2 0 -1 1)
+      (dotimes [_ 100]
+        (apply color (take 3 (repeatedly rand)))
+        (apply draw-rect (take 4 (repeatedly rand))))))
+  tex)
 
 (defn init [state]
+
+  (defmap blur
+    (let [value (float4 0.0)
+          sum 0.0]
+      (convolution %2
+        (+= sum %2)
+        (+= value (* %2 %1)))
+      (/ value sum))) 
+
+  (def kernel
+    (wrap (map float
+               [0.01 0.01 1
+                0.01 1    0.01
+                1    0.01 0.01])))
+  
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
   (assoc state
-    :tex (create-color-texture 256 256)))
+    :tex (create-float-texture 256 256)))
 
 (defn key-press [key state]
-  (enqueue #(assoc % :tex (create-image (:tex %) 256 256)))
+  (let [tex (:tex state)]
+    (cond
+      (= key " ")
+      (enqueue #(assoc %
+                  :tex (reset-image tex 256 256)))
+      (= key :enter)
+      (enqueue #(assoc %
+                  :tex (with-frame-buffer
+                         (blur [tex [kernel]]))))))
   state)
 
 (defn display [_ state]

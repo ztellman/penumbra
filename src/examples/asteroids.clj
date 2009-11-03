@@ -10,6 +10,7 @@
   (:use [penumbra opengl window])
   (:use [penumbra.opengl geometry]))
 
+;;NOT COMPLETE
 ;;;
 
 (defn sphere-vertices [lod]
