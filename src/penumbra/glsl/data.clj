@@ -69,7 +69,7 @@
 
 (defn- seq-to-texture
   ([s] (seq-to-texture s 1))
-  ([s tuple] (seq-to-texture s 1 (rectangle (/ (count s) tuple))))
+  ([s tuple] (seq-to-texture s tuple (rectangle (/ (count s) tuple))))
   ([s tuple dim]
     (let [type                (seq-type s)
           [internal pixel _]  (read-format type tuple)

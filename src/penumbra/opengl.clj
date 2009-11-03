@@ -10,7 +10,7 @@
   (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [penumbra.opengl core geometry shader texture])
-  (:use [penumbra.glsl core data])
+  (:use [penumbra.glsl core])
   (:import (javax.media.opengl GL2))
   (:import (javax.media.opengl.glu.gl2 GLUgl2))
   (:import (com.sun.opengl.util.gl2 GLUT))
@@ -180,84 +180,6 @@
 
 (glut-import- glutSolidTeapot glut-solid-teapot)
 (defn teapot [] (glut-solid-teapot 1))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;Texture
-
-(gl-import glTexEnvf tex-env)
-(gl-import glActiveTexture gl-active-texture)
-
-(defn texture
-  ([u] (gl-tex-coord-1 u))
-  ([u v] (gl-tex-coord-2 u v))
-  ([u v w] (gl-tex-coord-3 u v w)))
-
-(defn bind-texture [t]
-  (if t (gl-bind-texture (enum (:target t)) (:id t))))
-
-(defn destroy-texture [tex]
-  (gl-delete-textures 1 (int-array (:id tex)) 0))
-
-(defn create-byte-texture [w h]
-  (create-texture :texture-2d [w h] :rgba :rgba :unsigned-byte 4))
-
-(defn create-byte-texture* [w h]
-  (create-texture :texture-rectangle [w h] :rgba :rgba :unsigned-byte 4))
-
-(defn create-float-texture [w h]
-  (wrap (float-array (* w h 4)) 4 [w h]))
-
-(defn load-texture-from-file [filename subsample]
-  (let [rgba (enum :rgba)
-        data (TextureIO/newTextureData (File. filename) rgba rgba subsample "")
-        tex  (TextureIO/newTexture data)]
-    (texture-from-texture-io tex)))
-
-(defn load-texture-from-image [image subsample]
-  (let [rgba (enum :rgba)
-        data (TextureIO/newTextureData image rgba rgba subsample "")
-        tex  (TextureIO/newTexture data)]
-    (texture-from-texture-io tex)))
-
-(defn copy-to-texture
-  [tex ary]
-  (bind-texture tex)
-  (let [target  (enum (:target tex))
-        p-f     (enum (:pixel-format tex))
-        i-t     (enum (:internal-type tex))
-        dim     (vec (:dim tex))
-        buf     (ByteBuffer/wrap ary)]
-    (condp = (count (filter #(not= 1 %) dim))
-      1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
-      2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
-      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
-
-(defn draw-to-subsampled-texture
-  [tex fun]
-  (bind-texture tex)
-  (tex-parameter (enum (:target tex)) :texture-min-filter :linear-mipmap-linear)
-  (let [buf (populate-buffer fun tex)
-        dim (vec (:dim tex))]
-    (glu-build-2d-mipmaps
-      (enum (:target tex))
-      (enum (:internal-format tex))
-      (dim 0) (dim 1)
-      (enum (:pixel-format tex))
-      (enum (:internal-type tex))
-      buf)))
-
-(defn draw-to-texture
-  [tex fun]
-  (bind-texture tex)
-  (let [target  (enum (:target tex))
-        p-f     (enum (:pixel-format tex))
-        i-t     (enum (:internal-type tex))
-        dim     (vec (:dim tex))
-        buf     (populate-buffer fun tex)]
-    (condp = (count (filter #(not= 1 %) dim))
-      1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
-      2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
-      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
 
 ;;;
 
@@ -454,6 +376,7 @@
 (gl-import- glReadBuffer gl-read-buffer)
 (gl-import glReadPixels gl-read-pixels)
 (gl-import glGetTexImage gl-get-tex-image)
+(gl-import glActiveTexture gl-active-texture)
 
 (defn gen-frame-buffer []
   (let [a (int-array 1)]
@@ -519,7 +442,79 @@
        (bind-frame-buffer 0)
        (destroy-frame-buffer fb#)))))
 
-;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;Texture
+
+(gl-import glTexEnvf tex-env)
+
+(defn texture
+  ([u] (gl-tex-coord-1 u))
+  ([u v] (gl-tex-coord-2 u v))
+  ([u v w] (gl-tex-coord-3 u v w)))
+
+(defn bind-texture [t]
+  (if t (gl-bind-texture (enum (:target t)) (:id t))))
+
+(defn destroy-texture [tex]
+  (gl-delete-textures 1 (int-array (:id tex)) 0))
+
+(defn create-byte-texture [w h]
+  (create-texture :texture-2d [w h] :rgba :rgba :unsigned-byte 4))
+
+(defn create-byte-texture* [w h]
+  (create-texture :texture-rectangle [w h] :rgba :rgba :unsigned-byte 4))
+
+(defn load-texture-from-file [filename subsample]
+  (let [rgba (enum :rgba)
+        data (TextureIO/newTextureData (File. filename) rgba rgba subsample "")
+        tex  (TextureIO/newTexture data)]
+    (texture-from-texture-io tex)))
+
+(defn load-texture-from-image [image subsample]
+  (let [rgba (enum :rgba)
+        data (TextureIO/newTextureData image rgba rgba subsample "")
+        tex  (TextureIO/newTexture data)]
+    (texture-from-texture-io tex)))
+
+(defn copy-to-texture
+  [tex ary]
+  (bind-texture tex)
+  (let [target  (enum (:target tex))
+        p-f     (enum (:pixel-format tex))
+        i-t     (enum (:internal-type tex))
+        dim     (vec (:dim tex))
+        buf     (ByteBuffer/wrap ary)]
+    (condp = (count (filter #(not= 1 %) dim))
+      1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
+      2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
+      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
+
+(defn draw-to-subsampled-texture
+  [tex fun]
+  (bind-texture tex)
+  (tex-parameter (enum (:target tex)) :texture-min-filter :linear-mipmap-linear)
+  (let [buf (populate-buffer fun tex)
+        dim (vec (:dim tex))]
+    (glu-build-2d-mipmaps
+      (enum (:target tex))
+      (enum (:internal-format tex))
+      (dim 0) (dim 1)
+      (enum (:pixel-format tex))
+      (enum (:internal-type tex))
+      buf)))
+
+(defn draw-to-texture
+  [tex fun]
+  (bind-texture tex)
+  (let [target  (enum (:target tex))
+        p-f     (enum (:pixel-format tex))
+        i-t     (enum (:internal-type tex))
+        dim     (vec (:dim tex))
+        buf     (populate-buffer fun tex)]
+    (condp = (count (filter #(not= 1 %) dim))
+      1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
+      2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
+      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
 
 (defn blit [tex]
   (if tex
