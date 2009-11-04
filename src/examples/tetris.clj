@@ -165,8 +165,8 @@
    2
    (fn [state]
      (if (key-pressed? :down)
-       (set-frequency 100)
-       (set-frequency 100))
+       (set-frequency 10)
+       (set-frequency 2))
      (descend state)))
   (key-repeat true)
   state)
