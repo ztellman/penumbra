@@ -272,7 +272,7 @@
     (with-meta
       (list
        (swizzle tuple)
-       (list 'texture2DRect (rename-element (element-index e)) '--coord))
+       (list 'texture2DRect (rename-element (element-index e)) (or (:lookup ^e) '--coord)))
       ^e)))
 
 (defn- wrap-uniform [x]
@@ -442,20 +442,27 @@
          #^:bool -y (> (.y --bounds) (.y -source-coord))]
      (<- #^type -a #^lookup (texture2DRect --data -source-coord))
      (if -x
-       (reduce -a #^lookup (texture2DRect --data (+ -source-coord (float2 1.0 0.0)))))
+       (let [-b #^lookup (texture2DRect --data (+ -source-coord (float2 1.0 0.0)))
+             -c -a]
+         #^reduce x))
      (if -y
-       (reduce -a #^lookup (texture2DRect --data (+ -source-coord (float2 0.0 1.0)))))
+       (let [-b #^lookup (texture2DRect --data (+ -source-coord (float2 0.0 1.0)))
+             -c -a]
+         #^reduce x))
      (if (and -x -y)
-       (reduce -a #^lookup (texture2DRect --data (+ -source-coord (float2 1.0 1.0)))))
+       (let [-b #^lookup (texture2DRect --data (+ -source-coord (float2 1.0 1.0)))
+             -c -a]
+         #^reduce x))
      (<- (-> :frag-data (nth 0)) #^result -a)))
 
-(defn- transform-reduce-program [type]
+(defn- transform-reduce-program [type body]
   (let [tuple (type-tuple type)]
     (apply-transforms
      (list
-      #(if (= 'type (:tag ^%)) (add-meta % :tag type))
-      #(if (= 'lookup (:tag ^%)) (add-meta (list (swizzle tuple) (add-meta % :tag type)) :tag nil))
-      #(if (= 'result (:tag ^%)) (add-meta (typecast-float4 (add-meta % :tag type)) :tag nil)))
+      #(if (tag= % 'type)   (add-meta % :tag type))
+      #(if (tag= % 'lookup) (add-meta (list (swizzle tuple) (add-meta % :tag type)) :tag nil))
+      #(if (tag= % 'result) (add-meta (typecast-float4 (add-meta % :tag type)) :tag nil))
+      #(if (tag= % 'reduce) (add-meta body :tag nil)))
       reduce-program)))
 
 (defn- process-reduce
@@ -472,7 +479,7 @@
                (list
                 (replace-with '%1 (add-meta '-b :tag type))
                 (replace-with '%2 (add-meta '-c :tag type))
-                #(if (:result ^%) (add-meta (list '<- '-b (add-meta % :result false)) :result false)))))]
+                #(if (:result ^%) (add-meta (list '<- '-a (add-meta % :result false)) :result false)))))]
     {:type
        type
      :params
@@ -485,13 +492,7 @@
          (list
            'do
            (map #(list 'declare (list 'uniform %)) params))
-        (list
-        'defn 'void 'reduce
-        (vector
-         (list 'inout (with-meta '-b {:tag type}))
-         (list 'in (with-meta '-c {:tag type})))
-         body)
-       (wrap-and-prepend (transform-reduce-program type)))}))
+         (wrap-and-prepend (transform-reduce-program type body)))}))
 
 (defn- run-reduce
   [params data]

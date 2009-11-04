@@ -9,6 +9,7 @@
 (ns examples.tetris
   (:use [penumbra window opengl])
   (:use [clojure.contrib.seq-utils :only (indexed)])
+  (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.pprint]))
 
 ;;;
@@ -164,8 +165,8 @@
    2
    (fn [state]
      (if (key-pressed? :down)
-       (set-frequency 10)
-       (set-frequency 2))
+       (set-frequency 100)
+       (set-frequency 100))
      (descend state)))
   (key-repeat true)
   state)
@@ -195,20 +196,25 @@
    :else
    state))
 
-(defn rectangle [x y]
+(defn rectangle []
   (push-matrix
-   (translate x y 0)
-   (dotimes [_ 4]
+    (dotimes [_ 4]
      (rotate 90 0 0 1)
      (vertex 0.5 0.5 0))))
 
+(defn-memo bordered-rectangle []
+  (get-display-list
+    (draw-quads (rectangle))
+    (color 0 0 0)
+    (draw-line-loop (rectangle))
+    (color 1 1 1)))
+
 (defn draw-bordered-block [col [x y]]
   (when (<= 0 y)
-    (apply color col)
-    (draw-quads (rectangle x y))
-    (color 0 0 0)
-    (draw-line-loop (rectangle x y))
-    (color 1 1 1)))
+    (apply color col)    
+    (push-matrix
+      (translate x y)
+      (call-display-list (bordered-rectangle)))))
 
 (defn draw-tetra [tetra offset]
   (doseq [block (map #(translate* offset %) (:shape tetra))]
