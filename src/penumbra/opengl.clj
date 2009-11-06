@@ -533,6 +533,10 @@
              (texture w h) (vertex 1 1 0)
              (texture 0 h) (vertex 0 1 0))))))))
 
+(defn blit* [tex]
+  (blit tex)
+  (release! tex))
+
 (defmacro render-to-texture
   "Renders a scene to a texture."
   [tex & body]

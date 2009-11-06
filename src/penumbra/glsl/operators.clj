@@ -403,7 +403,7 @@
           (this {} [] elements-or-size)))
 
       ([params-or-elements elements-or-size]
-        (let [params   (if (map? params-or-elements)
+         (let [params   (if (map? params-or-elements)
                          params-or-elements
                          {})
               elements (if (elements? elements-or-size)
@@ -415,24 +415,24 @@
           (this params elements size)))
 
       ([params elements size]
-        (let [elements (process-elements elements)
-              size (if (number? size) (rectangle size) size)
-              dims (if (-> size first number?) [size] size)]
-          ;;verify none of the elements are nil
-          (doseq [[idx e] (indexed elements)]
-            (if (nil? e)
-              (throw (Exception. (str "Element at position " idx " is nil")))))
-          ;;verify element count
-          (if (not= (count elements) num-elements)
-            (throw (Exception. (str "Expected " num-elements " elements, was given " (count elements) "."))))
-          (let [param-map
-                (zipmap (map to-symbol (keys params)) (map typeof-param (vals params)))
-                element-map
-                (zipmap (map create-element (range (count elements))) (map typeof-element (filter texture? elements)))
-                [info program]
-                (cache (merge element-map param-map))]
-           (with-program program
-             (run-map info params elements dims))))))))
+         (let [elements (process-elements elements)
+               size (if (number? size) (rectangle size) size)
+               dims (if (-> size first number?) [size] size)]
+           ;;verify none of the elements are nil
+           (doseq [[idx e] (indexed elements)]
+             (if (nil? e)
+               (throw (Exception. (str "Element at position " idx " is nil")))))
+           ;;verify element count
+           (if (not= (count elements) num-elements)
+             (throw (Exception. (str "Expected " num-elements " elements, was given " (count elements) "."))))
+           (let [param-map
+                 (zipmap (map to-symbol (keys params)) (map typeof-param (vals params)))
+                 element-map
+                 (zipmap (map create-element (range (count elements))) (map typeof-element (filter texture? elements)))
+                 [info program]
+                 (cache (merge element-map param-map))]
+             (with-program program
+               (run-map info params elements dims))))))))
 
 ;;;;;;;;;;;;;;;;;;
 
