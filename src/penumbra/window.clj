@@ -29,7 +29,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;
 
-(defn- clock [] (System/nanoTime))
+(defn clock [] (System/nanoTime))
 
 (defstruct window-struct :canvas :frame :state :callbacks)
 
@@ -53,13 +53,16 @@
 
 (defn- get-callbacks [] (:callbacks *window*))
 
-(defn key-pressed? [key] (@(:keys *window*) key))
+(defn key-pressed?
+  ([key ignore] (key-pressed? key))
+  ([key] (@(:keys *window*) key)) )
 
 (defn get-queue [] (:queue *window*))
 
 (defn enqueue [f]
   (alter (get-queue) #(conj % f))
-  (repaint))
+  (repaint)
+  @(get-state))
 
 (defn execute-queue []
   (when (pos? (count @(get-queue)))
@@ -176,7 +179,7 @@
 
 ;;;
 
-(defn vsync-enabled
+(defn vsync
   "Toggles vertical sync.  Generally will clamp frame rate to <=60fps."
   [enabled]
   (. *gl* setSwapInterval (if enabled 1 0)))

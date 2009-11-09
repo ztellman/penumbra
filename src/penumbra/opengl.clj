@@ -273,9 +273,11 @@
         (float-array (count value) (map #(if (keyword? %) (enum %) %) value))
         0))))
 
-(defn draw-solid [] (gl-polygon-mode :front-and-back :fill))
-(defn draw-wireframe [] (gl-polygon-mode :front-and-back :line))
-(defn draw-point-cloud [] (gl-polygon-mode :front-and-back :point))
+(defn render-mode [mode]
+  (condp = mode
+    :solid (gl-polygon-mode :front-and-back :fill)
+    :wireframe (gl-polygon-mode :front-and-back :line)
+    :point-cloud (gl-polygon-mode :front-and-back :point)))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ;Shader
