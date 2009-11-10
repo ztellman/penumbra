@@ -49,6 +49,8 @@
   (enable :normalize)
   (enable :multisample)
   (enable :depth-test)
+  (enable :light0)
+  (enable :lighting)
   (line-width 3)
   (let [[checkers view] (init-textures)]
     (assoc state
@@ -80,45 +82,40 @@
         view (:view state)
         [w h] (get-canvas-size)]
 
-    (enable :texture-2d)
-    (enable :light0)
-    (enable :lighting)
     (light 0
       :position [-1 -1 1 0])
     (material :front-and-back
       :ambient-and-diffuse [0.8 0.1 0.1 1])
 
-    (bind-texture checkers)
-
-    ;render the checkered cube to a texture
+    ;;render the checkered cube to a texture
     (render-to-texture view
       (clear 0.5 0.5 0.5)
       (with-projection (frustum-view 50. 1. 0.1 10.)
         (push-matrix
           (rotate lx 1 0 0) (rotate ly 0 1 0)
-          (textured-cube))))
+          (with-texture checkers
+            (textured-cube)))))
 
     (clear 0 0 0)
 
     (with-projection (frustum-view 90. (double (/ w 2.0 h)) 0.1 10.)
-      ;render the checkered cube to the window
-      (bind-texture checkers)
-      (with-viewport [0 0 (/ w 2.0) h]
-        (push-matrix
-          (rotate lx 1 0 0) (rotate ly 0 1 0)
-          (textured-cube)))
-      ;render a cube with the checkered cube texture
-      (bind-texture view)
-      (with-viewport [(/ w 2.0) 0 (/ w 2.0) h]
-        (push-matrix
-          (rotate rx 1 0 0) (rotate ry 0 1 0)
-          (textured-cube))))
+      ;;render the checkered cube to the window
+      (with-texture checkers
+        (with-viewport [0 0 (/ w 2.0) h]
+          (push-matrix
+            (rotate lx 1 0 0) (rotate ly 0 1 0)
+            (textured-cube))))
+      ;;render a cube with the checkered cube texture
+      (with-texture view
+        (with-viewport [(/ w 2.0) 0 (/ w 2.0) h]
+          (push-matrix
+            (rotate rx 1 0 0) (rotate ry 0 1 0)
+            (textured-cube)))))
 
-    ;draw a dividing line
-    (disable :lighting)
-    (disable :texture-2d)
-    (with-projection (ortho-view 0 1 0 1 0 10)
-      (draw-lines (vertex 0.5 0 5) (vertex 0.5 1 5)))))
+    ;;draw a dividing line
+    (with-disabled [:lighting :texture-2d]
+      (with-projection (ortho-view 0 1 0 1 0 10)
+        (draw-lines (vertex 0.5 0 5) (vertex 0.5 1 5))))))
 
 (start
   {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init}

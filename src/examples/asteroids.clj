@@ -76,24 +76,21 @@
 
 ;;spaceship
 
-(defn triangle []
-  (push-matrix
-    (vertex 0.4 0) (vertex -0.4 0) (vertex 0 1)))
-
 (defn draw-fuselage [] ;;should be hung in the Louvre
   (draw-triangles
    (color 1 1 1)
    (push-matrix
      (translate 0 -0.5)
-     (triangle))))
+     (vertex -0.4 -0.2) (vertex 0 0) (vertex 0 1)
+     (vertex 0.4 -0.2) (vertex 0 0) (vertex 0 1))))
 
 (defn draw-flame []
   (push-matrix
     (draw-triangles
      (rotate 180 0 0 1)
      (translate 0 0.5)
-     (color 1 0 0) (scale 0.8 0.8) (triangle)
-     (color 1 1 0) (scale 0.5 0.5) (triangle))))
+     (color 1 0 0) (scale 0.8 0.8) (vertex 0.4 0) (vertex -0.4 0) (vertex 0 1)
+     (color 1 1 0) (scale 0.5 0.5) (vertex 0.4 0) (vertex -0.4 0) (vertex 0 1))))
 
 (defn update-spaceship [dt ship]
   (let [p     (:position ship)
@@ -118,9 +115,9 @@
   (push-matrix
     (apply translate (:position ship))
     (rotate (:theta ship) 0 0 1)
-    (call-display-list (:fuselage ship))
     (if (key-pressed? :up)
-      (call-display-list (:flame ship)))))
+      (call-display-list (:flame ship)))
+    (call-display-list (:fuselage ship))))
 
 (defn gen-spaceship []
   {:position [0 0]
@@ -153,12 +150,12 @@
 
 (defn draw-particle [position size tint]
   (with-enabled :texture-2d
-    (bind-texture particle-tex)
-    (push-matrix
-      (apply color tint)
-      (apply translate (map - position (map #(/ % 2) size)))
-      (apply scale size)
-      (call-display-list particle-quad))))
+    (with-texture particle-tex
+      (push-matrix
+        (apply color tint)
+        (apply translate (map - position (map #(/ % 2) size)))
+        (apply scale size)
+        (call-display-list particle-quad)))))
 
 (defn gen-particle [position velocity size [r g b] lifespan]
   (let [birth (clock)
@@ -198,7 +195,7 @@
                     (:particles state)
                     (gen-particle (map + (:position ship) tip)
                                   (map (partial * 20) tip)
-                                  [0.5 0.5] [0 0 1] 4))))
+                                  [0.5 0.5] [0 0 1] 2.5))))
     state))
 
 (defn update [[dt time] state]

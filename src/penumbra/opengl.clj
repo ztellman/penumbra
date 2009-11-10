@@ -39,20 +39,24 @@
 (gl-import glLoadIdentity gl-load-identity-matrix)
 
 (defmacro with-enabled [e & body]
-  `(let [prev# (enabled? ~e)]
-     (enable ~e)
+  `(let [e# (filter
+              (fn [a#] (not (enabled? (enum a#))))
+              (if (not (sequential? ~e)) [~e] ~e))]
+     (doseq [b# e#]
+       (enable (enum b#)))
      (try ~@body
       (finally
-       (if (not prev#)
-         (disable ~e))))))
+        (doall (map (fn [c#] (disable (enum c#))) e#))))))
 
 (defmacro with-disabled [e & body]
-  `(let [prev# (enabled? ~e)]
-     (disable ~e)
+  `(let [e# (filter
+              (fn [a#] (enabled? (enum a#)))
+              (if (not (sequential? ~e)) [~e] ~e))]
+     (doseq [b# e#]
+       (disable (enum b#)))
      (try ~@body
       (finally
-       (if prev#
-         (enable ~e))))))
+       (doall (map (fn [c#] (enable (enum c#))) e#))))))
 
 ;;;
 
@@ -458,6 +462,11 @@
 (defn bind-texture [t]
   (when t (gl-bind-texture (enum (:target t)) (:id t))))
 
+(defmacro with-texture [t & body]
+  `(do
+     (bind-texture ~t)
+     ~@body))
+
 (defn destroy-texture [tex]
   (gl-delete-textures 1 (int-array (:id tex)) 0))
 
@@ -484,7 +493,7 @@
 (defn convert-texture* [target tex]
   (let [tex* (convert-texture target tex)]
     (release! tex)
-    ))
+    tex*))
 
 (defn load-texture-from-file
   ([filename subsample]
@@ -545,21 +554,21 @@
       3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
 
 (defn blit [tex]
-  (if tex
+  (when tex
     (let [[w h]
           (if (= :texture-rectangle (:target tex))
             (:dim tex)
             [1 1])]
       (push-matrix
-        (bind-texture tex)
-        (color 1 1 1)
-        (with-projection (ortho-view 0 1 1 0 -1 1)
-          (with-program nil
-            (draw-quads
-             (texture 0 0) (vertex 0 0 0)
-             (texture w 0) (vertex 1 0 0)
-             (texture w h) (vertex 1 1 0)
-             (texture 0 h) (vertex 0 1 0))))))))
+        (with-texture tex
+          (color 1 1 1)
+          (with-projection (ortho-view 0 1 1 0 -1 1)
+            (with-program nil
+              (draw-quads
+               (texture 0 0) (vertex 0 0 0)
+               (texture w 0) (vertex 1 0 0)
+               (texture w h) (vertex 1 1 0)
+               (texture 0 h) (vertex 0 1 0)))))))))
 
 (defn blit* [tex]
   (blit tex)
