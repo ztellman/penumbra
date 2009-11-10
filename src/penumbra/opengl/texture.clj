@@ -66,28 +66,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 (gl-import glBindTexture gl-bind-texture)
-(gl-import glGenTextures gl-gen-textures)
-(gl-import glTexImage1D gl-tex-image-1d)
-(gl-import glTexImage2D gl-tex-image-2d)
-(gl-import glTexImage3D gl-tex-image-3d)
-(gl-import glTexSubImage1D gl-tex-sub-image-1d)
-(gl-import glTexSubImage2D gl-tex-sub-image-2d)
-(gl-import glTexSubImage3D gl-tex-sub-image-3d)
-(gl-import glTexParameteri tex-parameter)
+(gl-import- glGenTextures gl-gen-textures)
+(gl-import- glTexImage1D gl-tex-image-1d)
+(gl-import- glTexImage2D gl-tex-image-2d)
+(gl-import- glTexImage3D gl-tex-image-3d)
+(gl-import- glTexSubImage1D gl-tex-sub-image-1d)
+(gl-import- glTexSubImage2D gl-tex-sub-image-2d)
+(gl-import- glTexSubImage3D gl-tex-sub-image-3d)
+(gl-import- glTexParameteri gl-tex-parameter)
 (gl-import glTexCoord1d gl-tex-coord-1)
 (gl-import glTexCoord2d gl-tex-coord-2)
 (gl-import glTexCoord3d gl-tex-coord-3)
-(gl-import glCopyTexSubImage2D gl-copy-tex-sub-image-2d)
+(gl-import- glCopyTexSubImage2D gl-copy-tex-sub-image-2d)
 (glu-import gluBuild2DMipmaps glu-build-2d-mipmaps)
-(gl-import glDeleteTextures gl-delete-textures)
-(gl-import glPixelStorei gl-pixel-store)
-(gl-import glGetTexParameteriv gl-get-tex-parameter)
+(gl-import- glDeleteTextures gl-delete-textures)
+(gl-import- glPixelStorei gl-pixel-store)
+(gl-import- glGetTexParameteriv gl-get-tex-parameter)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(def *texture-pool* nil)
-(def *tex-mem-threshold* 100e6)
-(def *tex-count-threshold* 100)
 
 (defn- gen-texture []
   (let [a (int-array 1)]
@@ -148,9 +144,9 @@
             dim   (vec (map int dim))]
         (gl-bind-texture typ id)
         (doseq [p (take (count dim) [:texture-wrap-s :texture-wrap-t :texture-wrap-r])]
-          (tex-parameter typ (enum p) :clamp))
+          (gl-tex-parameter typ (enum p) :clamp))
         (doseq [p [:texture-min-filter :texture-mag-filter]]
-          (tex-parameter typ (enum p) :nearest))
+          (gl-tex-parameter typ (enum p) :nearest))
         (condp = (count dim)
           1 (gl-tex-image-1d typ 0 i-f (dim 0) 0 p-f internal-type nil)
           2 (gl-tex-image-2d typ 0 i-f (dim 0) (dim 1) 0 p-f i-t nil)
@@ -175,19 +171,28 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn texture-from-texture-io [tex]
-  (with-meta
-    (struct-map texture-struct
-      :dim [(.getWidth tex) (.getHeight tex)]
-      :id (.getTextureObject tex)
-      :target :texture-2d
-      :pixel-format :rgba
-      :internal-format :rgba
-      :internal-type :unsigned-byte
-      :permanent (ref false)
-      :tuple 4
-      :ref-count (ref 1))
-    {:tag 'texture-struct}))
+(defn texture-from-texture-io
+  ([tex]
+     (with-meta
+       (struct-map texture-struct
+       :dim [(.getWidth tex) (.getHeight tex)]
+       :id (.getTextureObject tex)
+       :target :texture-2d
+       :pixel-format :rgba
+       :internal-format :rgba
+       :internal-type :unsigned-byte
+       :permanent (ref false)
+       :tuple 4
+       :ref-count (ref 1)))
+     {:tag 'texture-struct})
+  ([tex filter]
+     (let [tex (texture-from-texture-io tex)
+           target (enum (:target tex))
+           filter (enum filter)]
+       (gl-bind-texture tex)
+       (gl-tex-parameter target :texture-min-filter filter)
+       (gl-tex-parameter target :texture-mag-filter filter)
+       tex)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
 

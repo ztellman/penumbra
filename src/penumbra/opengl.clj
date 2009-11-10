@@ -448,6 +448,7 @@
 ;Texture
 
 (gl-import glTexEnvf tex-env)
+(gl-import glTexParameteri tex-parameter)
 
 (defn texture
   ([u] (gl-tex-coord-1 u))
@@ -455,28 +456,53 @@
   ([u v w] (gl-tex-coord-3 u v w)))
 
 (defn bind-texture [t]
-  (if t (gl-bind-texture (enum (:target t)) (:id t))))
+  (when t (gl-bind-texture (enum (:target t)) (:id t))))
 
 (defn destroy-texture [tex]
   (gl-delete-textures 1 (int-array (:id tex)) 0))
 
-(defn create-byte-texture [w h]
-  (create-texture :texture-2d [w h] :rgba :rgba :unsigned-byte 4))
+(defn create-byte-texture
+  ([w h]
+     (create-byte-texture :texture-2d w h))
+  ([target w h]
+     (create-texture target [w h] :rgba :rgba :unsigned-byte 4)))
 
-(defn create-byte-texture* [w h]
-  (create-texture :texture-rectangle [w h] :rgba :rgba :unsigned-byte 4))
+(defn convert-texture [target tex]
+  (let [target (enum target)
+        [w h] (:dim tex)
+        tex* (create-texture
+              target
+              [w h]
+              (:internal-format tex)
+              (:pixel-format tex)
+              (:internal-type tex)
+              (:tuple tex))]
+    (bind-texture tex*)
+    (gl-copy-tex-sub-image-2d target 0 0 0 0 0 w h)
+    tex*))
 
-(defn load-texture-from-file [filename subsample]
-  (let [rgba (enum :rgba)
-        data (TextureIO/newTextureData (File. filename) rgba rgba subsample "")
-        tex  (TextureIO/newTexture data)]
-    (texture-from-texture-io tex)))
+(defn convert-texture* [target tex]
+  (let [tex* (convert-texture target tex)]
+    (release! tex)
+    ))
 
-(defn load-texture-from-image [image subsample]
-  (let [rgba (enum :rgba)
-        data (TextureIO/newTextureData image rgba rgba subsample "")
-        tex  (TextureIO/newTexture data)]
-    (texture-from-texture-io tex)))
+(defn load-texture-from-file
+  ([filename subsample]
+     (load-texture-from-file filename subsample :linear))
+  ([filename subsample filter]
+     (let [rgba (enum :rgba)
+            data (TextureIO/newTextureData (File. filename) rgba rgba subsample "")
+           tex  (TextureIO/newTexture data)]
+       (texture-from-texture-io tex filter))))
+
+(defn load-texture-from-image
+  ([image subsample]
+     (load-texture-from-image image subsample :linear))
+  ([image subsample filter]
+     (let [rgba (enum :rgba)
+           data (TextureIO/newTextureData image rgba rgba subsample "")
+           tex  (TextureIO/newTexture data)]
+       (texture-from-texture-io tex filter))))
 
 (defn copy-to-texture
   [tex ary]

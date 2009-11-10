@@ -152,7 +152,6 @@
     (get-display-list (textured-quad))))
 
 (defn draw-particle [position size tint]
-  (println position size tint)
   (with-enabled :texture-2d
     (bind-texture particle-tex)
     (push-matrix
@@ -198,7 +197,7 @@
         :particles (conj
                     (:particles state)
                     (gen-particle (map + (:position ship) tip)
-                                   (map (partial * 20) tip)
+                                  (map (partial * 20) tip)
                                   [0.5 0.5] [0 0 1] 4))))
     state))
 

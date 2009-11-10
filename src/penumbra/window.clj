@@ -11,7 +11,6 @@
   (:use [clojure.contrib.str-utils :only (str-join)])
   (:use [penumbra opengl])
   (:use [penumbra.opengl core])
-  (:use [penumbra.opengl.texture :only (*texture-pool*)])
   (:import (java.lang.reflect Field))
   (:import (java.awt
               Frame Dimension

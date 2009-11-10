@@ -23,9 +23,14 @@
 (def *program* nil)
 (def *uniforms* nil)
 
+(def *texture-pool* nil)
+(def *tex-mem-threshold* 100e6)
+(def *tex-count-threshold* 100)
+
 ;;;;;;;;;;;;;;;;;;;;;;
 
 (def *check-errors* true) ;makes any OpenGL error throw an exception
+(defn check-errors [] *check-errors*)
 
 (defn enum-name
   "Takes the numeric value of a gl constant (i.e. GL_LINEAR), and gives the name"
@@ -56,7 +61,7 @@
   `(defmacro ~import-as [& args#]
     `(do
       (let [~'value# (. #^GL2 *gl* ~'~import-from ~@(map enum-macro args#))]
-        (if (and *check-errors* (not *inside-begin-end*)) (check-error))
+        (if (and (check-errors) (not *inside-begin-end*)) (check-error))
         ~'value#))))
 
 (defmacro gl-import-
