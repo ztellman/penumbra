@@ -8,7 +8,30 @@
 
 (ns examples.asteroids
   (:use [penumbra opengl window])
-  (:use [penumbra.opengl geometry]))
+  (:use [penumbra.opengl geometry])
+  (:use [clojure.contrib.seq-utils :only (separate)]))
+
+;;;
+
+(def *dim* [10 10])
+
+(defn wrap
+  "Makes the position wrap around from right to left, bottom to top"
+  [pos]
+  (map - (map #(mod %1 %2) (map + pos *dim*) (map (partial * 2) *dim*)) *dim*))
+
+(defn dot
+  ([u] (dot u u))
+  ([u v] (apply + (map * u v))))
+
+(defn intersects? [a b]
+  (let [ra ((:radius a)), rb ((:radius b))
+        pa ((:position a)), pb ((:position b))]
+    (> (* (+ ra rb) (+ ra rb))
+       (dot (map - pa pb)))))
+
+(defn half [x] (/ x 2))
+(defn twice [x] (* x 2))
 
 ;;asteroids
 
@@ -24,16 +47,14 @@
       (partial map (partial apply-matrix rotate-y))
       arc))))
 
-(defn dot
-  ([u] (dot u u))
-  ([u v] (apply + (map * u v))))
-
 (defn normalize [v]
   (let [len (Math/sqrt (dot v v))]
     (map #(/ % len) v)))
 
 (defn rand-vector []
-  (normalize (map #(- % 1) (take 3 (repeatedly #(rand 2))))))
+  (->> [0 0 1 1]
+       (apply-matrix (rotation-matrix (rand 360) 1 0 0))
+       (apply-matrix (rotation-matrix (rand 360) 0 1 0))))
 
 (defn offset-vertex [v vertex]
   (if (neg? (dot v (normalize vertex)))
@@ -60,19 +81,25 @@
        (apply vertex a) (apply vertex b))))))
 
 (defn init-asteroids []
-  (def asteroids (take 20 (repeatedly #(gen-asteroid-geometry 5 10)))))
+  (def asteroid-meshes (take 20 (repeatedly #(gen-asteroid-geometry 4 25)))))
 
-;;;
-
-(def *dim* [10 10])
-
-(defn wrap
-  "Makes the position wrap around from right to left, bottom to top"
-  [pos]
-  (map - (map #(mod %1 %2) (map + pos *dim*) (map (partial * 2) *dim*)) *dim*))
-
-(defn half [x] (/ x 2))
-(defn twice [x] (* x 2))
+(defn gen-asteroid [initial radius direction speed]
+  (let [birth (clock)
+        elapsed #(/ (- (clock) birth) 1e9)
+        asteroid (nth asteroid-meshes (rand-int 20))
+        theta (* direction (/ Math/PI 180))
+        [x y] (map (partial * speed) [(- (Math/sin theta)) (Math/cos theta)])
+        position #(wrap (map + initial (map * [x y] (repeat (elapsed)))))]
+    {:expired? #(< radius 0.25)
+     :position position
+     :radius (constantly radius)
+     :render #(push-matrix
+                (apply translate (position))
+                (rotate (* speed (elapsed) 50) 1 0 0) (rotate theta 0 1 0)
+                (scale radius radius radius)
+                (color 0.6 0.6 0.6)
+                (with-render-mode :wireframe
+                  (call-display-list asteroid)))}))
 
 ;;spaceship
 
@@ -121,7 +148,7 @@
 
 (defn gen-spaceship []
   {:position [0 0]
-   :size [0.5 0.5]
+   :radius 0.5
    :velocity [0 0]
    :theta 0
    :fuselage (get-display-list (draw-fuselage))
@@ -148,23 +175,23 @@
   (def particle-quad
     (get-display-list (textured-quad))))
 
-(defn draw-particle [position size tint]
+(defn draw-particle [position radius tint]
   (with-enabled :texture-2d
     (with-texture particle-tex
       (push-matrix
         (apply color tint)
-        (apply translate (map - position (map #(/ % 2) size)))
-        (apply scale size)
+        (apply translate (map - position (repeat (/ radius 2))))
+        (scale radius radius)
         (call-display-list particle-quad)))))
 
-(defn gen-particle [position velocity size [r g b] lifespan]
+(defn gen-particle [position velocity radius [r g b] lifespan]
   (let [birth (clock)
         elapsed #(/ (- (clock) birth) 1e9)
         position #(wrap (map + position (map * velocity (repeat (elapsed)))))]
     {:expired? #(> (/ (- (clock) birth) 1e9) lifespan)
      :position position
-     :size     (constantly size)
-     :render   #(draw-particle (position) size [r g b (- 1 (Math/pow (/ (elapsed) lifespan) 10))])}))
+     :radius   (constantly radius)
+     :render   #(draw-particle (position) radius [r g b (- 1 (Math/pow (/ (elapsed) lifespan) 10))])}))
 
 ;;game loop
 
@@ -175,13 +202,14 @@
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
   (assoc state
-    :spaceship (gen-spaceship)))
+    :spaceship (gen-spaceship)
+    :asteroids (take 10 (repeatedly #(gen-asteroid [0 0] 2 (rand 360) (+ 0.5 (rand 1.5)))))))
 
 (defn reshape [[x y w h] state]
   (let [dim [(* (/ w h) 10) 10]]
-    (frustum-view 45 (/ w h) 0.1 100)
+    (frustum-view 90 (/ w h) 0.1 100)
     (load-identity)
-    (translate 0 0 (* 2 (- (second dim))))
+    (translate 0 0 (- (second dim)))
     (assoc state
       :dim dim)))
 
@@ -191,22 +219,31 @@
           theta (* (:theta ship) (/ Math/PI 180))
           tip (map half [(- (Math/sin theta)) (Math/cos theta)])]
       (assoc state
-        :particles (conj
-                    (:particles state)
-                    (gen-particle (map + (:position ship) tip)
-                                  (map (partial * 20) tip)
-                                  [0.5 0.5] [0 0 1] 2.5))))
+        :bullets (conj
+                  (:bullets state)
+                  (gen-particle
+                   (map + (:position ship) tip)
+                   (map (partial * 30) tip)
+                   0.66 [0 0 1] 2))))
     state))
 
 (defn update [[dt time] state]
   (binding [*dim* (:dim state)]
-    (assoc state
-      :spaceship (update-spaceship dt (:spaceship state))
-      :particles (remove #((:expired? %)) (:particles state)))))
+    (let [spaceship (:spaceship state)
+          bullets (:bullets state)
+          asteroids (:asteroids state)
+          [exploded remaining] (separate #(some (fn [b] (intersects? b %)) bullets) asteroids)
+          bullets (remove #(or (some (fn [a] (intersects? a %)) asteroids) ((:expired? %))) bullets)
+          particles (:particles state)]
+      (assoc state
+        :spaceship (update-spaceship dt spaceship)
+        :particles (remove #((:expired? %)) particles)
+        :bullets bullets
+        :asteroids remaining))))
 
 (defn display [_ state]
   (binding [*dim* (:dim state)]
-    (doseq [p (:particles state)]
+    (doseq [p (concat (:particles state) (:asteroids state) (:bullets state))]
       ((:render p)))
     (draw-spaceship (:spaceship state))
     (repaint)))

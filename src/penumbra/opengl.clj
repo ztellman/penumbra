@@ -21,22 +21,33 @@
   (:import (java.nio ByteBuffer))
   (:import (java.io File)))
 
+;;;
+
 (defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & body]
   `(binding [*gl* (.. ~drawable getGL getGL2)]
     ~@body))
 
-;;;;;;;;;;;;;;;;;;;;;;
+;;;
 
 (gl-import glEnable enable)
 (gl-import glDisable disable)
 (gl-import glIsEnabled enabled?)
-(gl-import glGetIntegerv get-integer)
+(gl-import glGetIntegerv gl-get-integer)
 (gl-import glGetString get-string)
 
 (gl-import glMatrixMode gl-matrix-mode)
 (gl-import glPushMatrix gl-push-matrix)
 (gl-import glPopMatrix gl-pop-matrix)
 (gl-import glLoadIdentity gl-load-identity-matrix)
+
+;;;
+
+(defn get-integer [mode]
+  (let [ary (int-array 1)]
+    (gl-get-integer (enum mode) ary 0)
+    (first (seq ary))))
+
+;;;
 
 (defmacro with-enabled [e & body]
   `(let [e# (filter
@@ -283,6 +294,14 @@
     :wireframe (gl-polygon-mode :front-and-back :line)
     :point-cloud (gl-polygon-mode :front-and-back :point)))
 
+(defmacro with-render-mode [mode & body]
+  `(let [mode# (get-integer :polygon-mode)]
+     (render-mode ~mode)
+     (try
+      ~@body
+      (finally
+       (gl-polygon-mode :front-and-back mode#)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;
 ;Shader
 
@@ -390,9 +409,7 @@
     (nth a 0)))
 
 (defn get-frame-buffer []
-  (let [ary (int-array 1)]
-    (get-integer :framebuffer-binding ary 0)
-    (first (seq ary))))
+  (get-integer :framebuffer-binding))
 
 (defn destroy-frame-buffer [fb]
   (let [a (int-array [fb])]
