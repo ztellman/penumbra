@@ -6,6 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
+(set! *warn-on-reflection* true)
+
 (ns examples.asteroids
   (:use [penumbra opengl window])
   (:use [penumbra.opengl geometry])
@@ -24,14 +26,21 @@
   ([u] (dot u u))
   ([u v] (apply + (map * u v))))
 
+(defn expired? [x] ((:expired? x)))
+(defn render [x] ((:render x)))
+(defn get-radius [x] ((:radius x)))
+(defn get-position [x] ((:position x)))
+
 (defn intersects? [a b]
-  (let [ra ((:radius a)), rb ((:radius b))
-        pa ((:position a)), pb ((:position b))]
+  (let [ra (get-radius a), rb (get-radius b)
+        pa (get-position a), pb (get-position b)]
     (> (* (+ ra rb) (+ ra rb))
        (dot (map - pa pb)))))
 
-(defn half [x] (/ x 2))
-(defn twice [x] (* x 2))
+(defn angle-to-vector [theta]
+  (let [theta (* theta (/ Math/PI 180))]
+    [(- (Math/sin theta)) (Math/cos theta)]))
+
 
 ;;asteroids
 
@@ -83,22 +92,24 @@
 (defn init-asteroids []
   (def asteroid-meshes (take 20 (repeatedly #(gen-asteroid-geometry 4 25)))))
 
-(defn gen-asteroid [initial radius direction speed]
+(defn gen-asteroid [initial radius theta speed]
   (let [birth (clock)
         elapsed #(/ (- (clock) birth) 1e9)
         asteroid (nth asteroid-meshes (rand-int 20))
-        theta (* direction (/ Math/PI 180))
-        [x y] (map (partial * speed) [(- (Math/sin theta)) (Math/cos theta)])
+        [x y] (map (partial * speed) (angle-to-vector theta))
         position #(wrap (map + initial (map * [x y] (repeat (elapsed)))))]
     {:expired? #(< radius 0.25)
      :position position
      :radius (constantly radius)
      :render #(push-matrix
                 (apply translate (position))
-                (rotate (* speed (elapsed) 50) 1 0 0) (rotate theta 0 1 0)
+                (rotate (* speed (elapsed) -50) 1 0 0) (rotate theta 0 1 0)
                 (scale radius radius radius)
                 (color 0.6 0.6 0.6)
-                (with-render-mode :wireframe
+                (render-mode :wireframe)
+                (call-display-list asteroid)
+                (render-mode :solid)
+                '(with-render-mode :wireframe
                   (call-display-list asteroid)))}))
 
 ;;spaceship
@@ -127,10 +138,9 @@
                 :left  (+ theta (* 360 dt))
                 :right (- theta (* 360 dt))
                 theta)
-        a     (let [theta (* theta (/ Math/PI 180))]
-                (if (key-pressed? :up)
-                  (map (partial * 3) [(- (Math/sin theta)) (Math/cos theta)])
-                  [0 0]))
+        a     (if (key-pressed? :up)
+                  (map (partial * 3) (angle-to-vector theta))
+                  [0 0])
         v     (map + v (map * a (repeat dt))) 
         p     (wrap (map + p (map * v (repeat dt))))]
     (assoc ship
@@ -184,16 +194,49 @@
         (scale radius radius)
         (call-display-list particle-quad)))))
 
-(defn gen-particle [position velocity radius [r g b] lifespan]
+(defn gen-particle [position theta speed radius [r g b] lifespan]
   (let [birth (clock)
+        [x y] (map (partial * speed) (angle-to-vector theta))
         elapsed #(/ (- (clock) birth) 1e9)
-        position #(wrap (map + position (map * velocity (repeat (elapsed)))))]
+        position #(wrap (map + position (map * [x y] (repeat (elapsed)))))]
     {:expired? #(> (/ (- (clock) birth) 1e9) lifespan)
      :position position
      :radius   (constantly radius)
      :render   #(draw-particle (position) radius [r g b (- 1 (Math/pow (/ (elapsed) lifespan) 10))])}))
 
+;;;
+
+(defn split-asteroid [asteroid]
+  (when (< 0.25 (get-radius asteroid))
+    (take 4
+      (repeatedly
+        #(gen-asteroid
+          (get-position asteroid)
+          (/ (get-radius asteroid) 2)
+          (rand 360) (+ 1 (rand 1.5)))))))
+
+(defn gen-explosion [num object]
+  (take num
+    (repeatedly
+      #(gen-particle
+        (get-position object)
+        (rand 360) (rand 2) (+ 0.5 (rand))
+        (let [i (+ 0.5 (rand 0.5))]
+          [1 i (- 1 i)])
+        2))))
+
+(defn explode [exploding state]
+  (assoc state
+    :asteroids (concat (:asteroids state) (mapcat split-asteroid exploding))
+    :particles (concat (:particles state) (mapcat #(gen-explosion (* (get-radius %) 50) %) exploding))))
+
 ;;game loop
+
+(defn reset [state]
+  (assoc state
+    :spaceship (gen-spaceship)
+    :asteroids (take 4 (repeatedly #(let [theta (rand 360)
+                                          dir (angle-to-vector theta)])))))
 
 (defn init [state]
   (vsync true)
@@ -203,7 +246,7 @@
   (blend-func :src-alpha :one-minus-src-alpha)
   (assoc state
     :spaceship (gen-spaceship)
-    :asteroids (take 10 (repeatedly #(gen-asteroid [0 0] 2 (rand 360) (+ 0.5 (rand 1.5)))))))
+    :asteroids (take 10 (repeatedly #(gen-asteroid [0 0] 1 (rand 360) (+ 0.5 (rand 1.5)))))))
 
 (defn reshape [[x y w h] state]
   (let [dim [(* (/ w h) 10) 10]]
@@ -217,14 +260,14 @@
   (if (= key " ")
     (let [ship (:spaceship state)
           theta (* (:theta ship) (/ Math/PI 180))
-          tip (map half [(- (Math/sin theta)) (Math/cos theta)])]
+          tip (map #(/ % 2) (angle-to-vector theta))]
       (assoc state
         :bullets (conj
-                  (:bullets state)
-                  (gen-particle
+                   (:bullets state)
+                   (gen-particle
                    (map + (:position ship) tip)
-                   (map (partial * 30) tip)
-                   0.66 [0 0 1] 2))))
+                   (:theta ship)
+                   15 0.66 [0 0 1] 2))))
     state))
 
 (defn update [[dt time] state]
@@ -232,20 +275,24 @@
     (let [spaceship (:spaceship state)
           bullets (:bullets state)
           asteroids (:asteroids state)
-          [exploded remaining] (separate #(some (fn [b] (intersects? b %)) bullets) asteroids)
-          bullets (remove #(or (some (fn [a] (intersects? a %)) asteroids) ((:expired? %))) bullets)
+          collisions (for [a asteroids, b bullets :while (intersects? a b)] [a b])
+          [hit missed] (separate (set (map first collisions)) asteroids)
+          bullets (remove (set (map second collisions)) bullets)
           particles (:particles state)]
-      (assoc state
-        :spaceship (update-spaceship dt spaceship)
-        :particles (remove #((:expired? %)) particles)
-        :bullets bullets
-        :asteroids remaining))))
+      (explode
+       hit
+       (assoc state
+         :spaceship (update-spaceship dt spaceship)
+         :particles (remove expired? particles)
+         :bullets (remove expired? bullets)
+         :asteroids missed)))))
 
-(defn display [_ state]
+(defn display [[dt time] state]
   (binding [*dim* (:dim state)]
     (doseq [p (concat (:particles state) (:asteroids state) (:bullets state))]
-      ((:render p)))
+      (render p))
     (draw-spaceship (:spaceship state))
+    (write-to-screen (format "%d fps" (int (/ 1 dt))) 0 1)
     (repaint)))
    
 (start

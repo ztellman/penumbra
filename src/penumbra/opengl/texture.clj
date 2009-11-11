@@ -183,13 +183,13 @@
        :internal-type :unsigned-byte
        :permanent (ref false)
        :tuple 4
-       :ref-count (ref 1)))
-     {:tag 'texture-struct})
+       :ref-count (ref 1))
+     {:tag 'texture-struct}))
   ([tex filter]
      (let [tex (texture-from-texture-io tex)
            target (enum (:target tex))
            filter (enum filter)]
-       (gl-bind-texture tex)
+       (gl-bind-texture :texture-2d (:id tex))
        (gl-tex-parameter target :texture-min-filter filter)
        (gl-tex-parameter target :texture-mag-filter filter)
        tex)))
