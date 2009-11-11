@@ -90,7 +90,7 @@
        (apply vertex a) (apply vertex b))))))
 
 (defn init-asteroids []
-  (def asteroid-meshes (take 20 (repeatedly #(gen-asteroid-geometry 4 25)))))
+  (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 4 25))))))
 
 (defn gen-asteroid [initial radius theta speed]
   (let [birth (clock)
@@ -106,11 +106,7 @@
                 (rotate (* speed (elapsed) -50) 1 0 0) (rotate theta 0 1 0)
                 (scale radius radius radius)
                 (color 0.6 0.6 0.6)
-                (render-mode :wireframe)
-                (call-display-list asteroid)
-                (render-mode :solid)
-                '(with-render-mode :wireframe
-                  (call-display-list asteroid)))}))
+                (call-display-list asteroid))}))
 
 ;;spaceship
 
@@ -230,6 +226,22 @@
     :asteroids (concat (:asteroids state) (mapcat split-asteroid exploding))
     :particles (concat (:particles state) (mapcat #(gen-explosion (* (get-radius %) 50) %) exploding))))
 
+(defn update-collisions [state]
+  (binding [*dim* (:dim state)]
+    (let [spaceship (:spaceship state)
+          bullets (:bullets state)
+          asteroids (:asteroids state)
+          collisions (for [a asteroids, b bullets :when (intersects? a b)] [a b])
+          [hit missed] (separate (set (map first collisions)) asteroids)
+          bullets (remove (set (map second collisions)) bullets)
+          particles (:particles state)]
+      (explode
+       hit
+       (assoc state
+         :particles (remove expired? particles)
+         :bullets (remove expired? bullets)
+         :asteroids missed)))))
+
 ;;game loop
 
 (defn reset [state]
@@ -240,10 +252,12 @@
 
 (defn init [state]
   (vsync true)
+  (key-repeat true)
   (init-particles)
   (init-asteroids)
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
+  (start-update-loop 10 update-collisions)
   (assoc state
     :spaceship (gen-spaceship)
     :asteroids (take 10 (repeatedly #(gen-asteroid [0 0] 1 (rand 360) (+ 0.5 (rand 1.5)))))))
@@ -272,25 +286,16 @@
 
 (defn update [[dt time] state]
   (binding [*dim* (:dim state)]
-    (let [spaceship (:spaceship state)
-          bullets (:bullets state)
-          asteroids (:asteroids state)
-          collisions (for [a asteroids, b bullets :while (intersects? a b)] [a b])
-          [hit missed] (separate (set (map first collisions)) asteroids)
-          bullets (remove (set (map second collisions)) bullets)
-          particles (:particles state)]
-      (explode
-       hit
-       (assoc state
-         :spaceship (update-spaceship dt spaceship)
-         :particles (remove expired? particles)
-         :bullets (remove expired? bullets)
-         :asteroids missed)))))
+    (assoc state
+      :spaceship (update-spaceship dt (:spaceship state)))))
 
 (defn display [[dt time] state]
   (binding [*dim* (:dim state)]
-    (doseq [p (concat (:particles state) (:asteroids state) (:bullets state))]
+    (doseq [p (concat (:particles state) (:bullets state))]
       (render p))
+    (with-render-mode :wireframe
+      (doseq [a (:asteroids state)]
+        (render a)))
     (draw-spaceship (:spaceship state))
     (write-to-screen (format "%d fps" (int (/ 1 dt))) 0 1)
     (repaint)))
