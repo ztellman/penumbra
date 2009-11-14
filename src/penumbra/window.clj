@@ -168,7 +168,7 @@
   "Creates an update loop on a separate thread that repeats 'hertz' times a second.
   Assumes that callback will execute in less than the update period."
   [hertz f]
-  (start-update-loop- hertz f (fn [s] (dosync (alter s f)))))
+  (start-update-loop- hertz f (fn [s] (dosync (commute s f)))))
 
 (defn start-update-loop*
   "Same as start-upate-loop, but passes in the ref to the state rather than just the state.

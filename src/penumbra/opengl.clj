@@ -237,6 +237,7 @@
 (gl-import glColor4d color-4)
 (gl-import glCullFace cull-face)
 (gl-import glLineWidth line-width)
+(gl-import glPointSize point-size)
 
 (gl-import- glPolygonMode gl-polygon-mode)
 (gl-import- glLightfv set-light-array)

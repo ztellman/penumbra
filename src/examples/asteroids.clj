@@ -6,8 +6,6 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(set! *warn-on-reflection* true)
-
 (ns examples.asteroids
   (:use [penumbra opengl window])
   (:use [penumbra.opengl geometry])
@@ -29,7 +27,7 @@
 (defn expired? [x] ((:expired? x)))
 (defn render [x] ((:render x)))
 (defn get-radius [x] ((:radius x)))
-(defn get-position [x] ((:position x)))
+(defn get-position [x] (if (sequential? (:position x)) (:position x) ((:position x))))
 
 (defn intersects? [a b]
   (let [ra (get-radius a), rb (get-radius b)
@@ -37,9 +35,18 @@
     (> (* (+ ra rb) (+ ra rb))
        (dot (map - pa pb)))))
 
-(defn angle-to-vector [theta]
-  (let [theta (* theta (/ Math/PI 180))]
-    [(- (Math/sin theta)) (Math/cos theta)]))
+(defn angle-to-vector
+  ([theta]
+     (angle-to-vector theta 1))
+  ([theta r]
+     (let [theta (* (+ 90 theta) (/ Math/PI 180))]
+       [(* r (Math/cos theta)) (* r (Math/sin theta)) ])))
+
+(defn vector-to-angle [v]
+  [(Math/sqrt (dot v)) (* (/ 180 Math/PI) (Math/atan2 (- (first v)) (second v)))])
+
+(defn rand-color [a b]
+  (map #(+ %1 (rand (- %2 %1))) a b))
 
 
 ;;asteroids
@@ -108,31 +115,88 @@
                 (color 0.6 0.6 0.6)
                 (call-display-list asteroid))}))
 
+;;particles
+
+(defn textured-quad []
+  (draw-quads
+   (texture 0 0) (vertex -1 -1)
+   (texture 1 0) (vertex 1 -1)
+   (texture 1 1) (vertex 1 1)
+   (texture 0 1) (vertex -1 1)))
+
+(defn init-particles []
+  (def particle-tex
+    (let [tex (create-byte-texture 128 128)]
+      (draw-to-texture
+       tex
+       (fn [_ pos]
+         (let [i (Math/exp (* 16 (- (dot (map - pos [0.5 0.5])))))]
+           [1 1 1 i])))
+      tex))
+  (def particle-quad
+    (get-display-list (textured-quad))))
+
+(defn draw-particle [position radius tint]
+  (push-matrix
+    (apply color tint)
+    (apply translate position)
+    (scale radius radius)
+    (call-display-list particle-quad)))
+
+(defn gen-particle [position theta speed radius [r g b] lifespan]
+  (let [birth (clock)
+        [x y] (map (partial * speed) (angle-to-vector theta))
+        elapsed #(/ (- (clock) birth) 1e9)
+        position #(wrap (map + position (map * [x y] (repeat (elapsed)))))]
+    {:expired? #(> (/ (- (clock) birth) 1e9) lifespan)
+     :position position
+     :radius (constantly radius)
+     :render #(draw-particle
+               (position)
+               radius
+               [r g b (max 0 (- 1 (Math/pow (/ (elapsed) lifespan) 10)))])}))
+
 ;;spaceship
 
 (defn draw-fuselage [] ;;should be hung in the Louvre
   (draw-triangles
    (color 1 1 1)
-   (push-matrix
-     (translate 0 -0.5)
-     (vertex -0.4 -0.2) (vertex 0 0) (vertex 0 1)
-     (vertex 0.4 -0.2) (vertex 0 0) (vertex 0 1))))
+   (vertex -0.4 -0.5) (vertex 0 -0.4) (vertex 0 0.5)
+   (vertex 0.4 -0.5) (vertex 0 -0.4) (vertex 0 0.5)))
 
-(defn draw-flame []
-  (push-matrix
-    (draw-triangles
-     (rotate 180 0 0 1)
-     (translate 0 0.5)
-     (color 1 0 0) (scale 0.8 0.8) (vertex 0.4 0) (vertex -0.4 0) (vertex 0 1)
-     (color 1 1 0) (scale 0.5 0.5) (vertex 0.4 0) (vertex -0.4 0) (vertex 0 1))))
+(defn init-spaceship []
+  (def fuselage (get-display-list (draw-fuselage))))
+
+(defn fire-bullet [state]
+  (let [ship (:spaceship state)
+        tip (angle-to-vector (:theta ship))]
+    (assoc state
+      :bullets
+      (conj
+       (:bullets state)
+       (gen-particle
+        (:position ship)
+        (:theta ship)
+        15 0.25 [0 0 1] 2)))))
+
+(defn emit-flame [state]
+  (let [ship (:spaceship state)
+        theta (+ 180 (:theta ship) (- (rand 40) 20))
+        particles (:particles state)
+        position (map + (:position ship) (angle-to-vector theta 0.3))
+        [speed theta] (vector-to-angle (map + (:velocity ship) (angle-to-vector theta)))]
+    (if (key-pressed? :up)
+      (assoc state
+        :particles (conj particles (gen-particle position theta speed 0.2 (rand-color [1 0.5 0] [1 1 1]) 0.5)))
+      state)))
 
 (defn update-spaceship [dt ship]
   (let [p     (:position ship)
         v     (:velocity ship)
         theta (:theta ship)
         theta (condp key-pressed? nil
-                :left  (+ theta (* 360 dt))
-                :right (- theta (* 360 dt))
+                :left  (rem (+ theta (* 360 dt)) 360)
+                :right (rem (- theta (* 360 dt)) 360)
                 theta)
         a     (if (key-pressed? :up)
                   (map (partial * 3) (angle-to-vector theta))
@@ -148,59 +212,25 @@
   (push-matrix
     (apply translate (:position ship))
     (rotate (:theta ship) 0 0 1)
-    (if (key-pressed? :up)
-      (call-display-list (:flame ship)))
     (call-display-list (:fuselage ship))))
 
 (defn gen-spaceship []
   {:position [0 0]
-   :radius 0.5
+   :radius (constantly 0.5)
    :velocity [0 0]
    :theta 0
-   :fuselage (get-display-list (draw-fuselage))
-   :flame (get-display-list (draw-flame))})
-
-;;particles
-
-(defn textured-quad []
-  (draw-quads
-   (texture 0 0) (vertex 0 0)
-   (texture 1 0) (vertex 1 0)
-   (texture 1 1) (vertex 1 1)
-   (texture 0 1) (vertex 0 1)))
-
-(defn init-particles []
-  (def particle-tex
-    (let [tex (create-byte-texture 128 128)]
-      (draw-to-texture
-       tex
-       (fn [_ pos]
-         (let [i (Math/exp (* 16 (- (dot (map - pos [0.5 0.5])))))]
-           [1 1 1 i])))
-      tex))
-  (def particle-quad
-    (get-display-list (textured-quad))))
-
-(defn draw-particle [position radius tint]
-  (with-enabled :texture-2d
-    (with-texture particle-tex
-      (push-matrix
-        (apply color tint)
-        (apply translate (map - position (repeat (/ radius 2))))
-        (scale radius radius)
-        (call-display-list particle-quad)))))
-
-(defn gen-particle [position theta speed radius [r g b] lifespan]
-  (let [birth (clock)
-        [x y] (map (partial * speed) (angle-to-vector theta))
-        elapsed #(/ (- (clock) birth) 1e9)
-        position #(wrap (map + position (map * [x y] (repeat (elapsed)))))]
-    {:expired? #(> (/ (- (clock) birth) 1e9) lifespan)
-     :position position
-     :radius   (constantly radius)
-     :render   #(draw-particle (position) radius [r g b (- 1 (Math/pow (/ (elapsed) lifespan) 10))])}))
+   :fuselage fuselage
+   :birth (clock)})
 
 ;;;
+
+(defn reset [state]
+  (assoc state
+    :spaceship (gen-spaceship)
+    :asteroids (take 4 (repeatedly
+                        #(let [dir (rand 360)
+                               pos (angle-to-vector dir 2)]
+                           (gen-asteroid pos 1 dir (+ 0.5 (rand 1.5))))))))
 
 (defn split-asteroid [asteroid]
   (when (< 0.25 (get-radius asteroid))
@@ -216,72 +246,73 @@
     (repeatedly
       #(gen-particle
         (get-position object)
-        (rand 360) (rand 2) (+ 0.5 (rand))
-        (let [i (+ 0.5 (rand 0.5))]
-          [1 i (- 1 i)])
+        (rand 360) (rand 2) (+ 0.15 (rand 0.15))
+        (rand-color [1 0.5 0] [1 1 0])
         2))))
 
 (defn explode [exploding state]
   (assoc state
     :asteroids (concat (:asteroids state) (mapcat split-asteroid exploding))
-    :particles (concat (:particles state) (mapcat #(gen-explosion (* (get-radius %) 50) %) exploding))))
+    :particles (concat (:particles state) (mapcat #(gen-explosion (* (get-radius %) 200) %) exploding))))
+
+(defn check-complete [state]
+  (if (zero? (count (:asteroids state)))
+    (reset state)
+    state))
+
+(defn check-ship [state]
+  (let [ship (:spaceship state)
+        asteroids (:asteroids state)
+        [hit missed] (separate #(intersects? ship %) asteroids)]
+    (if (some #(intersects? ship %) asteroids)
+      (assoc state
+        :asteroids (concat missed (mapcat split-asteroid hit))
+        :spaceship (gen-spaceship)
+        :particles (concat (:particles state) (gen-explosion 500 ship)))
+      state)))
+
+(defn check-asteroids [state]
+  (let [bullets (:bullets state)
+        asteroids (:asteroids state)
+        collisions (for [a asteroids, b bullets :when (intersects? a b)] [a b])
+        [hit missed] (separate (set (map first collisions)) asteroids)
+        bullets (remove (set (map second collisions)) bullets)
+        particles (:particles state)]
+    (explode
+     hit
+     (assoc state
+       :particles (remove expired? particles)
+       :bullets (remove expired? bullets)
+       :asteroids missed))))
 
 (defn update-collisions [state]
   (binding [*dim* (:dim state)]
-    (let [spaceship (:spaceship state)
-          bullets (:bullets state)
-          asteroids (:asteroids state)
-          collisions (for [a asteroids, b bullets :when (intersects? a b)] [a b])
-          [hit missed] (separate (set (map first collisions)) asteroids)
-          bullets (remove (set (map second collisions)) bullets)
-          particles (:particles state)]
-      (explode
-       hit
-       (assoc state
-         :particles (remove expired? particles)
-         :bullets (remove expired? bullets)
-         :asteroids missed)))))
+    (-> state check-asteroids check-ship check-complete)))
 
 ;;game loop
 
-(defn reset [state]
-  (assoc state
-    :spaceship (gen-spaceship)
-    :asteroids (take 4 (repeatedly #(let [theta (rand 360)
-                                          dir (angle-to-vector theta)])))))
-
 (defn init [state]
   (vsync true)
-  (key-repeat true)
-  (init-particles)
   (init-asteroids)
+  (init-particles)
+  (init-spaceship)
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
-  (start-update-loop 10 update-collisions)
-  (assoc state
-    :spaceship (gen-spaceship)
-    :asteroids (take 10 (repeatedly #(gen-asteroid [0 0] 1 (rand 360) (+ 0.5 (rand 1.5)))))))
+  (start-update-loop 20 update-collisions)
+  (start-update-loop 100 emit-flame)
+  (reset state))
 
 (defn reshape [[x y w h] state]
   (let [dim [(* (/ w h) 10) 10]]
-    (frustum-view 90 (/ w h) 0.1 100)
+    (frustum-view 45 (/ w h) 0.1 100)
     (load-identity)
-    (translate 0 0 (- (second dim)))
+    (translate 0 0 (- (* 2.165 (second dim))))
     (assoc state
       :dim dim)))
 
 (defn key-press [key state]
   (if (= key " ")
-    (let [ship (:spaceship state)
-          theta (* (:theta ship) (/ Math/PI 180))
-          tip (map #(/ % 2) (angle-to-vector theta))]
-      (assoc state
-        :bullets (conj
-                   (:bullets state)
-                   (gen-particle
-                   (map + (:position ship) tip)
-                   (:theta ship)
-                   15 0.66 [0 0 1] 2))))
+    (fire-bullet state)
     state))
 
 (defn update [[dt time] state]
@@ -291,13 +322,14 @@
 
 (defn display [[dt time] state]
   (binding [*dim* (:dim state)]
-    (doseq [p (concat (:particles state) (:bullets state))]
-      (render p))
+    (with-enabled :texture-2d
+      (with-texture particle-tex
+        (doseq [p (concat (:particles state) (:bullets state))]
+          (render p))))
     (with-render-mode :wireframe
       (doseq [a (:asteroids state)]
         (render a)))
     (draw-spaceship (:spaceship state))
-    (write-to-screen (format "%d fps" (int (/ 1 dt))) 0 1)
     (repaint)))
    
 (start
