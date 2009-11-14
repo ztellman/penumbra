@@ -180,15 +180,15 @@
         15 0.25 [0 0 1] 2)))))
 
 (defn emit-flame [state]
-  (let [ship (:spaceship state)
-        theta (+ 180 (:theta ship) (- (rand 40) 20))
-        particles (:particles state)
-        position (map + (:position ship) (angle-to-vector theta 0.3))
-        [speed theta] (vector-to-angle (map + (:velocity ship) (angle-to-vector theta)))]
-    (if (key-pressed? :up)
+  (if (key-pressed? :up)
+    (let [ship (:spaceship state)
+          theta (+ 180 (:theta ship) (- (rand 40) 20))
+          particles (:particles state)
+          position (map + (:position ship) (angle-to-vector theta 0.3))
+          [speed theta] (vector-to-angle (map + (:velocity ship) (angle-to-vector theta)))]
       (assoc state
-        :particles (conj particles (gen-particle position theta speed 0.2 (rand-color [1 0.5 0] [1 1 1]) 0.5)))
-      state)))
+        :particles (conj particles (gen-particle position theta speed 0.2 (rand-color [1 0.5 0] [1 1 1]) 0.5))))
+    state))
 
 (defn update-spaceship [dt ship]
   (let [p     (:position ship)
@@ -212,14 +212,13 @@
   (push-matrix
     (apply translate (:position ship))
     (rotate (:theta ship) 0 0 1)
-    (call-display-list (:fuselage ship))))
+    (call-display-list fuselage)))
 
 (defn gen-spaceship []
   {:position [0 0]
    :radius (constantly 0.5)
    :velocity [0 0]
    :theta 0
-   :fuselage fuselage
    :birth (clock)})
 
 ;;;
@@ -334,4 +333,4 @@
    
 (start
  {:reshape reshape, :display display, :init init, :update update, :key-press key-press} 
- {})
+ {:spaceship (gen-spaceship)})
