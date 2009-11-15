@@ -8,7 +8,7 @@
 
 (ns examples.asteroids
   (:use [penumbra opengl window])
-  (:use [penumbra.opengl geometry])
+  (:use [penumbra.geometry])
   (:use [clojure.contrib.seq-utils :only (separate)]))
 
 ;;;
@@ -20,30 +20,16 @@
   [pos]
   (map - (map #(mod %1 %2) (map + pos *dim*) (map (partial * 2) *dim*)) *dim*))
 
-(defn dot
-  ([u] (dot u u))
-  ([u v] (apply + (map * u v))))
-
 (defn expired? [x] ((:expired? x)))
 (defn render [x] ((:render x)))
-(defn get-radius [x] ((:radius x)))
-(defn get-position [x] (if (sequential? (:position x)) (:position x) ((:position x))))
+
+(defn radius [x] (if (number? (:radius x)) (:radius x) ((:radius x))))
+(defn position [x] (if (sequential? (:position x)) (:position x) ((:position x))))
 
 (defn intersects? [a b]
-  (let [ra (get-radius a), rb (get-radius b)
-        pa (get-position a), pb (get-position b)]
-    (> (* (+ ra rb) (+ ra rb))
-       (dot (map - pa pb)))))
-
-(defn angle-to-vector
-  ([theta]
-     (angle-to-vector theta 1))
-  ([theta r]
-     (let [theta (* (+ 90 theta) (/ Math/PI 180))]
-       [(* r (Math/cos theta)) (* r (Math/sin theta)) ])))
-
-(defn vector-to-angle [v]
-  [(Math/sqrt (dot v)) (* (/ 180 Math/PI) (Math/atan2 (- (first v)) (second v)))])
+  (let [min-dist (+ (radius a) (radius b))
+        dist (map - (position a) (position b))]
+    (> min-dist (length-squared dist))))
 
 (defn rand-color [a b]
   (map #(+ %1 (rand (- %2 %1))) a b))
@@ -51,43 +37,30 @@
 
 ;;asteroids
 
-(defn sphere-vertices [lod]
-  (let [rotate-x (rotation-matrix (/ 180 lod) 1 0 0)
-        arc (take
-             (inc lod)
-             (iterate (partial apply-matrix rotate-x) [0 1 0 0]))
-        rotate-y (rotation-matrix (/ 180 lod) 0 1 0)]
-    (take
-     (inc (* 2 lod))
-     (iterate
-      (partial map (partial apply-matrix rotate-y))
-      arc))))
-
-(defn normalize [v]
-  (let [len (Math/sqrt (dot v v))]
-    (map #(/ % len) v)))
+(defn sphere-vertices
+  [lod]
+  (for [theta (range 0 361 (/ 360 lod))]
+    (for [phi (range -90 91 (/ 180 (/ lod 2)))]
+      (cartesian [theta phi 1]))))
 
 (defn rand-vector []
-  (->> [0 0 1 1]
-       (apply-matrix (rotation-matrix (rand 360) 1 0 0))
-       (apply-matrix (rotation-matrix (rand 360) 0 1 0))))
+  (cartesian [(rand 360) (rand 360) 1]))
 
-(defn offset-vertex [v vertex]
+(defn offset-vertex
+  "Expand if on one side of a plane, contract if on the other"
+  [v vertex]
   (if (neg? (dot v (normalize vertex)))
     (map + vertex (repeat 0.05))
     (map - vertex (repeat 0.05))))
 
 (defn offset-sphere [v vertices]
-  (map
-   (fn [arc] (map #(offset-vertex v %) arc))
-   vertices))
+  (map (fn [arc] (map #(offset-vertex v %) arc)) vertices))
 
-(defn gen-asteroid-vertices [lod iterations]
-  (nth
-   (iterate
-    #(offset-sphere (rand-vector) %)
-    (sphere-vertices lod))
-   iterations))
+(defn gen-asteroid-vertices
+  "Procedurally generate perturbed sphere"
+  [lod iterations]
+  (let [s (iterate #(offset-sphere (rand-vector) %) (sphere-vertices lod))]
+    (nth s iterations)))
 
 (defn gen-asteroid-geometry [lod iterations]
   (get-display-list
@@ -97,17 +70,17 @@
        (apply vertex a) (apply vertex b))))))
 
 (defn init-asteroids []
-  (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 4 25))))))
+  (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 8 25))))))
 
 (defn gen-asteroid [initial radius theta speed]
   (let [birth (clock)
         elapsed #(/ (- (clock) birth) 1e9)
         asteroid (nth asteroid-meshes (rand-int 20))
-        [x y] (map (partial * speed) (angle-to-vector theta))
+        [x y] (map (partial * speed) (cartesian theta))
         position #(wrap (map + initial (map * [x y] (repeat (elapsed)))))]
     {:expired? #(< radius 0.25)
      :position position
-     :radius (constantly radius)
+     :radius radius
      :render #(push-matrix
                 (apply translate (position))
                 (rotate (* speed (elapsed) -50) 1 0 0) (rotate theta 0 1 0)
@@ -130,7 +103,7 @@
       (draw-to-texture
        tex
        (fn [_ pos]
-         (let [i (Math/exp (* 16 (- (dot (map - pos [0.5 0.5])))))]
+         (let [i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
            [1 1 1 i])))
       tex))
   (def particle-quad
@@ -145,12 +118,12 @@
 
 (defn gen-particle [position theta speed radius [r g b] lifespan]
   (let [birth (clock)
-        [x y] (map (partial * speed) (angle-to-vector theta))
+        [x y] (map (partial * speed) (cartesian theta))
         elapsed #(/ (- (clock) birth) 1e9)
         position #(wrap (map + position (map * [x y] (repeat (elapsed)))))]
     {:expired? #(> (/ (- (clock) birth) 1e9) lifespan)
      :position position
-     :radius (constantly radius)
+     :radius radius
      :render #(draw-particle
                (position)
                radius
@@ -168,8 +141,7 @@
   (def fuselage (get-display-list (draw-fuselage))))
 
 (defn fire-bullet [state]
-  (let [ship (:spaceship state)
-        tip (angle-to-vector (:theta ship))]
+  (let [ship (:spaceship state)]
     (assoc state
       :bullets
       (conj
@@ -184,8 +156,8 @@
     (let [ship (:spaceship state)
           theta (+ 180 (:theta ship) (- (rand 40) 20))
           particles (:particles state)
-          position (map + (:position ship) (angle-to-vector theta 0.3))
-          [speed theta] (vector-to-angle (map + (:velocity ship) (angle-to-vector theta)))]
+          position (map + (:position ship) (cartesian [theta 0.3]))
+          [theta speed] (polar (map + (:velocity ship) (cartesian theta)))]
       (assoc state
         :particles (conj particles (gen-particle position theta speed 0.2 (rand-color [1 0.5 0] [1 1 1]) 0.5))))
     state))
@@ -199,7 +171,7 @@
                 :right (rem (- theta (* 360 dt)) 360)
                 theta)
         a     (if (key-pressed? :up)
-                  (map (partial * 3) (angle-to-vector theta))
+                  (map (partial * 3) (cartesian theta))
                   [0 0])
         v     (map + v (map * a (repeat dt))) 
         p     (wrap (map + p (map * v (repeat dt))))]
@@ -211,7 +183,7 @@
 (defn draw-spaceship [ship]
   (push-matrix
     (apply translate (:position ship))
-    (rotate (:theta ship) 0 0 1)
+    (rotate (- (:theta ship) 90) 0 0 1)
     (call-display-list fuselage)))
 
 (defn gen-spaceship []
@@ -221,30 +193,30 @@
    :theta 0
    :birth (clock)})
 
-;;;
+;;game state
 
 (defn reset [state]
   (assoc state
     :spaceship (gen-spaceship)
     :asteroids (take 4 (repeatedly
-                        #(let [dir (rand 360)
-                               pos (angle-to-vector dir 2)]
-                           (gen-asteroid pos 1 dir (+ 0.5 (rand 1.5))))))))
+                        #(let [theta (rand 360)
+                               pos (cartesian [theta 2])]
+                           (gen-asteroid pos 1 theta (+ 0.5 (rand 1.5))))))))
 
 (defn split-asteroid [asteroid]
-  (when (< 0.25 (get-radius asteroid))
+  (when (< 0.25 (radius asteroid))
     (take 4
       (repeatedly
         #(gen-asteroid
-          (get-position asteroid)
-          (/ (get-radius asteroid) 2)
+          (position asteroid)
+          (/ (radius asteroid) 2)
           (rand 360) (+ 1 (rand 1.5)))))))
 
 (defn gen-explosion [num object]
   (take num
     (repeatedly
       #(gen-particle
-        (get-position object)
+        (position object)
         (rand 360) (rand 2) (+ 0.15 (rand 0.15))
         (rand-color [1 0.5 0] [1 1 0])
         2))))
@@ -252,7 +224,7 @@
 (defn explode [exploding state]
   (assoc state
     :asteroids (concat (:asteroids state) (mapcat split-asteroid exploding))
-    :particles (concat (:particles state) (mapcat #(gen-explosion (* (get-radius %) 200) %) exploding))))
+    :particles (concat (:particles state) (mapcat #(gen-explosion (* (radius %) 200) %) exploding))))
 
 (defn check-complete [state]
   (if (zero? (count (:asteroids state)))

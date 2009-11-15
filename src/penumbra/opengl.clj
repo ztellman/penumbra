@@ -11,6 +11,7 @@
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [penumbra.opengl core geometry shader texture])
   (:use [penumbra.glsl core])
+  (:use [penumbra.geometry])
   (:import (javax.media.opengl GL2))
   (:import (javax.media.opengl.glu.gl2 GLUgl2))
   (:import (com.sun.opengl.util.gl2 GLUT))
@@ -153,18 +154,18 @@
 (gl-facade-import glScaled gl-scale)
 (gl-facade-import glLoadIdentity load-identity)
 
-(defn- undo-translation [matrix] (vec (concat (subvec matrix 0 12) [0 0 0 0]))) ;we don't want to translate normals
+(defn- undo-translation [matrix] (vec (concat (subvec matrix 0 12) [0 0 0 0]))) ;;we don't want to translate normals
 
 (facade-transform gl-vertex identity)
 (facade-transform gl-normal undo-translation)
 
-(facade-multiply gl-rotate penumbra.opengl.geometry/rotation-matrix)
-(facade-multiply gl-scale penumbra.opengl.geometry/scaling-matrix)
-(facade-multiply gl-translate penumbra.opengl.geometry/translation-matrix)
+(facade-multiply gl-rotate penumbra.geometry/rotation-matrix)
+(facade-multiply gl-scale penumbra.geometry/scaling-matrix)
+(facade-multiply gl-translate penumbra.geometry/translation-matrix)
 
-;This should really be the inverse matrix of the current model-view matrix
-;Right now, it only resets the intra-primitive transformations
-(facade-multiply load-identity penumbra.opengl.geometry/identity-matrix #(%2))
+;; This should really be the inverse matrix of the current model-view matrix
+;; Right now, it only resets the intra-primitive transformations
+(facade-multiply load-identity penumbra.geometry/identity-matrix #(%2))
 
 (defn vertex
   ([x y] (gl-vertex x y 0))
