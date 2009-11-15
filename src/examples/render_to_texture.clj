@@ -74,7 +74,6 @@
       (let [[rx ry] (:right state)]
         (assoc state :right [(- rx dy) (- ry dx)])))))
 
-
 (defn display [[delta time] state]
   (let [[lx ly] (:left state)
         [rx ry] (:right state)

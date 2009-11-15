@@ -70,7 +70,7 @@
        (apply vertex a) (apply vertex b))))))
 
 (defn init-asteroids []
-  (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 8 25))))))
+  (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 8 5))))))
 
 (defn gen-asteroid [initial radius theta speed]
   (let [birth (clock)
@@ -127,13 +127,13 @@
      :render #(draw-particle
                (position)
                radius
-               [r g b (max 0 (- 1 (Math/pow (/ (elapsed) lifespan) 10)))])}))
+               [r g b (max 0 (- 1 (Math/pow (/ (elapsed) lifespan) 3)))])}))
 
 ;;spaceship
 
 (defn draw-fuselage [] ;;should be hung in the Louvre
+  (color 1 1 1)
   (draw-triangles
-   (color 1 1 1)
    (vertex -0.4 -0.5) (vertex 0 -0.4) (vertex 0 0.5)
    (vertex 0.4 -0.5) (vertex 0 -0.4) (vertex 0 0.5)))
 
@@ -154,12 +154,12 @@
 (defn emit-flame [state]
   (if (key-pressed? :up)
     (let [ship (:spaceship state)
-          theta (+ 180 (:theta ship) (- (rand 40) 20))
+          theta (+ 180 (:theta ship) (- (rand 20) 10))
           particles (:particles state)
           position (map + (:position ship) (cartesian [theta 0.3]))
           [theta speed] (polar (map + (:velocity ship) (cartesian theta)))]
       (assoc state
-        :particles (conj particles (gen-particle position theta speed 0.2 (rand-color [1 0.5 0] [1 1 1]) 0.5))))
+        :particles (conj particles (gen-particle position theta speed 0.2 (rand-color [1 0.5 0] [1 1 1]) 0.4))))
     state))
 
 (defn update-spaceship [dt ship]
@@ -188,7 +188,7 @@
 
 (defn gen-spaceship []
   {:position [0 0]
-   :radius (constantly 0.5)
+   :radius 0.5
    :velocity [0 0]
    :theta 0
    :birth (clock)})
@@ -218,7 +218,7 @@
       #(gen-particle
         (position object)
         (rand 360) (rand 2) (+ 0.15 (rand 0.15))
-        (rand-color [1 0.5 0] [1 1 0])
+        (rand-color [0 1 1] [1 1 1])
         2))))
 
 (defn explode [exploding state]
@@ -239,7 +239,7 @@
       (assoc state
         :asteroids (concat missed (mapcat split-asteroid hit))
         :spaceship (gen-spaceship)
-        :particles (concat (:particles state) (gen-explosion 500 ship)))
+        :particles (concat (:particles state) (gen-explosion 300 ship)))
       state)))
 
 (defn check-asteroids [state]
@@ -270,7 +270,7 @@
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
   (start-update-loop 20 update-collisions)
-  (start-update-loop 100 emit-flame)
+  (start-update-loop 40 emit-flame)
   (reset state))
 
 (defn reshape [[x y w h] state]
