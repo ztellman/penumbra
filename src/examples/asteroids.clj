@@ -188,7 +188,7 @@
 
 (defn gen-spaceship []
   {:position [0 0]
-   :radius 2
+   :radius 0.5
    :velocity [0 0]
    :theta 0
    :birth (clock)})
@@ -201,7 +201,7 @@
     :asteroids (take 4 (repeatedly
                         #(let [theta (rand 360)
                                pos (cartesian [theta 2])]
-                           (gen-asteroid pos 1 theta (+ 10.5 (rand 1.5))))))))
+                           (gen-asteroid pos 1 theta (+ 0.5 (rand 1.5))))))))
 
 (defn split-asteroid [asteroid]
   (when (< 0.25 (radius asteroid))
@@ -210,21 +210,25 @@
         #(gen-asteroid
           (position asteroid)
           (/ (radius asteroid) 2)
-          (rand 360) (+ 10 (rand 1.5)))))))
+          (rand 360) (+ 1 (rand 1.5)))))))
 
-(defn gen-explosion [num object]
+(defn gen-explosion [num object [lo-color hi-color]]
   (take num
     (repeatedly
       #(gen-particle
         (position object)
         (rand 360) (rand 2) (+ 0.15 (rand 0.6))
-        (rand-color [1 0.5 0] [1 1 0.2])
+        (rand-color lo-color hi-color)
         2))))
 
-(defn explode [exploding state]
+(defn explode-asteroids [asteroids state]
   (assoc state
-    :asteroids (concat (:asteroids state) (mapcat split-asteroid exploding))
-    :particles (concat (:particles state) (mapcat #(gen-explosion (* (radius %) 100) %) exploding))))
+    :asteroids (concat
+                 (:asteroids state)
+                 (mapcat split-asteroid asteroids))
+    :particles (concat
+                 (:particles state)
+                 (mapcat #(gen-explosion (* (radius %) 100) % [[1 0.5 0] [1 1 0.2]]) asteroids))))
 
 (defn check-complete [state]
   (if (zero? (count (:asteroids state)))
@@ -239,7 +243,7 @@
       (assoc state
         :asteroids (concat missed (mapcat split-asteroid hit))
         :spaceship (gen-spaceship)
-        :particles (concat (:particles state) (gen-explosion 300 ship)))
+        :particles (concat (:particles state) (gen-explosion 300 ship [[0 0 0.6][0.5 0.5 1]])))
       state)))
 
 (defn check-asteroids [state]
@@ -249,7 +253,7 @@
         [hit missed] (separate (set (map first collisions)) asteroids)
         bullets (remove (set (map second collisions)) bullets)
         particles (:particles state)]
-    (explode
+    (explode-asteroids
      hit
      (assoc state
        :particles (remove expired? particles)
