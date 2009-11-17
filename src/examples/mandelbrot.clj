@@ -96,8 +96,6 @@
               next  (iterate-fractal {:upper-left ul :lower-right lr :num-iterations iterations-per-frame} [data])
               image (color-fractal {:max-iterations max-iterations} [[next]])]
           (repaint)
-          (if (:image state)
-            (release! (:image state)))
           (assoc state
             :iterations iters
             :data next
@@ -105,7 +103,7 @@
       state)))
 
 (defn display [_ state]
-  (blit (:image state)))
+  (blit* (:image state)))
 
 (start
   {:init init, :reshape reshape, :update update, :display display, :mouse-click mouse-click}
