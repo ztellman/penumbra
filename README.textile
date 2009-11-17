@@ -20,11 +20,11 @@ becomes
   (translate 0 0 -10)
   (draw-quads
     (vertex 0 0 0)
-	(vertex 0 1 0)
-	(vertex 1 1 0)
-	(vertex 1 0 0)))</code></pre>
+    (vertex 0 1 0)
+    (vertex 1 1 0)
+    (vertex 1 0 0)))</code></pre>
 
-Numerous sample programs can be found in @src/examples@.  They include clean, functional implementations of "Tetris":http://github.com/ztellman/penumbra/blob/master/src/examples/tetris.clj and "Asteroids":http://github.com/ztellman/penumbra/blob/master/src/examples/asteroids.clj, and a "Mandelbrot viewer":http://github.com/ztellman/penumbra/blob/master/src/examples/mandelbrot.clj that leverages the GPU.
+Numerous sample programs can be found in @src/examples@.  They include clean, functional implementations of "Tetris":http://github.com/ztellman/penumbra/blob/master/src/examples/tetris.clj and "Asteroids":http://github.com/ztellman/penumbra/blob/master/src/examples/asteroids.clj, and a GPU-driven "Mandelbrot viewer":http://github.com/ztellman/penumbra/blob/master/src/examples/mandelbrot.clj.
 
 A long term goal for Penumbra is to simplify GPU programming as much as possible, allowing for both advanced graphical effects and general computation.  This is a work in progress, but this "n-body simulation":http://github.com/ztellman/penumbra/blob/master/src/examples/n_body.clj is a good example of what's possible.
 

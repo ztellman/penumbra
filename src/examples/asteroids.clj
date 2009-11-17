@@ -243,7 +243,7 @@
       (assoc state
         :asteroids (concat missed (mapcat split-asteroid hit))
         :spaceship (gen-spaceship)
-        :particles (concat (:particles state) (gen-explosion 300 ship [[0 0 0.6][0.5 0.5 1]])))
+        :particles (concat (:particles state) (gen-explosion 300 ship [[0 0 0.6] [0.5 0.5 1]])))
       state)))
 
 (defn check-asteroids [state]
