@@ -7,108 +7,81 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns examples.gears
-  (:use [penumbra opengl window]))
+  (:use [penumbra opengl window geometry]))
 
-;;;;;;;;;;;;;;;;;;;;;;;;
-;Gear building functions
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;;Gear building functions
 
-(defmacro mirror
-  "given [a b c], yields [b c a c b]"
-  [divider & args]
-  `(do
-    ~@args
-    ~divider
-    ~@(reverse args)))
+(defn circle
+  [steps]
+  (let [increment (/ 360 steps)]
+    (map #(cartesian [% 1]) (map (partial * increment) (cycle (range steps))))))
 
-(defn draw-gear-face [num-teeth low mid high]
-  (let [increment (/ 90. num-teeth)]
-    (normal 0 0 1)
+(defn uneven-circle [steps low high]
+  (map #(map * (repeat %1) %2) (cycle [high low low high]) (circle steps)))
+
+(defn gear-face [num-teeth inner low high]
+  (let [steps (* 4 num-teeth)
+        inner-circle (uneven-circle steps inner inner)
+        outer-circle (uneven-circle steps low high)]
+    (apply concat (interleave (map reverse (partition 2 1 inner-circle)) (partition 2 1 outer-circle)))))
+
+(defn gear-teeth [num-teeth low high]
+  (let [teeth (uneven-circle (* 4 num-teeth) low high)
+        a (map (fn [[a b]] [a b 0]) teeth)
+        b (map (fn [[a b]] [a b 1]) teeth)]
+    (apply concat (interleave (map reverse (partition 2 1 a)) (partition 2 1 b)))))
+
+(defn draw-gear-face [num-teeth inner low high]
+  (let [vertices (take (inc (* 16 num-teeth)) (gear-face num-teeth inner low high))]
     (draw-quads
-      (rotate increment 0 0 1)
-      (dotimes [idx (inc num-teeth)]
-        (mirror (rotate increment 0 0 1)
-          (vertex 0 low 0)
-          (vertex 0 high 0))
+     (doseq [v vertices]
+       (apply vertex v)))))
 
-        (vertex 0 low 0)
-        (vertex 0 high 0)
-        (rotate increment 0 0 1)
-        (vertex 0 mid 0)
-        (vertex 0 low 0)
+(defn draw-strip [vertices]
+  (draw-quads
+   (doseq [face (partition 4 vertices)]
+     (let [face (vec face)
+           u (map - (face 2) (face 0))
+           v (map - (face 1) (face 0))]
+       (apply normal (normalize (cross u v)))
+       (doseq [v face]
+         (apply vertex v))))))
 
-        (mirror (rotate increment 0 0 1)
-          (vertex 0 low 0)
-          (vertex 0 mid 0))
-
-        (vertex 0 low 0)
-        (vertex 0 mid 0)
-        (rotate increment 0 0 1)
-        (vertex 0 high 0)
-        (vertex 0 low 0)))))
-
-(defn draw-gear-teeth [num-teeth mid high]
-  (let [increment (/ 90. num-teeth)
-        tooth-slope (/ (- high mid) (/ (* Math/PI high) (/ 360 increment)))]
-    (draw-quads
-      (dotimes [idx num-teeth]
-        (rotate increment 0 0 1)
-
-        (normal 0 1 0)
-        (mirror (rotate increment 0 0 1)
-          (vertex 0 high 1)
-          (vertex 0 high 0))
-
-        (normal (- tooth-slope) 1 0)
-        (push-matrix
-          (mirror (do (rotate increment 0 0 1) (translate 0 (- mid high) 0))
-            (vertex 0 high 1)
-            (vertex 0 high 0)))
-        (rotate increment 0 0 1)
-
-        (normal 0 1 0)
-        (mirror (rotate increment 0 0 1)
-          (vertex 0 mid 1)
-          (vertex 0 mid 0))
-
-        (normal tooth-slope 1 0)
-        (push-matrix
-          (mirror (do (rotate increment 0 0 1) (translate 0 (- high mid) 0))
-            (vertex 0 mid 1)
-            (vertex 0 mid 0)))))))
+(defn draw-gear-teeth [num-teeth low high]
+  (draw-strip (take
+               (inc (* 16 num-teeth))
+               (gear-teeth num-teeth low high))))
 
 (defn draw-gear-hole [num-teeth radius]
-  (let [increment (/ 180. num-teeth)]
-    (draw-quads
-      (dotimes [idx (* 2 num-teeth)]
-        (normal 0 -1 0)
-        (mirror (rotate increment 0 0 1)
-          (vertex 0 radius 0)
-          (vertex 0 radius 1))))))
+  (draw-strip (reverse
+               (take (inc (* 16 num-teeth))
+                     (gear-teeth num-teeth radius radius)))))
 
-(defn draw-gear [num-teeth low mid high width]
+(defn draw-gear [num-teeth inner low high width]
   (material :front-and-back
     :ambient-and-diffuse [1 0.25 0.25 1])
   (push-matrix
     (scale 1 1 width)
     (translate 0 0 -0.5)
+    ;;first gear face
+    (normal 0 0 -1)
+    (draw-gear-face num-teeth inner low high)
+    ;;second gear face
     (push-matrix
-      (rotate 180 0 1 0)
-      (rotate (/ 90. num-teeth) 0 0 1)
-      (draw-gear-face num-teeth low mid high))
-    (push-matrix
-      (draw-gear-teeth num-teeth mid high))
-    (push-matrix
+      (normal 0 0 1)
       (translate 0 0 1)
-      (draw-gear-face num-teeth low mid high))
+      (draw-gear-face num-teeth inner low high))
+    ;;geaar teeth
     (push-matrix
-      (draw-gear-hole num-teeth low))))
+      (draw-gear-teeth num-teeth low high))
+    ;;inner hole
+    (push-matrix
+      (draw-gear-hole num-teeth inner))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn init [state]
-  (enable :cull-face)
-  (enable :auto-normal)
-  (enable :normalize)
   (enable :depth-test)
   (enable :lighting)
   (enable :light0)

@@ -7,8 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns examples.asteroids
-  (:use [penumbra opengl window])
-  (:use [penumbra.geometry])
+  (:use [penumbra opengl window geometry])
   (:use [clojure.contrib.seq-utils :only (separate)]))
 
 ;;;
@@ -44,7 +43,7 @@
       (cartesian [theta phi 1]))))
 
 (defn rand-vector []
-  (cartesian [(rand 360) (rand 360) 1]))
+  (normalize (cartesian [(rand 360) (rand 360) 1])))
 
 (defn offset-vertex
   "Expand if on one side of a plane, contract if on the other"
@@ -159,7 +158,7 @@
           position (map + (:position ship) (cartesian [theta 0.3]))
           [theta speed] (polar (map + (:velocity ship) (cartesian theta)))]
       (assoc state
-        :particles (conj particles (gen-particle position theta speed 0.2 (rand-color [1 0.5 0] [1 1 1]) 0.4))))
+        :particles (conj particles (gen-particle position theta speed 0.2 (rand-color [1 0.5 0.7] [1 1 1]) 0.4))))
     state))
 
 (defn update-spaceship [dt ship]
@@ -201,7 +200,7 @@
     :asteroids (take 4 (repeatedly
                         #(let [theta (rand 360)
                                pos (cartesian [theta 2])]
-                           (gen-asteroid pos 1 theta (+ 0.5 (rand 1.5))))))))
+                           (gen-asteroid pos 1 theta (rand)))))))
 
 (defn split-asteroid [asteroid]
   (when (< 0.25 (radius asteroid))
@@ -210,14 +209,14 @@
         #(gen-asteroid
           (position asteroid)
           (/ (radius asteroid) 2)
-          (rand 360) (+ 1 (rand 1.5)))))))
+          (rand 360) (/ 1.5 (radius asteroid)))))))
 
-(defn gen-explosion [num object [lo-color hi-color]]
+(defn gen-explosion [num object [lo-color hi-color] speed]
   (take num
     (repeatedly
       #(gen-particle
         (position object)
-        (rand 360) (rand 2) (+ 0.15 (rand 0.6))
+        (rand 360) (rand speed) (+ 0.15 (rand 0.65))
         (rand-color lo-color hi-color)
         2))))
 
@@ -228,7 +227,7 @@
                  (mapcat split-asteroid asteroids))
     :particles (concat
                  (:particles state)
-                 (mapcat #(gen-explosion (* (radius %) 100) % [[1 0.5 0] [1 1 0.2]]) asteroids))))
+                 (mapcat #(gen-explosion (* (radius %) 100) % [[1 0.5 0] [1 1 0.2]] 2) asteroids))))
 
 (defn check-complete [state]
   (if (zero? (count (:asteroids state)))
@@ -243,7 +242,7 @@
       (assoc state
         :asteroids (concat missed (mapcat split-asteroid hit))
         :spaceship (gen-spaceship)
-        :particles (concat (:particles state) (gen-explosion 300 ship [[0 0 0.6] [0.5 0.5 1]])))
+        :particles (concat (:particles state) (gen-explosion 300 ship [[0 0 0.6] [0.5 0.5 1]] 7)))
       state)))
 
 (defn check-asteroids [state]
@@ -267,6 +266,7 @@
 ;;game loop
 
 (defn init [state]
+  (set-title "Asteroids")
   (vsync true)
   (init-asteroids)
   (init-particles)
