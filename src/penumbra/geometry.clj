@@ -17,15 +17,22 @@
   (dot v v))
 
 (defn length [v]
-  (Math/sqrt (dot v v)))
+  (Math/sqrt (length-squared v)))
 
-(defn radians [x] (* (/ Math/PI 180) x))
-
-(defn degrees [x] (* (/ 180 Math/PI) x))
-
-(defn normalize [v]
+ (defn normalize [v]
   (let [len (length v)]
     (map #(/ % len) v)))
+
+(defn cross [[ax ay az] [bx by bz]]
+  [(- (* ay bz) (* az by))
+   (- (* az bx) (* ax bz))
+   (- (* ax bz) (* ay bx))])
+
+(defn radians [x]
+  (* (/ Math/PI 180) x))
+
+(defn degrees [x]
+  (* (/ 180 Math/PI) x))
 
 (defn polar [v]
   (condp = (count v)
