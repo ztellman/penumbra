@@ -52,9 +52,10 @@
 
 (defmulti inspector
   #(cond
-     (not (seq? %)) nil
-     (c/swizzle? %) :swizzle
-     :else (id (first %)))
+    (keyword? %) %
+    (not (seq? %)) nil
+    (c/swizzle? %) :swizzle
+    :else (id (first %)))
   :default nil)
 
 (defmethod transformer nil [x]
@@ -70,39 +71,12 @@
 
 ;;;
 
-(defn- linear-lookup [x]
-  (let [[_ element idx] x]
-    (if (not (symbol? element))
-      (let [[swizzle [_ tex _]] element]
-        (list swizzle (list 'texture2DRect tex (list
-                                                'float2
-                                                (list 'mod (list 'float idx) '(.x --dim))
-                                                (list 'floor (list '/ (list 'float idx) '(.x --dim))))))))))
-
-(defn- rect-lookup [x]
-  (let [[_ element i j] x]
-    (if (not (symbol? element))
-      (let [[swizzle [_ tex _]] element]
-        (list swizzle (list 'texture2DRect tex (list 'float2 i j)))))))
-
-(defmethod transformer 'lookup [x]
-  (cond
-    (= 3 (count x)) (linear-lookup x)
-    (= 4 (count x)) (rect-lookup x)))
-
-(defmethod transformer 'lookup* [x]
-  (let [[_ element loc] x]
-    (if (not (symbol? element))
-      (let [[swizzle [_ tex _]] element]
-        (list swizzle (list 'texture2DRect tex loc))))))
-
-;;;
-
 (defmethod inspector nil [x]
-  (let [transformed-type (type-map (:tag ^x))]
-    (if transformed-type
-      transformed-type
-      (typeof x))))
+  (when-not (keyword? x)
+    (let [transformed-type (type-map (:tag ^x))]
+      (if transformed-type
+        transformed-type
+        (typeof x)))))
 
 (defmethod inspector :swizzle [x]
   (let [swizzle (-> x first name rest)
@@ -174,18 +148,16 @@
   '> :bool
   '= :bool
   '<= :bool
-  '>= :bool)
+  '>= :bool
+  :coord :float2
+  :dim :float2
+  :index :float)
 
 (def-identity-inspectors
   '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil 'abs 'log 'log2)
 
 (def-maximum-inspectors
   '* 'div 'mix 'pow)
-
-(defmethod inspector 'if [x]
-  (if (= 3 (count x))
-    (typeof (nth x 2))
-    (or (typeof (nth x 2)) (typeof (nth x 3)))))
 
 (defmethod inspector '? [x]
   (if (= 3 (count x))

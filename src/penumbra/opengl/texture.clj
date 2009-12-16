@@ -45,7 +45,7 @@
   (dosync (alter (:ref-count t) dec)))
 
 (defn texture? [t]
-  (= 'texture-struct (:tag ^t)))
+  (= 'texture-struct (:tag (meta t))))
 
 (defn-memo attachment-lookup [point]
   (enum (keyword (str "color-attachment" point))))

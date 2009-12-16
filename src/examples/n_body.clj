@@ -33,13 +33,13 @@
       (float3 (* 0.5 m (dot v v)))))
 
   (defmap potential-energy
-    (let [m1 %1, m2 (lookup %1 idx)
-          p1 %2, p2 (lookup %2 idx)]
+    (let [m1 %1, m2 (%1 idx)
+          p1 %2, p2 (%2 idx)]
       (float3 (* g m1 m2 (length (- p1 p2))))))
 
   (defmap gravity
-    (let [m2 (lookup %1 idx)
-          p1 %2, p2 (lookup %2 idx)
+    (let [m2 (%1 idx)
+          p1 %2, p2 (%2 idx)
           diff (- p2 p1)]
       (? (= :index (float idx))
         (float3 0.0)
@@ -57,8 +57,8 @@
     (reduce add (map #(reduce add (doall (map f %))) s))))
 
 (defn energy [m v p num]
-  (let [ke (first (sum (kinetic-energy [ [m] [v] ])))
-        pe (first (sum (piecewise-add #(potential-energy {:idx % :g 6.673e-11} [ [m] [p] ]) num)))]
+  (let [ke (first (sum [(kinetic-energy [ [m] [v] ])]))
+        pe (first (sum [(piecewise-add #(potential-energy {:idx % :g 6.673e-11} [ [m] [p] ]) num)]))]
     (println "kinetic:" ke "potential:" pe "total:" (+ ke pe))))
 
 (defn run-sim [num iterations]

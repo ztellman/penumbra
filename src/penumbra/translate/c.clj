@@ -261,6 +261,12 @@
        " ? " (parse (third x))
        " : " (parse (fourth x)) ")"))
 
+(defmethod parser 'when
+  [_ pred & body]
+  (str
+   "if (" (parse pred) ")"
+   "\n{\n" (indent (parse-lines body) ";") "}\n"))
+
 (defmethod parser 'if
   [x]
   (str

@@ -44,7 +44,7 @@
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
   (assoc state
-    :tex (create-byte-texture* 256 256)))
+    :tex (create-byte-texture 256 256)))
 
 (defn key-press [key state]
   (let [tex (:tex state)]
@@ -55,7 +55,7 @@
       (= key :enter)
       (enqueue #(assoc %
                   :tex (with-frame-buffer
-                         (blur [tex [kernel]]))))))
+                         (first (blur [tex [kernel]])))))))
   state)
 
 (defn display [_ state]

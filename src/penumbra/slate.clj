@@ -9,32 +9,12 @@
 (ns penumbra.slate
   (:use [clojure.contrib.def :only (defmacro- defn-memo)])
   (:use [clojure.contrib.pprint])
-  (:use [clojure.contrib.lazy-seqs :only (primes)])
   (:use [clojure.contrib.seq-utils :only (separate)])
   (:use [penumbra opengl])
   (:use [penumbra.opengl core])
   (:use [penumbra.opengl.texture :only [destroy-textures]])
   (:import (java.util.concurrent Semaphore))
   (:import (javax.media.opengl GLPbuffer GLEventListener GLCapabilities GLProfile GLAutoDrawable)))
-
-;;;;;;;;;;;;;;;;;
-
-(defn- prime-factors
-  "returns prime factors of a number"
-  ([n] (prime-factors primes [] n))
-  ([primes factors n]
-	 (let [p (first primes)]
-	   (cond
-		 (= n 1) factors
-		 (zero? (rem n p)) (recur primes (conj factors p) (/ n p))
-		 :else (recur (rest primes) factors n)))))
-
-(defn rectangle [n]
-  (let [factors   (prime-factors n)
-        reordered (take (count factors) (interleave factors (reverse factors)))
-        sqrt      (int (Math/sqrt n))
-        divisor   (reduce #(if (>= sqrt (* %1 %2)) (* %1 %2) %1) 1 reordered)]
-    [divisor (/ n divisor)]))
 
 ;;;;;;;;;;;;;;;;;
 

@@ -6,7 +6,27 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.geometry)
+(ns penumbra.geometry
+  (:use [clojure.contrib.lazy-seqs :only (primes)]))
+
+;;;
+
+(defn- prime-factors
+  "Returns prime factors of a number"
+  ([n] (prime-factors primes [] n))
+  ([primes factors n]
+	 (let [p (first primes)]
+	   (cond
+		 (= n 1) factors
+		 (zero? (rem n p)) (recur primes (conj factors p) (/ n p))
+		 :else (recur (rest primes) factors n)))))
+
+(defn rectangle [n]
+  (let [factors   (prime-factors n)
+        reordered (take (count factors) (interleave factors (reverse factors)))
+        sqrt      (int (Math/sqrt n))
+        divisor   (reduce #(if (>= sqrt (* %1 %2)) (* %1 %2) %1) 1 reordered)]
+    [divisor (/ n divisor)]))
 
 ;;;
 

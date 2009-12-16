@@ -38,10 +38,19 @@
 
 (defn meta? [x]
   (instance? clojure.lang.IMeta x))
+
+(defn typeof [x]
+  (cond
+    (integer? x) :int
+    (float? x) :float
+    (keyword? x) (when *inspector* (*inspector* x))
+    (not (meta? x)) nil
+    (:numeric-value (meta x)) (typeof (:numeric-value (meta x)))
+    :else (:tag (meta x))))
                                        
-(defn add-meta [x & meta]
+(defn add-meta [x & metadata]
   (if (meta? x)
-    (with-meta x (apply assoc (list* ^x meta)))
+    (with-meta x (apply assoc (list* (meta x) metadata)))
     x))
 
 (defn seq-wrap [s]
@@ -63,7 +72,7 @@
 
 ;;;
 
-(defn- mimic-expr [a b]
+(defn mimic-expr [a b]
   (if (meta? b)
     (with-meta
       (cond
@@ -114,7 +123,7 @@
      (do-tree
       #(print
         (apply str (realize (take (* 2 %2) (repeat "  "))))
-        (realize %) "^" ^(realize %) "\n")
+        (realize %) "|" (typeof %) "|" (meta (realize %)) "\n")
       x))))
 
 ;;;
@@ -225,14 +234,6 @@
 
 ;;;
 
-(defn typeof [x]
-  (cond
-    (integer? x) :int
-    (float? x) :float
-    (not (meta? x)) nil
-    (:numeric-value ^x) (typeof (:numeric-value ^x))
-    :else (:tag ^x)))
-
 (defn declared-vars [x]
   (distinct (tree-filter #(:assignment ^%) x)))
 
@@ -278,7 +279,7 @@
         (empty? unknown-types)
           x*
         (and (= (count tagged) (count tagged*)) (< 20 iterations)) ;TODO: determine max sexpr depth and use that instead
-          (throw (Exception. (str "Unable to determine type of " (with-out-str (prn (keys unknown-types)) (pprint x)))))
+          (throw (Exception. (str "Unable to determine type of " (with-out-str (prn (keys unknown-types)) (print-tree x)))))
         :else
           (recur x* tagged* (inc iterations))))))
         

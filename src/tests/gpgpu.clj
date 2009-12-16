@@ -53,4 +53,4 @@
           (let [i (+ 1 i)]
             (let [s (map float (range (* 4 i)))
                   tex (wrap s 4)]
-              (is (= (apply + (sum tex)) (apply + s))))))))))
+              (is (= (apply + (sum [tex])) (apply + s))))))))))

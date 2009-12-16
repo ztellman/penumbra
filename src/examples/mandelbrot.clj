@@ -17,7 +17,7 @@
   (defmap iterate-fractal
     (let [val %
           c (mix upper-left lower-right (/ :coord :dim))]   
-      (dotimes [_ num-iterations]
+      (dotimes [i num-iterations]
         (let [z (.xy val)
               iterations (.z val)]
           (<- val
@@ -87,14 +87,14 @@
   (let [max-iterations (* 100 (Math/sqrt (:zoom state)))]
     (if (< (:iterations state) max-iterations)
       (with-frame-buffer
-        (let [ul    (:upper-left state)
-              lr    (:lower-right state)
-              iters (+ (:iterations state) iterations-per-frame)
-              data  (or
-                      (:data state)
-                      (initialize-fractal {:upper-left ul :lower-right lr} (:dim state)))
-              next  (iterate-fractal {:upper-left ul :lower-right lr :num-iterations iterations-per-frame} [data])
-              image (color-fractal {:max-iterations max-iterations} [[next]])]
+        (let [ul      (:upper-left state)
+              lr      (:lower-right state)
+              iters   (+ (:iterations state) iterations-per-frame)
+              data    (or
+                       (:data state)
+                       (initialize-fractal {:upper-left ul :lower-right lr} (:dim state)))
+              next    (iterate-fractal {:upper-left ul :lower-right lr :num-iterations iterations-per-frame} [data])
+              image   (color-fractal {:max-iterations max-iterations} [[next]])]
           (repaint)
           (assoc state
             :iterations iters

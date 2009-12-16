@@ -8,10 +8,9 @@
 
 (ns penumbra.glsl.data
   (:use [penumbra.opengl.framebuffer :only (read-format)])
-  (:use [penumbra.slate :only (rectangle)])
   (:use [penumbra.opengl.texture :only (texture? create-texture gl-tex-sub-image-2d release!)])
   (:use [penumbra.opengl.core])
-  (:use [penumbra opengl])
+  (:use [penumbra opengl geometry])
   (:import (java.nio Buffer FloatBuffer IntBuffer ByteBuffer))
   (:import (com.sun.opengl.util.texture TextureData)))
 
@@ -98,44 +97,48 @@
        (texture? s) s
        :else (seq-to-texture s tuple dim))))
 
+(defn- peel [tex]
+  (if (vector? tex) (first tex) tex))
+
 (defn unwrap
   ([tex]
-    (unwrap tex (* (apply * (:dim tex)) (:tuple tex))))
+     (let [tex (peel tex)]
+       (unwrap tex (* (apply * (:dim tex)) (:tuple tex)))))
   ([tex size]
-    (if (nil? (:attach-point tex))
-      (throw (Exception. "Cannot read from unattached texture.")))
-    '(gl-read-buffer @(:attach-point tex))
-    (let [[w h] (:dim tex)
-          dim   (* w h (:tuple tex))
-          a     (create-array size (:internal-type tex))]
-      (bind-texture tex)
-      (gl-get-tex-image
-        (int (enum (:target tex)))
-        0
-        (int (enum (:pixel-format tex)))
-        (int (enum (:internal-type tex)))
-        #^Buffer (array-to-buffer a (:internal-type tex)))
-      '(gl-read-pixels
-        0 0 (int w) (int h)
-        (int (enum (:pixel-format tex)))
-        (int (enum (:internal-type tex)))
-        #^Buffer (array-to-buffer a (:internal-type tex)))
-       a)))
+     (let [tex (peel tex)]
+       (let [[w h] (:dim tex)
+             dim   (* w h (:tuple tex))
+             a     (create-array size (:internal-type tex))]
+         (bind-texture tex)
+         (gl-get-tex-image
+          (int (enum (:target tex)))
+          0
+          (int (enum (:pixel-format tex)))
+          (int (enum (:internal-type tex)))
+          #^Buffer (array-to-buffer a (:internal-type tex)))
+         a))))
+
+(defn unwrap! [& args]
+  (let [data (apply unwrap args)]
+    (release! (first args))
+    data))
 
 (defn unwrap-first [tex]
-  (if (nil? @(:attach-point tex))
-    (throw (Exception. "Cannot read from unattached texture.")))
-  (gl-read-buffer @(:attach-point tex))
-  (if (not (frame-buffer-ok?))
+  (let [tex (peel tex)]
+    (if (not (frame-buffer-ok?))
       (throw (Exception. (str "Framebuffer status is " (frame-buffer-status)))))
-  (let [a (create-array (:tuple tex) (:internal-type tex))]
-    (gl-read-pixels
-      0 0 1 1
-      (int (enum (:pixel-format tex)))
-      (int (enum (:internal-type tex)))
-      #^Buffer (array-to-buffer a (:internal-type tex)))
+    (let [a (create-array (:tuple tex) (:internal-type tex))]
+      (gl-read-pixels
+       0 0 1 1
+       (int (enum (:pixel-format tex)))
+       (int (enum (:internal-type tex)))
+       #^Buffer (array-to-buffer a (:internal-type tex)))
+      a)))
+
+(defn unwrap-first! [tex]
+  (let [data (unwrap-first tex)]
     (release! tex)
-     a))
+    data))
 
 
 ;;;;;;;;;;;;;;;;;;
