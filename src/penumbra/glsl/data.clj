@@ -20,17 +20,6 @@
 (defn- flat? [s] (not (or (array? s) (sequential? s))))
 (defn- or= [cmp & args] (some #(= cmp %) args))
 
-(defn byte-array [size-or-seq]
-  (if (number? size-or-seq)
-    (make-array Byte/TYPE size-or-seq)
-    (let [a (make-array Byte/TYPE (count size-or-seq))]
-      (loop [idx 0, s size-or-seq]
-        (if (empty? s)
-          a
-          (do
-            (aset a idx (byte (first s)))
-            (recur (inc idx) (next s))))))))
-
 (defn- create-array [size-or-seq type]
   (cond
     (= type :int)           (int-array size-or-seq)
