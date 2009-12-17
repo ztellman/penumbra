@@ -124,8 +124,10 @@
       (str (apply str (interpose " " (map name (next x)))) (-> x first name))
     (symbol? x)
       (let [x* (symbol (.replace (name x) \- \_))]
-        (if (:first-appearance ^x)
-          (.trim (apply str (interpose " " (reverse (map name (list* x* (:tag ^x) (:modifiers ^x)))))))
+        (if (:first-appearance (meta x))
+          (let [type (typeof x)
+                modifiers (:modifiers (meta x))]
+            (->> (list* x* type modifiers) (map name) reverse (interpose " ") (apply str) .trim))
           (str x*)))
     (first= x :nth)
       (str (parse-assignment-left (second x)) "[" (parse (third x)) "]")

@@ -248,7 +248,7 @@
       (= 1 (count types))
         (first types)
       :else
-        (throw (ParseException. (str "Ambiguous type for " var ", cannot decide between " (with-out-str (prn types) (pprint x))) 0)))))
+        (throw (ParseException. (str "Ambiguous type for '" var "', cannot decide between " (with-out-str (prn types) (print-tree x))) 0)))))
 
 (defn- tagged-vars [x]
   (let [vars (atom [])]

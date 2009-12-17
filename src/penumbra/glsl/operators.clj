@@ -115,18 +115,26 @@
           :else
           (println "Don't recognize index type" location (typeof location)))))))))
 
+(defn- transform-dim [x]
+  (println "transform-dim" x)
+  (let [idx (element-index (second x))]
+    (add-meta (symbol (str "-dim" idx)) :tag :float2)))
+
 (defmacro with-glsl [& body]
   `(binding [*typeof-param* typeof-param
              *typeof-element* typeof-element
-             *typeof-dim* (fn [_#] :float2)
+             *typeof-dim* (constantly :float2)
              *dim-element* :dim
-             *transformer* transformer, *generator* generator, *inspector* inspector, *tagger* c/tagger]
+             *transformer* transformer,
+             *generator* generator,
+             *inspector* inspector,
+             *tagger* c/tagger]
      ~@body))
 
 ;;;
 
 (defvar- fixed-transform
-  '((<- --coord (-> :multi-tex-coord0 .xy (* --dim)))
+  '((<- -coord (-> :multi-tex-coord0 .xy (* -dim)))
     (<- :position (* :model-view-projection-matrix :vertex))))
 
 (defn- wrap-uniform
@@ -134,16 +142,16 @@
   ([x type] (list 'declare (list 'uniform (add-meta x :tag type)))))
 
 (defn- prepend-index
-  "Adds an --index variable definition to beginning of program if :index is used anywhere inside"
+  "Adds an -index variable definition to beginning of program if :index is used anywhere inside"
   [x]
   (let [index
         '((<-
-          --index
-          (-> --coord .y floor (* (.x --dim)) (+ (-> --coord .x floor)))))]
+          -index
+          (-> -coord .y floor (* (.x -dim)) (+ (-> -coord .x floor)))))]
     (if ((set (flatten x)) :index)
       (concat
         index
-        (apply-transforms [(replace-with :index '--index)] x))
+        (apply-transforms [(replace-with :index '-index)] x))
       x)))
 
 (defn- frag-data-typecast
@@ -156,13 +164,13 @@
           (indexed results))))
 
 (defn- wrap-and-prepend
-  "Defines --coord and --dim, and applies prepend-index"
+  "Defines -coord and -dim, and applies prepend-index"
   [x]
   (list
    '(do
-      (declare (varying #^:float2 --coord))
-      (declare (uniform #^:float2 --dim))
-      (declare (uniform #^:float2 --bounds)))
+      (declare (varying #^:float2 -coord))
+      (declare (uniform #^:float2 -dim))
+      (declare (uniform #^:float2 -bounds)))
    (list 'defn 'void 'main [] (prepend-index x))))             
 
 (defn- create-operator
@@ -177,22 +185,23 @@
   [program]
   (let [[elements params] (separate element? (tree-filter #(and (symbol? %) (typeof %)) program))
         elements (set (map element-index elements))
-        params (remove (set (filter #(:assignment (meta %)) params)) (set params))
+        locals (filter #(:assignment (meta %)) params)
+        privates (filter #(and (symbol? %) (= \- (first (name %)))) params)
+        params (remove (set (concat locals privates)) (distinct params))
         declarations (list
                       'do
                       (map #(wrap-uniform (rename-element %) :sampler2DRect) elements)
-                      (map #(wrap-uniform (symbol (str "--dim" %)) :float2) (range 0 (count elements)))
+                      (map #(wrap-uniform (symbol (str "-dim" %)) :float2) (range 0 (count elements)))
                       (map #(wrap-uniform %) (distinct params)))
        body (->>
              program
-             (apply-element-transform
-              transform-element)
+             (tree-map #(when (first= % 'dim) (transform-dim %)))
+             (apply-element-transform transform-element)
              (apply-transforms
               (list
-               #(when (and (seq? %) (first= % 'dim))
-                  (symbol (str "--dim" (element-index (second %)))))
-               (replace-with :coord '--coord)
-               (replace-with :dim '--dim)))
+               #(when (first= % 'dim) (transform-dim %))
+               (replace-with :coord '-coord)
+               (replace-with :dim '-dim)))
              (transform-results frag-data-typecast)
              wrap-and-prepend)]
     (list 'do declarations body)))
@@ -243,9 +252,9 @@
         results ((:yield-results info))
         targets (map #(create-write-texture % dim) results)]
     (set-params params)
-    (apply uniform (list* :__dim (map float dim)))
+    (apply uniform (list* :_dim (map float dim)))
     (doseq [[idx d] (indexed (map :dim elements))]
-      (apply uniform (list* (symbol (str "--dim" (inc idx))) (map float d))))
+      (apply uniform (list* (symbol (str "-dim" idx)) (map float d))))
     (attach-textures
       (interleave (map rename-element (range (count elements))) elements)
       targets)
@@ -284,9 +293,9 @@
               target    (mimic-texture input half-dim)
               [w h]     half-dim
               bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
-          (apply uniform (list* :__bounds bounds))
-          (apply uniform (list* :__dim half-dim))
-          (attach-textures [:__data input] [target])
+          (apply uniform (list* :_bounds bounds))
+          (apply uniform (list* :_dim half-dim))
+          (attach-textures [:_tex0 input] [target])
           (draw 0 0 w h)
           (if (not (:persist (meta input)))
             (release! input))

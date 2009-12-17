@@ -30,21 +30,21 @@
   (defmap blur
     (let [value (float4 0.0)
           sum 0.0]
-      (convolution %2
-        (+= sum %2)
+      (convolve %2
+         (+= sum %2)
         (+= value (* %2 %1)))
       (/ value sum))) 
 
   (def kernel
     (wrap (map float
-               [0.01 0.01 1
-                0.01 1    0.01
-                1    0.01 0.01])))
+               [1 0 0
+                0 1 0
+                0 0 1 ])))
   
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
   (assoc state
-    :tex (create-byte-texture 256 256)))
+    :tex (create-byte-texture :texture-rectangle 256 256)))
 
 (defn key-press [key state]
   (let [tex (:tex state)]
@@ -55,7 +55,7 @@
       (= key :enter)
       (enqueue #(assoc %
                   :tex (with-frame-buffer
-                         (first (blur [tex [kernel]])))))))
+                         (blur [tex [kernel]]))))))
   state)
 
 (defn display [_ state]

@@ -73,7 +73,7 @@
 
 (defmethod inspector nil [x]
   (when-not (keyword? x)
-    (let [transformed-type (type-map (:tag ^x))]
+    (let [transformed-type (type-map (:tag (meta x)))]
       (if transformed-type
         transformed-type
         (typeof x)))))
@@ -170,10 +170,10 @@
   `(defmethod transformer ~sym [x#]
      (if (= 2 (count x#))
        (let [x# (second x#)]
-         (add-meta x# :modifiers (into (:modifiers ^x#) [~sym])))
+         (add-meta x# :modifiers (into (:modifiers (meta x#)) [~sym])))
        (let [type# (second x#)
              x# (nth x# 2)]
-         (add-meta x# :modifiers (into (:modifiers ^x#) [~sym]) :tag (keyword type#))))))
+         (add-meta x# :modifiers (into (:modifiers (meta x#)) [~sym]) :tag (keyword type#))))))
 
 (defmacro- def-transform-modifiers [& symbols]
   (let [fns (map def-transform-modifier symbols)]
@@ -185,14 +185,15 @@
 
 (defn transform-constructors [x]
   (tree-map
-   #(if (and (symbol? %) (-> % keyword type-map)) (-> % keyword type-map name symbol))
+   #(if (and (symbol? %) (-> % keyword type-map))
+      (-> % keyword type-map name symbol))
    x))
 
 (defn- transform-tags [x]
   (tree-map
-   #(if (meta? %)
-     (add-meta % :tag (or (type-map (:tag ^%)) (:tag ^%)))
-     %)
+   #(if-let [type (:tag (meta %))]
+      (add-meta % :tag (or (type-map type) type))
+      %)
    x))
 
 (defn translate-glsl [x]

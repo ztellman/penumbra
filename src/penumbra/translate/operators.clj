@@ -31,7 +31,7 @@
     (if (or (= cls Integer) (= cls Integer/TYPE)) true false)))
 
 (defn tag= [x t]
-  (and (meta? x) (= t (:tag ^x))))
+  (and (meta? x) (= t (:tag (meta x)))))
 
 (defn apply-transforms [funs tree]
   (reduce #(tree-map %2 %1) tree funs))
@@ -126,26 +126,26 @@
 ;;special map operators
 
 (defvar- convolution-expr
-  '(let [--half-dim (/ (dim :element) 2.0)
-         --start    (max (float2 0.0) (- :coord (floor --half-dim)))
-         --end      (min :dim (+ :coord (ceil --half-dim)))]
-     (for [(<- i (.x --start)) (< i (.x --end)) (+= i 1.0)]
-       (for [(<- j (.y --start)) (< j (.y --end)) (+= j 1.0)]
-         (let [--location (float2 i j)
-               --offset   (- --location :coord)
-               --lookup   (:element (+ --location --half-dim))]
+  '(let [-half-dim (/ (dim :element) 2.0)
+         -start    (max (float2 0.0) (- :coord (floor -half-dim)))
+         -end      (min :dim (+ :coord (ceil -half-dim)))]
+     (for [(<- i (.x -start)) (< i (.x -end)) (+= i 1.0)]
+       (for [(<- j (.y -start)) (< j (.y -end)) (+= j 1.0)]
+         (let [-location (float2 i j)
+               -offset   (- -location :coord)
+               -lookup   (:element (+ -offset -half-dim))]
            :body)))))
 
 (defmulti transform-convolution #(param-dispatch (second %)))
 
-(defmethod transform-convolution :symbol [_ element & body]
+(defmethod transform-convolution :symbol [[_ element & body]]
   (let [body (apply-transforms
               (list
-               (replace-with :offset '--offset)
+               (replace-with :offset '-offset)
                #(when (and (element? %) (symbol? %))
                   (if (= element %)
-                    (list element '--lookup)
-                    (list element '--location))))
+                    '-lookup
+                    (list % '-location))))
               body)]
     (apply-transforms
      (list
@@ -153,22 +153,20 @@
       #(if (= :body %) body))
      convolution-expr)))
 
-(defmethod transform-convolution :dim [_ dim & body]
+(defmethod transform-convolution :dim [[_ dim & body]]
   (let [body (apply-transforms
               (list
-               (replace-with :offset '--offset)
+               (replace-with :offset '-offset)
                #(when (and (element? %) (symbol? %))
-                  '(% --location)))
+                  (if (zero? (element-index %))
+                    '-lookup
+                    '(% -location))))
               body)]
     (apply-transforms
      (list
       #(if (= :element %) '%)
       #(if (= :body %) body))
      convolution-expr)))
-
-(defn- transform-dim [x]
-  (let [idx (element-index (second x))]
-    (add-meta (symbol (str "--dim" idx)) :tag (*typeof-dim* idx))))
 
 ;;defmap
 
@@ -204,8 +202,8 @@
                        (fn []
                          (let [program (apply-transforms
                                         (list
-                                         #(when (and (seq? %) (first= % 'dim)) (transform-dim %))
-                                         #(when (and (seq? %) (first= % 'convolve)) (transform-convolution %)))
+                                         #(when (first= % 'convolve) (transform-convolution %))
+                                         #(when (first= % 'dim) (add-meta % :tag (*typeof-dim* (-> % last element-index)))))
                                         program)]
                            (process-operator program params elements))))
         yield-results (memoize #(map typeof (results (yield-program))))]
@@ -220,8 +218,8 @@
 
 (defvar- reduce-program
   '(let [-source-coord (* (floor :coord) 2.0)
-         -x (> (.x --bounds) (.x -source-coord))
-         -y (> (.y --bounds) (.y -source-coord))]
+         -x (> (.x -bounds) (.x -source-coord))
+         -y (> (.y -bounds) (.y -source-coord))]
      (<- -a (% -source-coord))
      (if -x
        (let [-b (% (+ -source-coord (float2 1.0 0.0)))
