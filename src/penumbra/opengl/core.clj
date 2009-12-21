@@ -7,84 +7,114 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.core
-  (:use [clojure.contrib.def :only (defn-memo defmacro-)])
-  (:import (javax.media.opengl GL2))
-  (:import (javax.media.opengl.glu.gl2 GLUgl2))
-  (:import (com.sun.opengl.util.gl2 GLUT))
-  (:import (java.lang.reflect Field)))
+  (:use [clojure.contrib.def :only (defn-memo defmacro- defvar defvar-)])
+  (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32 GLU GLUT))
+  (:import (org.lwjgl.util.glu GLU))
+  (:import (java.lang.reflect Field Method)))
 
-(def #^GL2 *gl* nil)
-(def #^GLUgl2 *glu* (new GLUgl2))
-(def #^GLUT *glut* (new GLUT))
+;;;
 
-(def *inside-begin-end* false)
-(def *intra-primitive-transform* (atom false))
-(def *transform-matrix* (atom nil))
-(def *program* nil)
-(def *uniforms* nil)
+(defvar *inside-begin-end* false
+  "Are we within a glBegin/glEnd scope")
 
-(def *texture-pool* nil)
-(def *tex-mem-threshold* 100e6)
-(def *tex-count-threshold* 100)
+(defvar *intra-primitive-transform* (atom false)
+  "Have we encountered an intra-primitive (i.e. *inside-begin-end* is true) transformation")
 
-;;;;;;;;;;;;;;;;;;;;;;
+(defvar *transform-matrix* (atom nil)
+  "The transform matrix for intra-primtive transforms")
 
-(def *check-errors* true) ;makes any OpenGL error throw an exception
-(defn check-errors [] *check-errors*)
+(defvar *program* nil
+  "The current program bound by with-program")
 
-(defn enum-name
+(defvar *uniforms* nil
+  "Cached integer locations for uniforms (bound on a per-program basis)")
+
+(defvar *texture-pool* nil
+  "A list of all allocated textures.  Unused textures can be overwritten, thus avoiding allocation.")
+
+(defvar *tex-mem-threshold* 100e6
+  "The memory threshold, in bytes, which will trigger collection of unused textures")
+
+(defvar *tex-count-threshold* 100
+  "The threshold for number of allocated textures which will trigger collection of any which are unused")
+
+(defvar *check-errors* true
+  "Causes errors in glGetError to throw an exception.  This averages 3% CPU overhead, and is almost always worth having enabled.") 
+
+;;;
+
+(defvar- containers [GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32 GLU])
+
+(defmacro defn-memo-
+  [name & decls]
+  (list* `defn-memo (with-meta name (assoc (meta name) :private true)) decls))
+
+(defn- get-fields [static-class]
+  (. static-class getFields))
+
+(defn- get-methods [static-class]
+  (. static-class getMethods))
+
+(defn- contains-field? [static-class field]
+  (first
+   (filter
+    #{ (name field) }
+    (map #(.getName #^Field %) (get-fields static-class)))))
+
+(defn- contains-method? [static-class method]
+  (first
+   (filter
+    #{ (name method) }
+    (map #(.getName #^Method %) (get-methods static-class)))))
+
+(defn- field-container [field]
+  (first (filter #(contains-field? % field) containers)))
+
+(defn- method-container [method]
+  (first (filter #(contains-method? % method) containers)))
+
+(defn- get-gl-method [method]
+  (let [method-name (name method)]
+    (first (filter #(= method-name (.getName %)) (mapcat get-methods containers)))))
+
+(defn-memo enum-name
   "Takes the numeric value of a gl constant (i.e. GL_LINEAR), and gives the name"
   [enum-value]
   (if (= 0 enum-value)
     "NONE"
-    (let [fields (seq (.. *gl* (getClass) (getFields)))]
-      (.getName #^Field (some #(if (= enum-value (.get #^Field % *gl*)) % nil) fields)))))     
+    (.getName
+     (some
+      #(if (= enum-value (.get % nil)) % nil)
+      (mapcat get-fields containers)))))     
 
 (defn check-error []
-  (let [error (.glGetError *gl*)]
+  (let [error (GL11/glGetError)]
     (if (not (zero? error))
       (throw (Exception. (str "OpenGL error: " (enum-name error)))))))
 
-(defn enum-macro [k]
- (if (keyword? k)
-   (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
-    `(. GL2 ~(symbol gl)))
-   k))
-
 (defn-memo enum [k]
-  (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))]
-    (eval `(. GL2 ~(symbol gl)))))
+  (when (keyword? k)
+    (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))
+          sym (symbol gl)]
+      (eval `(. ~(field-container sym) ~sym)))))
 
 (defmacro gl-import
-  "Imports an OpenGL function, transforming all :keywords into GL_KEYWORDS"
   [import-from import-as]
-  `(defmacro ~import-as [& args#]
-    `(do
-      (let [~'value# (. #^GL2 *gl* ~'~import-from ~@(map enum-macro args#))]
-        (if (and (check-errors) (not *inside-begin-end*)) (check-error))
-        ~'value#))))
+  (let [container (method-container import-from)
+        doc-string (str "Wrapper for " import-from
+                        ".  Parameters types: ["
+                        (apply str (interpose " " (map #(.getCanonicalName %) (.getParameterTypes (get-gl-method import-from)))))
+                        "].")]
+    `(defmacro ~import-as
+       ~doc-string
+       [& args#]
+       `(do
+          (let [~'value# (. ~'~container ~'~import-from ~@(map (fn [x#] (or (enum x#) x#)) args#))]
+            (when (and *check-errors* (not *inside-begin-end*))
+              (check-error))
+            ~'value#)))))
 
 (defmacro gl-import-
   "Private version of gl-import"
   [name & decls]
   (list* `gl-import (with-meta name (assoc (meta name) :private true)) decls))
-
-(defmacro glu-import [import-from import-as]
-  `(defmacro ~import-as [& args#]
-      `(. *glu* ~'~import-from ~@(map enum-macro args#))))
-
-(defmacro glu-import-
-  "Private version of glu-import"
-  [name & decls]
-  (list* `glu-import (with-meta name (assoc (meta name) :private true)) decls))
-
-(defmacro glut-import [import-from import-as]
-  `(defmacro ~import-as [& args#]
-      `(. *glut* ~'~import-from ~@(map enum-macro args#))))
-
-(defmacro glut-import-
-  "Private version of glu-import"
-  [name & decls]
-  (list* `glut-import (with-meta name (assoc (meta name) :private true)) decls))
-
-;;;;;;;;;;;;;;;;;;;;;;
