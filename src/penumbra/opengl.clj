@@ -12,28 +12,17 @@
   (:use [penumbra.opengl core geometry shader texture])
   (:use [penumbra.glsl core])
   (:use [penumbra.geometry])
-  (:import (javax.media.opengl GL2))
-  (:import (javax.media.opengl.glu.gl2 GLUgl2))
-  (:import (com.sun.opengl.util.gl2 GLUT))
   (:import (java.lang.reflect Field))
   (:import (java.awt Font))
-  (:import (com.sun.opengl.util.awt TextRenderer))
-  (:import (com.sun.opengl.util.texture TextureIO))
-  (:import (java.nio ByteBuffer))
+  (:import (java.nio ByteBuffer IntBuffer))
   (:import (java.io File)))
-
-;;;
-
-(defmacro bind-gl [#^javax.media.opengl.GLAutoDrawable drawable & body]
-  `(binding [*gl* (.. ~drawable getGL getGL2)]
-    ~@body))
 
 ;;;
 
 (gl-import glEnable enable)
 (gl-import glDisable disable)
 (gl-import glIsEnabled enabled?)
-(gl-import glGetIntegerv gl-get-integer)
+(gl-import glGetInteger gl-get-integer)
 (gl-import glGetString get-string)
 
 (gl-import glMatrixMode gl-matrix-mode)
@@ -45,8 +34,8 @@
 
 (defn get-integer [mode]
   (let [ary (int-array 1)]
-    (gl-get-integer (enum mode) ary 0)
-    (first (seq ary))))
+    (gl-get-integer (enum mode) (IntBuffer/wrap ary))
+    (first ary)))
 
 ;;;
 
@@ -113,7 +102,7 @@
         (viewport x# y# w# h#)))))
 
 (gl-import- glOrtho gl-ortho)
-(glu-import- gluPerspective glu-perspective)
+(gl-import- gluPerspective glu-perspective)
 
 (defmacro with-projection [projection & body]
   `(do
@@ -149,7 +138,7 @@
 
 (gl-facade-import glVertex3d gl-vertex)
 (gl-facade-import glNormal3d gl-normal)
-(gl-facade-import glRotated gl-rotate)
+(gl-facade-import glRotatef gl-rotate)
 (gl-facade-import glTranslated gl-translate)
 (gl-facade-import glScaled gl-scale)
 (gl-facade-import glLoadIdentity load-identity)
@@ -168,20 +157,34 @@
 (facade-multiply load-identity penumbra.geometry/identity-matrix #(%2))
 
 (defn vertex
+  "Calls glVertex3d.
+   [x y] -> [x y 0].
+   [x y z w] -> [x y z]."
   ([x y] (gl-vertex x y 0))
   ([x y z] (gl-vertex x y z))
   ([x y z w] (gl-vertex x y z)))
 
 (defn translate
+  "Calls glTranslated.
+   [x y] -> [x y 0]."
   ([x y] (gl-translate x y 0))
   ([x y z] (gl-translate x y z)))
 
 (defn scale
+  "Calls glScaled.
+   [x y] -> [x y 1]."
   ([x y] (gl-scale x y 1))
   ([x y z] (gl-scale x y z)))
 
-(defn normal [x y z] (gl-normal x y z))
-(defn rotate [t x y z] (gl-rotate t x y z))
+(defn normal
+  "Calls glNormal3d."
+  [x y z]
+  (gl-normal x y z))
+
+(defn rotate
+  "Calls glRotated.  Rotates by 'angle' degrees, about the axis defined by [x y z]"
+  [angle x y z]
+  (gl-rotate angle x y z))
 
 (defn-draw :quads)
 (defn-draw :line-strip)
@@ -193,9 +196,6 @@
 (defn-draw :polygon)
 (defn-draw :line-loop)
 (defn-draw :points)
-
-(glut-import- glutSolidTeapot glut-solid-teapot)
-(defn teapot [] (glut-solid-teapot 1))
 
 ;;;
 

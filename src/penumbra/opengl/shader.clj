@@ -7,13 +7,12 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.shader
-  (:use [clojure.contrib.def :only (defmacro-)])
+  (:use [clojure.contrib.def :only (defmacro- defvar)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [penumbra.opengl.core])
   (:use [penumbra.glsl.core])
   (:use [penumbra.translate.core])
-  (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
-  (:import (com.sun.opengl.util BufferUtil)))
+  (:import (java.nio ByteBuffer IntBuffer FloatBuffer)))
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -22,37 +21,38 @@
 (gl-import- glCompileShader gl-compile-shader)
 (gl-import- glAttachShader gl-attach-shader)
 (gl-import- glGetShaderInfoLog gl-get-shader-info-log)
-(gl-import- glGetShaderiv gl-get-shader)
+(gl-import- glGetShader gl-get-shader)
 
 (gl-import- glCreateProgram gl-create-program)
 (gl-import- glLinkProgram gl-link-program)
 (gl-import- glValidateProgram gl-validate-program)
 (gl-import- glGetProgramInfoLog gl-get-program-info-log)
-(gl-import- glGetProgramiv gl-get-program)
+(gl-import- glGetProgram gl-get-program)
 
-(gl-import glUniform1iARB uniform-1i)
-(gl-import glUniform2iARB uniform-2i)
-(gl-import glUniform3iARB uniform-3i)
-(gl-import glUniform4iARB uniform-4i)
+(gl-import glUniform1i uniform-1i)
+(gl-import glUniform2i uniform-2i)
+(gl-import glUniform3i uniform-3i)
+(gl-import glUniform4i uniform-4i)
 
-(gl-import glUniform1fARB uniform-1f)
-(gl-import glUniform2fARB uniform-2f)
-(gl-import glUniform3fARB uniform-3f)
-(gl-import glUniform4fARB uniform-4f)
+(gl-import glUniform1f uniform-1f)0
+(gl-import glUniform2f uniform-2f)
+(gl-import glUniform3f uniform-3f)
+(gl-import glUniform4f uniform-4f)
 
 (defstruct program-struct :vertex :fragment :program :uniforms)
 
 ;;;;;;;;;;;;;;;;;;;;
 ;OpenGL shader functions
 
-(def *verbose* true)
+(defvar *verbose* true
+  "Full feedback on shader compilation.")
 
 (defmacro- gl-query-status
   [query-fn setting fn-name]
   `(defn- ~fn-name [param#]
     (let [a# (int-array 1)]
-      (~query-fn param# ~setting a# 0)
-      (not (zero? (nth a# 0))))))
+      (~query-fn param# ~setting (IntBuffer/wrap a#))
+      (not (zero? (first a#))))))
 
 (gl-query-status gl-get-shader :compile-status shader-compiled?)
 (gl-query-status gl-get-program :link-status program-linked?)
@@ -60,7 +60,7 @@
 
 (defn- get-shader-log [shader]
   (let [buf (make-array Byte/TYPE 4096)]
-    (gl-get-shader-info-log shader 4096 (int-array 1) 0 buf 0)
+    (gl-get-shader-info-log shader 4096 buf)
     (.trim #^String (apply str (map #(char %) buf)))))
 
 (defn- replace-string [regex replacement s]
@@ -73,9 +73,8 @@
 
 (defn- load-source [shader source]
   (let [source (-> source cleanup-braces cleanup-braces)
-        a (make-array String 1)]
-    (aset a 0 source)
-    (gl-shader-source shader 1 a nil)
+        source-buf (ByteBuffer/wrap (.getBytes source))]
+    (gl-shader-source shader source-buf)
     (gl-compile-shader shader)
     (if *verbose*
       (println (indent source)))
@@ -84,8 +83,8 @@
       (throw (Exception. (str "*** Error compiling shader: " (get-shader-log shader)))))))
 
 (defn- get-program-log [program]
-  (let [buf (make-array Byte/TYPE 4096)]
-    (gl-get-program-info-log program 4096 (int-array 1) 0 buf 0)
+  (let [buf (byte-array 4096)]
+    (gl-get-program-info-log program 4096 (ByteBuffer/wrap buf))
     (.trim (apply str (map #(char %) buf)))))
 
 (defn create-program-from-source

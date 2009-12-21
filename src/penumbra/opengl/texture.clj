@@ -10,9 +10,7 @@
   (:use [clojure.contrib.def :only (defmacro- defn-memo)])
   (:use [clojure.contrib.seq-utils :only (separate)])
   (:use [penumbra.opengl.core])
-  (:import (java.nio ByteBuffer FloatBuffer))
-  (:import (com.sun.opengl.util BufferUtil))
-  (:import (com.sun.opengl.util.texture TextureIO))
+  (:import (java.nio ByteBuffer FloatBuffer IntBuffer))
   (:import (java.io File)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
@@ -78,24 +76,24 @@
 (gl-import glTexCoord2d gl-tex-coord-2)
 (gl-import glTexCoord3d gl-tex-coord-3)
 (gl-import- glCopyTexSubImage2D gl-copy-tex-sub-image-2d)
-(glu-import gluBuild2DMipmaps glu-build-2d-mipmaps)
+(gl-import gluBuild2DMipmaps glu-build-2d-mipmaps)
 (gl-import- glDeleteTextures gl-delete-textures)
 (gl-import- glPixelStorei gl-pixel-store)
-(gl-import- glGetTexParameteriv gl-get-tex-parameter)
+(gl-import- glGetTexParameter gl-get-tex-parameter)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- gen-texture []
   (let [a (int-array 1)]
-    (gl-gen-textures 1 a 0)
-    (nth a 0)))
+    (gl-gen-textures (IntBuffer/wrap a))
+    (first a)))
 
 (defn- separate-textures [textures]
   (separate available? textures))
 
 (defn destroy-textures [textures]
-  (if (not (empty? textures))
-    (gl-delete-textures (count textures) (int-array (map :id textures)) 0)))
+  (when (not (empty? textures))
+    (gl-delete-textures (IntBuffer/wrap (int-array (map :id textures))))))
 
 (defn- cleanup-textures []
   (let [[discard keep] (separate-textures @(:textures *texture-pool*))]
@@ -111,7 +109,7 @@
   (if *texture-pool*
     (let [textures @(:textures *texture-pool*)
           texture-size @(:texture-size *texture-pool*)]
-      (if (or (> (count textures) *tex-count-threshold*)
+      (when (or (> (count textures) *tex-count-threshold*)
               (> texture-size *tex-mem-threshold*))
         (cleanup-textures))
       (dosync
@@ -164,10 +162,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro get-tex-parameter [dim param]
+(defmacro get-tex-parameter [target param]
   `(let [ary# (int-array 1)]
-    (gl-get-tex-parameter ~dim ~param ary# 0)
-    (get-name (nth ary# 0))))
+    (gl-get-tex-parameter ~target ~param (IntBuffer/wrap ary#))
+    (get-name (first ary#))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 

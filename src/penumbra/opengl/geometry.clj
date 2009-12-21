@@ -23,12 +23,11 @@
   (let [facade-fn (prepend "facade" import-as)
         direct-fn (prepend "direct" import-as)]
     `(do
+      (gl-import ~import-from ~import-as)
       (defmacro ~import-as [& a#]
         `(if *inside-begin-end*
           (~'~facade-fn ~@a#)
-          (. *gl* ~'~import-from ~@a#)))
-      (defmacro ~direct-fn [& b#]
-        `(. *gl* ~'~import-from ~@b#)))))
+          (~'~import-as ~@a#))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -67,11 +66,15 @@
 (defmacro defn-draw
   "Creates a macro called draw-'type' which redirects vertex and transform calls through appropriate facades."
   [primitive-type]
-  `(defmacro ~(symbol (str "draw-" (name primitive-type))) [& body#]
-    `(binding [*inside-begin-end* true
-               *transform-matrix* (atom (identity-matrix))]
-      (gl-begin ~'~(enum-macro primitive-type))
-      ~@body#
-      (gl-end))))
+  (let [doc-string (str "Wraps body in glBegin(GL_" (.toUpperCase (name primitive-type)) ") ... glEnd().\n  "
+                        "Transform calls (rotate, translate, etc.) are allowed within this scope, but will force an intermediate transform step.")]
+    `(defmacro ~(symbol (str "draw-" (name primitive-type)))
+       ~doc-string
+      [& body#]
+      `(binding [*inside-begin-end* true
+                 *transform-matrix* (atom (identity-matrix))]
+         (gl-begin ~'~(enum primitive-type))
+         ~@body#
+         (gl-end)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;

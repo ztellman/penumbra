@@ -71,7 +71,7 @@
 
 (defn- get-gl-method [method]
   (let [method-name (name method)]
-    (first (filter #(= method-name (.getName #^Field %)) (mapcat get-methods containers)))))
+    (first (filter #(= method-name (.getName #^Method %)) (mapcat get-methods containers)))))
 
 (defn-memo enum-name
   "Takes the numeric value of a gl constant (i.e. GL_LINEAR), and gives the name"
@@ -91,28 +91,34 @@
 (defn-memo enum [k]
   (when (keyword? k)
     (let [gl (str "GL_" (.. (name k) (replace \- \_) (toUpperCase)))
-          sym (symbol gl)]
+          sym (symbol gl)
+          container (field-container sym)]
+      (when (nil? container)
+        (throw (Exception. (str "Cannot locate enumeration " k))))
       (eval `(. ~(field-container sym) ~sym)))))
 
 (defmacro gl-import
   [import-from import-as]
-  (let [container (method-container import-from)
-        doc-string (str "Wrapper for " import-from
-                        ".  Parameters types: ["
-                        (apply str
-                               (interpose " "
-                                          (map
-                                           #(.getCanonicalName #^Class %)
-                                           (.getParameterTypes #^Method (get-gl-method import-from)))))
-                        "].")]
-    `(defmacro ~import-as
-       ~doc-string
-       [& args#]
-       `(do
-          (let [~'value# (. ~'~container ~'~import-from ~@(map (fn [x#] (or (enum x#) x#)) args#))]
-            (when (and *check-errors* (not *inside-begin-end*))
-              (check-error))
-            ~'value#)))))
+  (let [container (method-container import-from)]
+    (when (nil? container)
+      (throw (Exception. (str "Cannot locate method " import-from))))
+    (let [doc-string (str "Wrapper for " import-from ".  "
+                          "Parameters types: ["
+                          (apply
+                           str
+                           (interpose
+                            " "
+                            (map
+                             #(.getCanonicalName #^Class %)
+                             (.getParameterTypes #^Method (get-gl-method import-from))))) "].")]
+      `(defmacro ~import-as
+         ~doc-string
+         [& args#]
+         `(do
+            (let [~'value# (. ~'~container ~'~import-from ~@(map (fn [x#] (or (enum x#) x#)) args#))]
+              (when (and *check-errors* (not *inside-begin-end*))
+                (check-error))
+              ~'value#))))))
 
 (defmacro gl-import-
   "Private version of gl-import"
