@@ -8,7 +8,7 @@
 
 (ns penumbra.opengl.core
   (:use [clojure.contrib.def :only (defn-memo defmacro- defvar defvar-)])
-  (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32 GLU GLUT))
+  (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32))
   (:import (org.lwjgl.util.glu GLU))
   (:import (java.lang.reflect Field Method)))
 
@@ -45,17 +45,13 @@
 
 (defvar- containers [GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32 GLU])
 
-(defmacro defn-memo-
-  [name & decls]
-  (list* `defn-memo (with-meta name (assoc (meta name) :private true)) decls))
-
-(defn- get-fields [static-class]
+(defn- get-fields [#^Class static-class]
   (. static-class getFields))
 
-(defn- get-methods [static-class]
+(defn- get-methods [#^Class static-class]
   (. static-class getMethods))
 
-(defn- contains-field? [static-class field]
+(defn- contains-field? [#^Class static-class field]
   (first
    (filter
     #{ (name field) }
@@ -75,7 +71,7 @@
 
 (defn- get-gl-method [method]
   (let [method-name (name method)]
-    (first (filter #(= method-name (.getName %)) (mapcat get-methods containers)))))
+    (first (filter #(= method-name (.getName #^Field %)) (mapcat get-methods containers)))))
 
 (defn-memo enum-name
   "Takes the numeric value of a gl constant (i.e. GL_LINEAR), and gives the name"
@@ -83,9 +79,9 @@
   (if (= 0 enum-value)
     "NONE"
     (.getName
-     (some
-      #(if (= enum-value (.get % nil)) % nil)
-      (mapcat get-fields containers)))))     
+     #^Field (some
+              #(if (= enum-value (.get #^Field % nil)) % nil)
+              (mapcat get-fields containers)))))     
 
 (defn check-error []
   (let [error (GL11/glGetError)]
@@ -103,7 +99,11 @@
   (let [container (method-container import-from)
         doc-string (str "Wrapper for " import-from
                         ".  Parameters types: ["
-                        (apply str (interpose " " (map #(.getCanonicalName %) (.getParameterTypes (get-gl-method import-from)))))
+                        (apply str
+                               (interpose " "
+                                          (map
+                                           #(.getCanonicalName #^Class %)
+                                           (.getParameterTypes #^Method (get-gl-method import-from)))))
                         "].")]
     `(defmacro ~import-as
        ~doc-string
