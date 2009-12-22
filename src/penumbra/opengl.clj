@@ -14,7 +14,7 @@
   (:use [penumbra.geometry])
   (:import (java.lang.reflect Field))
   (:import (java.awt Font))
-  (:import (java.nio ByteBuffer IntBuffer))
+  (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
   (:import (java.io File)))
 
 ;;;
@@ -32,24 +32,30 @@
 
 ;;;
 
-(defn get-integer [mode]
+(defn get-integer
+  "Calls glGetInteger."
+  [param]
   (let [ary (int-array 1)]
-    (gl-get-integer (enum mode) (IntBuffer/wrap ary))
+    (gl-get-integer (enum param) (IntBuffer/wrap ary))
     (first ary)))
 
 ;;;
 
-(defmacro with-enabled [e & body]
+(defmacro with-enabled
+  "Enables the param(s) within the inner scope.  Will subsequently disable field if and only if it was previously disabled."
+  [param-or-param-seq & body]
   `(let [e# (filter
               (fn [a#] (not (enabled? (enum a#))))
-              (if (not (sequential? ~e)) [~e] ~e))]
+              (if (not (sequential? ~param-or-param-seq)) [~param-or-param-seq] ~param-or-param-seq))]
      (doseq [b# e#]
        (enable (enum b#)))
      (try ~@body
       (finally
         (doall (map (fn [c#] (disable (enum c#))) e#))))))
 
-(defmacro with-disabled [e & body]
+(defmacro with-disabled
+  "Disables the param(s) within the inner scope.  Will subsequently enable field if and only if it was previously enabled."
+  [e & body]
   `(let [e# (filter
               (fn [a#] (enabled? (enum a#)))
               (if (not (sequential? ~e)) [~e] ~e))]
@@ -61,12 +67,12 @@
 
 ;;;
 
-(defn get-extensions []
+(defn get-extensions
+  "Returns a set of strings representing all supported extensions."
+  []
   (set (.split (get-string :extensions) " ")))
 
 ;;;
-
-(def *view-bounds* (ref [0 0 0 0]))
 
 (gl-import glClear gl-clear)
 (gl-import glClearColor clear-color)
@@ -74,6 +80,7 @@
 (gl-import glFlush gl-flush)
 
 (defn clear
+  "Clears the depth and color buffers."
   ([]
     (gl-clear :depth-buffer-bit)
     (gl-clear :color-buffer-bit))
@@ -86,6 +93,7 @@
 (gl-import- glViewport gl-viewport)
 
 (defn viewport
+  "Sets the current render window."
   ([w h] (viewport 0 0 w h))
   ([x y w h]
     (if (not= [x y w h] @*view-bounds*)
@@ -93,7 +101,9 @@
         (dosync (ref-set *view-bounds* [x y w h]))
         (gl-viewport x y w h)))))
 
-(defmacro with-viewport [[x y w h] & body]
+(defmacro with-viewport
+  "Sets the render window within the inner scope."
+  [[x y w h] & body]
   `(let [[x# y# w# h#] @*view-bounds*]
     (viewport ~x ~y ~w ~h)
     (try
@@ -104,7 +114,9 @@
 (gl-import- glOrtho gl-ortho)
 (gl-import- gluPerspective glu-perspective)
 
-(defmacro with-projection [projection & body]
+(defmacro with-projection
+  "Sets the projection matrix within the inner scope.  'projection' must actively set the projection matrix, i.e. call (ortho-view ...)"
+  [projection & body]
   `(do
     (gl-matrix-mode :projection) (gl-push-matrix) ~projection (gl-matrix-mode :modelview)
     ~@body
@@ -125,8 +137,7 @@
   (glu-perspective (double fovx) (double aspect) (double near) (double far))
   (gl-matrix-mode :modelview))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;
-;Geometry
+;;Geometry
 
 (defmacro push-matrix [& body]
   `(binding [*transform-matrix* (if *inside-begin-end* (atom @*transform-matrix*) *transform-matrix*)]
@@ -197,7 +208,7 @@
 (defn-draw :line-loop)
 (defn-draw :points)
 
-;;;
+;;Display Lists
 
 (gl-import- glCallList gl-call-list)
 (gl-import- glGenLists gl-gen-lists)
@@ -206,7 +217,8 @@
 (gl-import- glDeleteLists gl-delete-lists)
 (gl-import- glIsList gl-is-list)
 
-(defn is-display-list [display-list]
+(defn display-list?
+  [display-list]
   (if (nil? display-list)
     false
     (gl-is-list display-list)))
@@ -214,10 +226,14 @@
 (defn delete-display-list [display-list]
   (gl-delete-lists display-list 1))
 
-(defn call-display-list [display-list]
+(defn call-display-list
+  "Executes a display list, which is generated using (get-display-list ...)"
+  [display-list]
   (gl-call-list display-list))
 
-(defmacro get-display-list [& body]
+(defmacro get-display-list
+  "Bounds inner scope in glNewList() ... glEndList(), and returns the display list value."
+  [& body]
   `(let [list# (gl-gen-lists 1)]
     (gl-new-list list# :compile)
     ~@body
@@ -228,11 +244,10 @@
   "Points list-atom to a new list, and deletes the list it was previous pointing to."
   [list-atom & body]
   `(let [list# (get-display-list ~@body)]
-    (if (is-display-list (deref ~list-atom)) (delete-display-list (deref ~list-atom)))
+    (if (display-list? (deref ~list-atom)) (delete-display-list (deref ~list-atom)))
     (reset! ~list-atom list#)))
 
-;;;;;;;;;;;;;;;;;;;;;;;
-;Effects
+;;Effects
 
 (gl-import glColor3d color-3)
 (gl-import glColor4d color-4)
@@ -241,11 +256,11 @@
 (gl-import glPointSize point-size)
 
 (gl-import- glPolygonMode gl-polygon-mode)
-(gl-import- glLightfv set-light-array)
+(gl-import- glLight set-light-array)
 (gl-import- glLightf set-light)
-(gl-import- glMaterialfv set-material-array)
+(gl-import- glMaterial set-material-array)
 (gl-import- glMaterialf set-material)
-(gl-import- glFogfv set-fog)
+(gl-import- glFog set-fog)
 (gl-import- glShadeModel shade-model)
 
 (gl-import- glHint hint)
@@ -263,40 +278,58 @@
   (blend-func :src-alpha-saturate :one))
 
 (defn color
+  "Calls glColor.  Values are normalized between 0 and 1."
   ([r g b] (color-3 r g b))
   ([r g b a] (color-4 r g b a)))
 
-(defn light [num & params]
+(defn light
+  "Sets values for light 'num'.  Example:
+   (light 0
+     :position [1 1 1 0])"
+  [num & params]
   (let [light-num (enum (keyword (str "light" num)))]
     (doseq [[property value] (partition 2 params)]
       (let [property (enum property)]
         (if (sequential? value)
-          (set-light-array light-num property (float-array (count value) value) 0)
+          (set-light-array light-num property (FloatBuffer/wrap (float-array (count value) value)))
           (set-light light-num property value))))))
 
-(defn material [side & params]
+(defn material
+  "Sets material values for 'side'.  Example:
+   (material :front-and-back
+     :ambient-and-diffuse [1 0.25 0.25 1])"
+  [side & params]
   (let [side (enum side)]
     (doseq [[property value] (partition 2 params)]
       (let [property (enum property)]
         (if (sequential? value)
-          (set-material-array side property (float-array (count value) value) 0)
+          (set-material-array side property (FloatBuffer/wrap (float-array (count value) value)))
           (set-material side property value))))))
 
-(defn fog [& params]
+(defn fog
+  "Sets values for fog.  Example:
+    (fog
+     :fog-start 0
+     :fog-end 10
+     :fog-color [0 0 0 0])"
+  [& params]
   (doseq [[property value] (partition 2 params)]
     (let [value (if (sequential? value) value [value])]
       (set-fog
         (enum property)
-        (float-array (count value) (map #(if (keyword? %) (enum %) %) value))
-        0))))
+        (FloatBuffer/wrap (float-array (count value) (map #(or (enum %) %) value)))))))
 
-(defn render-mode [mode]
+(defn render-mode
+  "Sets current render-mode.  Valid modes are [:solid :wireframe :point-cloud]."
+  [mode]
   (condp = mode
     :solid (gl-polygon-mode :front-and-back :fill)
     :wireframe (gl-polygon-mode :front-and-back :line)
     :point-cloud (gl-polygon-mode :front-and-back :point)))
 
-(defmacro with-render-mode [mode & body]
+(defmacro with-render-mode
+  "Sets render-mode within inner scope."
+  [mode & body]
   `(let [mode# (get-integer :polygon-mode)]
      (render-mode ~mode)
      (try
@@ -304,10 +337,10 @@
       (finally
        (gl-polygon-mode :front-and-back mode#)))))
 
-;;;;;;;;;;;;;;;;;;;;;;
-;Shader
+;;Shader
 
-(defn create-program*
+(defn create-literal-program
+  "Translate a program without wrapping it in (defn main [] ...)"
   [extensions vertex fragment]
   (let [vertex-source   (translate-shader vertex)
         fragment-source (translate-shader fragment)]
@@ -330,10 +363,13 @@
 (gl-import- glGetUniformLocation gl-get-uniform-location)
 
 (defn bind-program
+  "Calls glUseProgram."
   [program]
   (gl-use-program (if (nil? program) 0 (:program program))))
 
-(defmacro with-program [program & body]
+(defmacro with-program
+  "Binds program within inner-scope."
+  [program & body]
   `(let [prev-program# *program*]
      (try
        (binding [*program* (:program ~program), *uniforms* (:uniforms ~program)]
@@ -348,8 +384,8 @@
     (if (or (= cls Integer) (= cls Integer/TYPE)) true false)))
 
 (defn get-uniform-location [variable]
-  (if (@*uniforms* variable)
-    (@*uniforms* variable)
+  (if-let [location (@*uniforms* variable)]
+    location
     (let [loc (gl-get-uniform-location *program* (.replace (name variable) \- \_))]
       (dosync (alter *uniforms* #(assoc % variable loc)))
       loc)))
@@ -368,8 +404,8 @@
       4 (if is-int  (uniform-4i loc (args 0) (args 1) (args 2) (args 3))
                     (uniform-4f loc (args 0) (args 1) (args 2) (args 3))))))
 
-;;;;;;;;;;;;;;;;
-;Render Buffers
+;;Render Buffers
+
 (gl-import- glGenRenderbuffers gl-gen-render-buffers)
 (gl-import- glBindRenderbuffer gl-bind-render-buffer)
 (gl-import- glRenderbufferStorage gl-render-buffer-storage)
@@ -377,8 +413,8 @@
 
 (defn gen-render-buffer []
   (let [a (int-array 1)]
-    (gl-gen-render-buffers 1 a 0)
-    (nth a 0)))
+    (gl-gen-render-buffers (IntBuffer/wrap a))
+    (first a)))
 
 (defn bind-render-buffer [rb]
   (gl-bind-render-buffer :renderbuffer rb))
@@ -390,8 +426,7 @@
     (gl-render-buffer-storage :renderbuffer :depth-component24 (dim 0) (dim 1))
     (gl-frame-buffer-render-buffer :framebuffer :depth-attachment :renderbuffer depth-buffer)))
 
-;;;;;;;;;;;;;;;;
-;Frame Buffers
+;;Frame Buffers
 
 (gl-import- glGenFramebuffers gl-gen-frame-buffers)
 (gl-import- glBindFramebuffer gl-bind-frame-buffer)
@@ -407,15 +442,15 @@
 
 (defn gen-frame-buffer []
   (let [a (int-array 1)]
-    (gl-gen-frame-buffers 1 a 0)
-    (nth a 0)))
+    (gl-gen-frame-buffers (IntBuffer/wrap a))
+    (first a)))
 
 (defn get-frame-buffer []
   (get-integer :framebuffer-binding))
 
 (defn destroy-frame-buffer [fb]
   (let [a (int-array [fb])]
-    (gl-delete-frame-buffers 1 a 0)))
+    (gl-delete-frame-buffers (IntBuffer/wrap a))))
 
 (defn bind-frame-buffer [fb]
   (gl-bind-frame-buffer :framebuffer fb))
@@ -444,7 +479,8 @@
     (uniform-1i loc point)))
 
 (defn bind-write [start end]
-  (gl-draw-buffers (- end start) (int-array (map attachment-lookup (range start end))) 0))
+  (let [buffers (int-array (map attachment-lookup (range start end)))]
+    (gl-draw-buffers (IntBuffer/wrap buffers))))
 
 (defn attach-textures [read write]
   (let [read-textures (map #(last %) (partition 2 read))]
@@ -467,8 +503,7 @@
        (bind-frame-buffer 0)
        (destroy-frame-buffer fb#)))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;Texture
+;;Texture
 
 (gl-import glTexEnvf tex-env)
 (gl-import glTexParameteri tex-parameter)
@@ -487,7 +522,7 @@
      ~@body))
 
 (defn destroy-texture [tex]
-  (gl-delete-textures 1 (int-array (:id tex)) 0))
+  (gl-delete-textures (IntBuffer/wrap (int-array (:id tex)))))
 
 (defn create-byte-texture
   ([w h]
@@ -509,12 +544,12 @@
     (gl-copy-tex-sub-image-2d target 0 0 0 0 0 w h)
     tex*))
 
-(defn convert-texture* [target tex]
-  (let [tex* (convert-texture target tex)]
+(defn convert-texture! [target tex]
+  (let [converted-texture (convert-texture target tex)]
     (release! tex)
-    tex*))
+    converted-texture))
 
-(defn load-texture-from-file
+'(defn load-texture-from-file
   ([filename subsample]
      (load-texture-from-file filename subsample :linear))
   ([filename subsample filter]
@@ -523,7 +558,7 @@
            tex  (TextureIO/newTexture data)]
        (texture-from-texture-io tex filter))))
 
-(defn load-texture-from-image
+'(defn load-texture-from-image
   ([image subsample]
      (load-texture-from-image image subsample :linear))
   ([image subsample filter]
@@ -589,7 +624,7 @@
                (texture w h) (vertex 1 1 0)
                (texture 0 h) (vertex 0 1 0)))))))))
 
-(defn blit* [tex]
+(defn blit! [tex]
   (blit tex)
   (release! tex))
 
@@ -607,18 +642,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;
 
-(def #^TextRenderer *text* (ref nil))
-
-(defn init-text []
-  (dosync
-   (ref-set *text* (TextRenderer. (Font. "Tahoma" java.awt.Font/PLAIN 20) true true))))
 
 (defn write-to-screen
   "writes string at normalized coordinates (x,y)"
   [string x y]
-  (let [[_ _ w h] @*view-bounds*
-		text @*text*
-        text-height (.. text (getBounds string) getHeight)]
-    (.beginRendering text w h)
-    (.draw text string (int (* x w)) (int (* y (- h text-height))))
-    (.endRendering text)))
+  )

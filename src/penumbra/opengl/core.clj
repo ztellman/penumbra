@@ -39,7 +39,10 @@
   "The threshold for number of allocated textures which will trigger collection of any which are unused")
 
 (defvar *check-errors* true
-  "Causes errors in glGetError to throw an exception.  This averages 3% CPU overhead, and is almost always worth having enabled.") 
+  "Causes errors in glGetError to throw an exception.  This averages 3% CPU overhead, and is almost always worth having enabled.")
+
+(defvar *view-bounds* (ref [0 0 0 0])
+  "Pixel boundaries of render window.  Parameters represent [x y width height].")
 
 ;;;
 
@@ -102,15 +105,16 @@
   (let [container (method-container import-from)]
     (when (nil? container)
       (throw (Exception. (str "Cannot locate method " import-from))))
-    (let [doc-string (str "Wrapper for " import-from ".  "
-                          "Parameters types: ["
-                          (apply
-                           str
-                           (interpose
-                            " "
-                            (map
-                             #(.getCanonicalName #^Class %)
-                             (.getParameterTypes #^Method (get-gl-method import-from))))) "].")]
+    (let [doc-string
+          (str "Wrapper for " import-from ".  "
+               "Type signature: ["
+               (apply
+                str
+                (interpose
+                 " "
+                 (map
+                  #(.getCanonicalName #^Class %)
+                  (.getParameterTypes #^Method (get-gl-method import-from))))) "].")]
       `(defmacro ~import-as
          ~doc-string
          [& args#]

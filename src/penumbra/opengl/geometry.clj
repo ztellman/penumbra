@@ -23,11 +23,11 @@
   (let [facade-fn (prepend "facade" import-as)
         direct-fn (prepend "direct" import-as)]
     `(do
-      (gl-import ~import-from ~import-as)
+      (gl-import ~import-from ~direct-fn)
       (defmacro ~import-as [& a#]
         `(if *inside-begin-end*
           (~'~facade-fn ~@a#)
-          (~'~import-as ~@a#))))))
+          (~'~direct-fn ~@a#))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
