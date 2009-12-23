@@ -96,33 +96,40 @@
     (gl-delete-textures (IntBuffer/wrap (int-array (map :id textures))))))
 
 (defn- cleanup-textures []
-  (let [[discard keep] (separate-textures @(:textures *texture-pool*))]
-    (if (< 0 (count discard))
+  (let [[discard keep] (separate-textures (:textures @*texture-pool*))]
+    (when (< 0 (count discard))
       (destroy-textures discard))
-    (dosync
-      (let [textures (alter (:textures *texture-pool*)
-                        #(let [[d k] (separate-textures %)]
-                          (vec (concat (drop (count discard) d) k))))]
-        (ref-set (:texture-size *texture-pool*) (reduce + (map sizeof textures)))))))
+    (swap!
+     *texture-pool*
+     (fn [pool]
+       (let [[discard keep] (separate-textures (:textures pool))
+             textures (vec (concat (drop (count discard) d) k))]
+         (assoc pool
+           :textures textures
+           :texture-size (reduce + (map sizeof textures))))))))
 
 (defn- add-texture [t]
-  (if *texture-pool*
-    (let [textures @(:textures *texture-pool*)
-          texture-size @(:texture-size *texture-pool*)]
-      (when (or (> (count textures) *tex-count-threshold*)
-              (> texture-size *tex-mem-threshold*))
+  (when *texture-pool*
+    (let [pool @*texture-pool*
+          textures (:textures pool)
+          texture-size (:texture-size pool)]
+      (when (or (> (count textures) *texture-count-threshold*)
+                (> texture-size *tex-mem-threshold*))
         (cleanup-textures))
-      (dosync
-        (alter (:texture-size *texture-pool*)
-          #(+ % (sizeof t)))
-        (alter (:textures *texture-pool*)
-          #(cons t %))))))
+      (swap!
+       *texture-pool*
+       (fn [pool]
+         (assoc pool
+           :textures (cons t (:textures pool))
+           :texture-size (+ (:texture-size pool) t)))))))
 
 (defn num-textures []
-  (count (filter (complement available?) @(:textures *texture-pool*))))
+  (count (filter (complement available?) (:textures @*texture-pool*))))
 
 (defn create-texture [type dim internal-format pixel-format internal-type tuple]
-  (let [available   (if *texture-pool* (filter available? @(:textures *texture-pool*)) '())
+  (let [available   (if *texture-pool*
+                      (filter available? (:textures @*texture-pool*))
+                      '())
         equivalent  (filter
                       (fn [t]
                         (=

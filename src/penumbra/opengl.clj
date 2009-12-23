@@ -629,7 +629,7 @@
   (release! tex))
 
 (defmacro render-to-texture
-  "Renders a scene to a texture."
+  "Renders a scene defined in the inner scope to 'tex'."
   [tex & body]
   `(let [[w# h#] (:dim ~tex)]
      (with-frame-buffer [w# h#]
