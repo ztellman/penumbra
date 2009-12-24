@@ -103,7 +103,7 @@
      *texture-pool*
      (fn [pool]
        (let [[discard keep] (separate-textures (:textures pool))
-             textures (vec (concat (drop (count discard) d) k))]
+             textures (vec (concat (drop (count discard) discard) keep))]
          (assoc pool
            :textures textures
            :texture-size (reduce + (map sizeof textures))))))))
@@ -113,7 +113,7 @@
     (let [pool @*texture-pool*
           textures (:textures pool)
           texture-size (:texture-size pool)]
-      (when (or (> (count textures) *texture-count-threshold*)
+      (when (or (> (count textures) *tex-count-threshold*)
                 (> texture-size *tex-mem-threshold*))
         (cleanup-textures))
       (swap!
