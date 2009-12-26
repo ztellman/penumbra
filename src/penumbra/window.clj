@@ -8,14 +8,14 @@
 
 (ns penumbra.window
   (:use [clojure.contrib.def :only (defmacro- defn-memo defvar-)])
-  (:use [clojure.contrib.str-utils :only (str-join)])
+  (:use [clojure.contrib.seq-utils :only (indexed)])  
   (:use [penumbra opengl])
   (:use [penumbra.opengl core])
   (:import [java.lang.reflect Field])
   (:import [java.util.concurrent CountDownLatch])
   (:import [org.lwjgl.input Mouse Keyboard])
-  (:import [org.lwjgl.opengl Display])
-  (:import [java.awt Frame Canvas GridLayout])
+  (:import [org.lwjgl.opengl Display AWTGLCanvas])
+  (:import [java.awt Frame Canvas GridLayout Color])
   (:import [java.awt.event WindowAdapter]))
 
 ;;;
@@ -27,7 +27,8 @@
   :texture-pool
   :latch
   :disposed
-  :yield)
+  :yield
+  :size)
 
 (defvar- *window* nil
   "Current window.")
@@ -35,28 +36,27 @@
 (defvar- *invalidated* nil
   "Denotes whether the window should be redrawn")
 
-(defvar- *size* nil
-  "Current size of window.  If this doesn't equal frame size, call :reshape.")
-
-(defn- create-frame [window]
+(defn window-in-frame [window]
   (let [frame (Frame.)
-        canvas (Canvas.)]
+        canvas (Canvas.)
+        [w h] @(:size window)]
     (doto canvas
       (.setFocusable true)
       (.setIgnoreRepaint true)
-      (.setSize 640 480))
+      (.setSize w h))
     (doto frame
       (.addWindowListener
        (proxy [WindowAdapter] []
          (windowOpened [event] (.requestFocus canvas))
          (windowClosing [event] (reset! (:disposed window) true))))
-      (.setTitle "Penumbra")
-      (.setLayout (GridLayout. 1 1))
-      (.setSize 640 480)
+      (.setTitle (Display/getTitle))
+      (.setIgnoreRepaint true)
       (.setResizable true)
       (.setVisible true)
-      (.add canvas))
+      (.add canvas)
+      (.pack))
     (Display/setParent canvas)
+    (reset! (:frame window) frame)
     frame))
 
 (defn- init-window [callbacks state]
@@ -64,8 +64,57 @@
    :callbacks callbacks
    :texture-pool (atom {:texture-size 0 :textures []})
    :latch (atom nil)
-   :disposed (atom false)
-   :yield (atom false)})
+   :disposed (atom true)
+   :yield (atom false)
+   :frame (atom nil)
+   :size (atom [1024 768])})
+
+(defn disposed? [window]
+  @(:disposed window))
+
+(defn yield? [window]
+  @(:yield window))
+
+(defn latch [window]
+  (when (:latch window) @(:latch window)))
+
+(defn frame [window]
+  (when (:frame window) @(:frame window)))
+
+(defn canvas [window]
+  (if-let [f (frame window)]
+    (.getComponent #^Frame f 0)))
+
+;;;
+
+(defn- transform-display-mode [m]
+  {:resolution [(.getWidth m) (.getHeight m)]
+   :bpp (.getBitsPerPixel m)
+   :fullscreen (.isFullscreenCapable m)
+   :mode m})
+
+(defn display-modes
+  "Returns a list of available display modes."
+  []
+  (map transform-display-mode (Display/getAvailableDisplayModes)))
+
+(defn current-display-mode
+  "Returns the current display mode."
+  []
+  (transform-display-mode (Display/getDisplayMode)))
+
+(defn set-display-mode
+  "Sets the current display mode."
+  ([width height]
+     (->>
+      (display-modes)
+      (filter #(= [width height] (:resolution %)))
+      (sort-by :bpp)
+      last
+      set-display-mode))
+  ([mode]
+     (Display/setDisplayMode (:mode mode))
+     (apply viewport (concat [0 0] (:resolution mode)))))
 
 ;;;
 
@@ -137,8 +186,6 @@
        #(or @(:yield window) @(:disposed window))
        #(wrapper f)))))
 
-;;;
-
 (defmacro- try-call
   [k & args]
   `(if-let [callback# (~k (:callbacks *window*))]
@@ -148,17 +195,15 @@
               *invalidated*)
          (reset! *invalidated* true)))))
 
-(defn- shift-down? []
-  (or (Keyboard/isKeyDown Keyboard/KEY_LSHIFT)
-      (Keyboard/isKeyDown Keyboard/KEY_RSHIFT)))
-
 (defn- current-key []
-  (let [desc (Keyboard/getKeyName (Keyboard/getEventKey))
-        len (count desc)]
+  (let [char (Keyboard/getEventCharacter)
+        key (Keyboard/getEventKey)
+        name (Keyboard/getKeyName key)]
     (cond
-     (and (shift-down?) (= 1 len)) (.toUpperCase #^String desc)
-     (= 1 len) (.toLowerCase #^String desc)
-     :else (keyword (.toLowerCase #^String desc)))))
+     (= key Keyboard/KEY_DELETE) :delete
+     (= key Keyboard/KEY_BACK) :back
+     (not= 0 (int char)) (str char)
+     :else (-> name .toLowerCase keyword))))
 
 (defn- handle-keyboard []
   (Keyboard/poll)
@@ -170,62 +215,82 @@
        (try-call :key-release (current-key))
        (try-call :key-type (current-key))))))
 
+(defn- mouse-button-name [button-idx]
+  (condp = button-idx
+    0 :left
+    1 :right
+    2 :center
+    (keyword (str "button" (inc button-idx)))))
+
 (defn- handle-mouse []
   (loop [buttons (vec (map #(Mouse/isButtonDown %) (range (Mouse/getButtonCount))))]
     (Mouse/poll)
-    (let [dw (Mouse/getEventDWheel)
-          dx (Mouse/getEventDX), dy (Mouse/getEventDY)
-          x (Mouse/getEventX), y (Mouse/getEventY)]
-      (when (not (zero? dw))
-        (try-call :mouse-wheel dw))
-      (if (>= 0 (Mouse/getEventButton))
-        (do
-          (try-call :mouse-move [[dx dy] [x y]])
-          (when (Mouse/next)
-            (recur buttons)))
-        (let [button-pressed? (Mouse/getEventButtonState)
-              button-index (Mouse/getEventButton)
-              button (-> button-index Mouse/getButtonName keyword)]
-          (when (not= (nth buttons button-index) button-pressed?)
-            (if button-pressed?
-              (try-call :mouse-down [x y] button)
-              (try-call :mouse-up [x y] button)))
-          (when (or (not (zero? dx)) (not (zero? dy)))
-            (try-call :mouse-drag [[dx dy] [x y]] button))
-          (when (Mouse/next)
-            (recur (if () (assoc buttons button-index button-pressed?)))))))))
+    (when (Mouse/next)
+      (let [dw (Mouse/getEventDWheel)
+            dx (Mouse/getEventDX), dy (Mouse/getEventDY)
+            x (Mouse/getEventX), y (Mouse/getEventY)
+            button (Mouse/getEventButton)
+            button? (not (neg? button))
+            button-state (Mouse/getEventButtonState)]
+        (when (not (zero? dw))
+          (try-call :mouse-wheel dw))
+        (cond
+         ;;mouse down/up 
+         (and (zero? dx) (zero? dy) button?)
+         (try-call (if button-state :mouse-down :mouse-up) [x y] (mouse-button-name button))
+         ;;mouse-move
+         (and (not-any? identity buttons) (or (not (zero? dx)) (not (zero? dy))))
+         (try-call :mouse-move [dx dy] [x y])
+         ;;mouse-drag
+         :else
+         (doseq [button-idx (map first (filter second (indexed buttons)))]
+           (try-call :mouse-drag [dx dy] [x y] (mouse-button-name button-idx))))
+        (if button?
+          (recur (assoc buttons button button-state))
+          (recur buttons))))))
 
 ;;;
 
 (defn key-pressed? []
   '())
 
+(defn close
+  "Closes the window."
+  ([]
+     (close *window*))
+  ([window]
+     (reset! (:disposed window) true)))
+
+(defn- check-resize [window]
+  (if-let [c #^Canvas (canvas window)]
+    (let [size [(.getWidth c) (.getHeight c)]]
+      (when (not= size @(:size window))
+        (reset! (:size window) size)
+        (apply viewport (concat [0 0] size))
+        (try-call :reshape (concat [0 0] size))))))
+
 (defn update-once
   ([]
      (update-once *window*))
   ([window]
      (binding [*window* window]
-       (let [invalidated (or *invalidated* (atom true))
-             *size* (or *size* (atom [0 0]))]
-         (Display/update)
+       (let [invalidated (or *invalidated* (atom true))]
          (handle-keyboard)
          (handle-mouse)
-         (let [[w h] [(.. Display getDisplayMode getWidth) (.. Display getDisplayMode getHeight)]]
-           (when (or (nil? *size*) (not= @*size* [w h]))
-             (when *size*
-               (reset! *size* [w h]))
-             (viewport 0 0 w h)
-             (try-call :reshape [0 0 w h])))
+         (check-resize window)
          (try-call :update)
          (when true ;;@*invalidated*
            (reset! *invalidated* false)
-           (clear)
            (push-matrix
+            (clear)
             ((-> window :callbacks :display) @(:state window))))
          (when (Display/isCloseRequested)
-           (reset! (:disposed window) true))))))
+           (close window))
+         (Display/update)))))
 
-(defn repaint []
+(defn repaint
+  "Forces a repaint of the window."
+  []
   (when *invalidated*
     (reset! *invalidated* true)))
 
@@ -237,12 +302,46 @@
      (reset! (:yield window) true)
      (reset! (:latch window) (CountDownLatch. 1))))
 
-(defn close
-  "Closes the window."
+(defn- dispose
   ([]
-     (close *window*))
+     (dispose *window*))
   ([window]
-     (reset! (:disposed window) true)))
+     (try-call :close)
+     (if-let [f (frame window)]
+       (.dispose (:frame window)))
+     (Mouse/destroy)
+     (Keyboard/destroy)
+     (Display/destroy)))
+
+(defn- init
+  ([]
+     (init *window*))
+  ([window]
+     (when (disposed? window)
+       (Display/setParent nil)
+       (Display/create)
+       (Keyboard/create)
+       (Mouse/create)
+       (apply set-display-mode @(:size window))
+       (reset! (:disposed window) false))))
+
+(defn resume
+  "Resumes a window which has been paused or closed"
+  ([]
+     (resume *window*))
+  ([window]
+     (init)
+     (reset! (:yield window) false)
+     (if-let [latch (latch window)]
+       (.countDown #^CountDownLatch latch))
+     (try
+      (primary-loop window update-once)
+      (catch Exception e
+        (close window)
+        (throw e))
+      (finally
+       (when (disposed? window)
+         (dispose window))))))
 
 (defn- alter-callbacks [window]
   (update-in
@@ -254,36 +353,18 @@
       (update-in [:update] #(timed-fn %))
       (update-in [:display] #(timed-fn %))))))
 
-(defn- initialize []
-  (reset! (:disposed *window*) false)
-  (reset! (:yield *window*) false)
-  (when @(:latch *window*)
-  (.countDown #^CountDownLatch @(:latch *window*)))
-  (Display/create)
-  (Keyboard/create)
-  (Mouse/create))
-
-(defn- dispose []
-  (try-call :close)
-  (.dispose (:frame *window*))
-  (Mouse/destroy)
-  (Keyboard/destroy)
-  (Display/destroy))
-
 (defn start
+  "Starts a window from scratch, or from a closed state."
   ([callbacks state]
      (start (init-window callbacks state)))
   ([window]
-     (let [window (alter-callbacks (assoc window :frame (create-frame window)))]
-       (binding [*window* window
-                 *size* (atom [0 0])]
-         (initialize)
-         (try
-          (try-call :init)
-          (primary-loop window update-once)
-          window
-          (finally
-           (dispose)))))))
+     (let [window (alter-callbacks window)]
+       (binding [*window* window]
+         (init window)
+         (try-call :init)
+         (try-call :reshape (concat [0 0] @(:size window)))
+         (resume window)
+         window))))
 
 
 

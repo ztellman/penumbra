@@ -7,7 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns examples.mandelbrot
-  (:use [penumbra opengl compute window]))
+  (:use [penumbra opengl compute])
+  (:require [penumbra.window :as window]))
 
 (defn init [state]
 
@@ -103,9 +104,10 @@
       state)))
 
 (defn display [_ state]
-  (blit* (:image state)))
+  (blit! (:image state)))
 
-(start
-  {:init init, :reshape reshape, :update update, :display display, :mouse-click mouse-click}
-  (reset-fractal {:upper-left [-2.0 1.0] :lower-right [1.0 -1.0] :zoom 1 :offset [-0.5 0]}))
+(defn start []
+  (window/start
+   {:init init, :reshape reshape, :update update, :display display, :mouse-click mouse-click}
+   (reset-fractal {:upper-left [-2.0 1.0] :lower-right [1.0 -1.0] :zoom 1 :offset [-0.5 0]})))
 
