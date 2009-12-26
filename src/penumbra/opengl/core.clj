@@ -8,7 +8,9 @@
 
 (ns penumbra.opengl.core
   (:use [clojure.contrib.def :only (defn-memo defmacro- defvar defvar-)])
-  (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32))
+  (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32
+                             ARBDrawBuffers
+                             EXTFramebufferObject))
   (:import (org.lwjgl.util.glu GLU))
   (:import (java.lang.reflect Field Method)))
 
@@ -41,12 +43,14 @@
 (defvar *check-errors* true
   "Causes errors in glGetError to throw an exception.  This averages 3% CPU overhead, and is almost always worth having enabled.")
 
-(defvar *view-bounds* (ref [0 0 0 0])
+(defvar *view* (atom [0 0 0 0])
   "Pixel boundaries of render window.  Parameters represent [x y width height].")
 
 ;;;
 
-(defvar- containers [GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32 GLU])
+(defvar- containers [EXTFramebufferObject
+                     ARBDrawBuffers
+                     GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32 GLU])
 
 (defn- get-fields [#^Class static-class]
   (. static-class getFields))
@@ -100,21 +104,23 @@
         (throw (Exception. (str "Cannot locate enumeration " k))))
       (eval `(. ~(field-container sym) ~sym)))))
 
+(defn- get-doc-string [method]
+  (str "Wrapper for " method ".  "
+       "Type signature: ["
+       (apply
+        str
+        (interpose
+         " "
+         (map
+          #(.getCanonicalName #^Class %)
+          (.getParameterTypes #^Method (get-gl-method method))))) "]."))
+
 (defmacro gl-import
   [import-from import-as]
   (let [container (method-container import-from)]
     (when (nil? container)
       (throw (Exception. (str "Cannot locate method " import-from))))
-    (let [doc-string
-          (str "Wrapper for " import-from ".  "
-               "Type signature: ["
-               (apply
-                str
-                (interpose
-                 " "
-                 (map
-                  #(.getCanonicalName #^Class %)
-                  (.getParameterTypes #^Method (get-gl-method import-from))))) "].")]
+    (let [doc-string (get-doc-string import-from)]
       `(defmacro ~import-as
          ~doc-string
          [& args#]

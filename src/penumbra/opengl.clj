@@ -78,6 +78,7 @@
 (gl-import glClearColor clear-color)
 (gl-import glDepthFunc depth-test)
 (gl-import glFlush gl-flush)
+(gl-import glFinish gl-finish)
 
 (defn clear
   "Clears the depth and color buffers."
@@ -96,15 +97,13 @@
   "Sets the current render window."
   ([w h] (viewport 0 0 w h))
   ([x y w h]
-    (if (not= [x y w h] @*view-bounds*)
-      (do
-        (dosync (ref-set *view-bounds* [x y w h]))
-        (gl-viewport x y w h)))))
+     (reset! *view* [x y w h])
+     (gl-viewport x y w h)))
 
 (defmacro with-viewport
   "Sets the render window within the inner scope."
   [[x y w h] & body]
-  `(let [[x# y# w# h#] @*view-bounds*]
+  `(let [[x# y# w# h#] @*view*]
     (viewport ~x ~y ~w ~h)
     (try
       ~@body
@@ -260,7 +259,8 @@
 (gl-import- glLightf set-light)
 (gl-import- glMaterial set-material-array)
 (gl-import- glMaterialf set-material)
-(gl-import- glFog set-fog)
+(gl-import- glFog set-fog-array)
+(gl-import- glFogf set-fog)
 (gl-import- glShadeModel shade-model)
 
 (gl-import- glHint hint)
@@ -314,10 +314,9 @@
      :fog-color [0 0 0 0])"
   [& params]
   (doseq [[property value] (partition 2 params)]
-    (let [value (if (sequential? value) value [value])]
-      (set-fog
-        (enum property)
-        (FloatBuffer/wrap (float-array (count value) (map #(or (enum %) %) value)))))))
+    (if (sequential? value)
+      (set-fog-array (enum property) (FloatBuffer/wrap (float-array (count value) (map #(or (enum %) %) value))))
+      (set-fog (enum property) (if (keyword? value) (enum value) value)))))
 
 (defn render-mode
   "Sets current render-mode.  Valid modes are [:solid :wireframe :point-cloud]."
@@ -406,10 +405,10 @@
 
 ;;Render Buffers
 
-(gl-import- glGenRenderbuffers gl-gen-render-buffers)
-(gl-import- glBindRenderbuffer gl-bind-render-buffer)
-(gl-import- glRenderbufferStorage gl-render-buffer-storage)
-(gl-import- glFramebufferRenderbuffer gl-frame-buffer-render-buffer)
+(gl-import- glGenRenderbuffersEXT gl-gen-render-buffers)
+(gl-import- glBindRenderbufferEXT gl-bind-render-buffer)
+(gl-import- glRenderbufferStorageEXT gl-render-buffer-storage)
+(gl-import- glFramebufferRenderbufferEXT gl-frame-buffer-render-buffer)
 
 (defn gen-render-buffer []
   (let [a (int-array 1)]
@@ -428,11 +427,11 @@
 
 ;;Frame Buffers
 
-(gl-import- glGenFramebuffers gl-gen-frame-buffers)
-(gl-import- glBindFramebuffer gl-bind-frame-buffer)
-(gl-import- glCheckFramebufferStatus gl-check-frame-buffer-status)
-(gl-import- glDeleteFramebuffers gl-delete-frame-buffers)
-(gl-import- glFramebufferTexture2D gl-frame-buffer-texture-2d)
+(gl-import- glGenFramebuffersEXT gl-gen-frame-buffers)
+(gl-import- glBindFramebufferEXT gl-bind-frame-buffer)
+(gl-import- glCheckFramebufferStatusEXT gl-check-frame-buffer-status)
+(gl-import- glDeleteFramebuffersEXT gl-delete-frame-buffers)
+(gl-import- glFramebufferTexture2DEXT gl-frame-buffer-texture-2d)
 (gl-import- glDrawBuffers gl-draw-buffers)
 (gl-import- glDrawBuffer draw-buffer)
 (gl-import- glReadBuffer gl-read-buffer)

@@ -1,13 +1,14 @@
-;   Copyright (c) Zachary Tellman. All rights reserved.
-;   The use and distribution terms for this software are covered by the
-;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-;   which can be found in the file epl-v10.html at the root of this distribution.
-;   By using this software in any fashion, you are agreeing to be bound by
-;   the terms of this license.
-;   You must not remove this notice, or any other, from this software.
+;;   Copyright (c) Zachary Tellman. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;;   which can be found in the file epl-v10.html at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
 
 (ns examples.render-to-texture
-  (:use [penumbra opengl window]))
+  (:use [penumbra opengl])
+  (:require [penumbra.window :as window]))
 
 (defn textured-quad []
   (push-matrix
@@ -46,8 +47,6 @@
 (defn init [state]
   (tex-env :texture-env :texture-env-mode :modulate)
   (enable :texture-2d)
-  (enable :normalize)
-  (enable :multisample)
   (enable :depth-test)
   (enable :light0)
   (enable :lighting)
@@ -63,37 +62,34 @@
   (translate 0 0 2)
   state)
 
-(defn mouse-drag [mouse button state]
-  (let [[delta pos] mouse
-        [dx dy] delta
-        [x y] pos
-        [w h] (get-canvas-size)]
+(defn mouse-drag [[dx dy] [x y] button state]
+  (let [[w h] (:resolution (window/current-display-mode))]
     (if (< x (int (/ w 2)))
       (let [[lx ly] (:left state)]
-        (assoc state :left [(- lx dy) (- ly dx)]))
+        (assoc state :left [(+ lx dy) (- ly dx)]))
       (let [[rx ry] (:right state)]
-        (assoc state :right [(- rx dy) (- ry dx)])))))
+        (assoc state :right [(+ rx dy) (- ry dx)])))))
 
 (defn display [[delta time] state]
   (let [[lx ly] (:left state)
         [rx ry] (:right state)
         checkers (:checkers state)
         view (:view state)
-        [w h] (get-canvas-size)]
+        [w h] (:resolution (window/current-display-mode))]
 
     (light 0
-      :position [-1 -1 1 0])
+       :position [-1 -1 1 0])
     (material :front-and-back
-      :ambient-and-diffuse [0.8 0.1 0.1 1])
+       :ambient-and-diffuse [0.8 0.1 0.1 1])
 
     ;;render the checkered cube to a texture
     (render-to-texture view
-      (clear 0.5 0.5 0.5)
-      (with-projection (frustum-view 50. 1. 0.1 10.)
-        (push-matrix
-          (rotate lx 1 0 0) (rotate ly 0 1 0)
-          (with-texture checkers
-            (textured-cube)))))
+     (clear 0.5 0.5 0.5)
+     (with-projection (frustum-view 50. 1. 0.1 10.)
+       (push-matrix
+        (rotate lx 1 0 0) (rotate ly 0 1 0)
+        (with-texture checkers
+          (textured-cube)))))
 
     (clear 0 0 0)
 
@@ -102,23 +98,26 @@
       (with-texture checkers
         (with-viewport [0 0 (/ w 2.0) h]
           (push-matrix
-            (rotate lx 1 0 0) (rotate ly 0 1 0)
-            (textured-cube))))
+           (rotate lx 1 0 0) (rotate ly 0 1 0)
+           (textured-cube))))
       ;;render a cube with the checkered cube texture
       (with-texture view
         (with-viewport [(/ w 2.0) 0 (/ w 2.0) h]
           (push-matrix
-            (rotate rx 1 0 0) (rotate ry 0 1 0)
-            (textured-cube)))))
-
+           (rotate rx 1 0 0) (rotate ry 0 1 0)
+           (textured-cube)))))
+    
     ;;draw a dividing line
-    (with-disabled [:lighting :texture-2d]
-      (with-projection (ortho-view 0 1 0 1 0 10)
-        (draw-lines (vertex 0.5 0 5) (vertex 0.5 1 5))))))
+    (with-disabled [:texture-2d :lighting]
+      (with-projection (ortho-view 0 1 0 1 0 1)
+        (push-matrix
+         (load-identity)
+         (draw-lines (vertex 0.5 0) (vertex 0.5 1)))))))
 
-(start
-  {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init}
-  {:left [0 0], :right [0 0], :checkers nil, :view nil})
+(defn start []
+  (window/start
+   {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init}
+   {:left [0 0], :right [0 0], :checkers nil, :view nil}))
 
 
 
