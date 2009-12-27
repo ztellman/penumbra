@@ -43,8 +43,6 @@
                 0 1 0
                 0 0 1])))
 
-  (println (seq (unwrap kernel)))
-  
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
   (assoc state

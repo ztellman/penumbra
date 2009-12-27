@@ -394,7 +394,6 @@
   (let [loc     (get-uniform-location variable)
         is-int  (int? (first args))
         args    (vec (map (if is-int int float) args))]
-    (println variable args)
     (condp = (count args)
       1 (if is-int  (uniform-1i loc (args 0))
                     (uniform-1f loc (args 0)))
