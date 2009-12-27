@@ -33,15 +33,17 @@
     (let [value (float4 0.0)
           sum 0.0]
       (convolve %2
-         (+= sum %2)
-         (+= value (* %2 %1)))
+       (+= sum %2)
+       (+= value (* %2 %1)))
       (/ value sum))) 
 
   (def kernel
     (wrap (map float
-               [1 1 1
-                1 1 1
-                1 1 1])))
+               [1 0 0
+                0 1 0
+                0 0 1])))
+
+  (println (seq (unwrap kernel)))
   
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
@@ -60,8 +62,9 @@
               (blur [tex [kernel]]))))))
 
 (defn display [_ state]
-  (println (:tex state))
   (blit (:tex state)))
 
 (defn start []
-  (app/start {:display display, :key-press key-press, :init init} {}))
+  (app/start
+   {:display display, :key-press key-press, :init init}
+   {}))

@@ -52,7 +52,7 @@
   ([parent]
      (let [drawable (when-let [drawable (:drawable parent)]
                       (drawable))
-           pixel-buffer (Pbuffer. 1 1 (-> (PixelFormat.) (.withFloatingPoint true)) drawable)]
+           pixel-buffer (Pbuffer. 1 1 (-> (PixelFormat.)) drawable)]
        (.makeCurrent pixel-buffer)
        (let [frame-buffer (gen-frame-buffer)]
          (bind-frame-buffer frame-buffer)
