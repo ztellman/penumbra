@@ -61,6 +61,9 @@
         ref-count (if (nil? (:ref-count t)) 0 @(:ref-count t))]
     (and (not permanent) (>= 0 ref-count))))
 
+(defn create-texture-pool []
+  {:texture-size 0 :textures []})
+
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 (gl-import glBindTexture gl-bind-texture)
