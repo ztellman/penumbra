@@ -54,8 +54,8 @@
 (defvar- containers [EXTFramebufferObject
                      ARBDrawBuffers
                      ARBHalfFloatPixel
-                     ATITextureFloat
                      NVFloatBuffer
+                     ATITextureFloat
                      GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32 GLU])
 
 (defn- get-fields [#^Class static-class]

@@ -11,7 +11,8 @@
   (:use [penumbra.opengl.texture :only (texture? create-texture gl-tex-sub-image-2d release!)])
   (:use [penumbra.opengl.core])
   (:use [penumbra opengl geometry])
-  (:import (java.nio Buffer FloatBuffer IntBuffer ByteBuffer)))
+  (:import [org.lwjgl BufferUtils])
+  (:import [java.nio Buffer FloatBuffer IntBuffer ByteBuffer]))
 
 ;;;;;;;;;;;;;;;;;;;
 
@@ -27,6 +28,7 @@
     :else                   (throw (Exception. "Don't recognize type"))))
 
 (defn- array-to-buffer [a type]
+  (println (seq a) type)
   (cond
     (= type :float)         (FloatBuffer/wrap a)
     (= type :int)           (IntBuffer/wrap a)
@@ -45,14 +47,14 @@
 
 (defn write-to-texture [tex ary]
   (let [[w h] (:dim tex)]
+    (println tex)
     (gl-tex-sub-image-2d
-      :texture-rectangle
-      0 0 0
-      (int w) (int h)
-      (int (enum (:pixel-format tex)))
-      (int (enum (:internal-type tex)))
-      #^Buffer (array-to-buffer ary (:internal-type tex))))
-    tex)
+     (int (enum (:target tex)))
+     0 0 0 (int w) (int h)
+     (int (enum (:pixel-format tex)))
+     (int (enum (:internal-type tex)))
+     (array-to-buffer ary (:internal-type tex))))
+  tex)
 
 (defn- seq-to-texture
   ([s] (seq-to-texture s 1))
@@ -99,11 +101,11 @@
              a     (create-array size (:internal-type tex))]
          (bind-texture tex)
          (gl-get-tex-image
-          (int (enum (:target tex)))
+          (enum (:target tex))
           0
-          (int (enum (:pixel-format tex)))
-          (int (enum (:internal-type tex)))
-          #^Buffer (array-to-buffer a (:internal-type tex)))
+          (enum (:pixel-format tex))
+          (enum (:internal-type tex))
+          (array-to-buffer a (:internal-type tex)))
          a))))
 
 (defn unwrap! [& args]
@@ -118,9 +120,9 @@
     (let [a (create-array (:tuple tex) (:internal-type tex))]
       (gl-read-pixels
        0 0 1 1
-       (int (enum (:pixel-format tex)))
-       (int (enum (:internal-type tex)))
-       #^Buffer (array-to-buffer a (:internal-type tex)))
+       (enum (:pixel-format tex))
+       (enum (:internal-type tex))
+       (array-to-buffer a (:internal-type tex)))
       a)))
 
 (defn unwrap-first! [tex]
@@ -128,6 +130,4 @@
     (release! tex)
     data))
 
-
-;;;;;;;;;;;;;;;;;;
 

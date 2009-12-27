@@ -53,25 +53,27 @@
 
 (defn- valid-read-format? [type tuple format]
   (try
-    (let [tex (create-texture :texture-rectangle [16 16] format (pixel-format tuple) type tuple)]
+   (println "trying read:" format)
+   (let [tex (create-texture :texture-rectangle [16 16] format (pixel-format tuple) type tuple)]
       (destroy-texture tex)
       [format (pixel-format tuple) type])
     (catch Exception e
       false)))
 
-(defn-memo read-format [type tuple]
+(defn read-format [type tuple]
   (some
     #(apply valid-read-format? %)
     (filter
-      #(and (= type (first %)) (= tuple (second %)))
-      internal-formats)))
+     #(and (= type (first %)) (= tuple (second %)))
+     internal-formats)))
 
 (defn- valid-write-format? [type tuple format]
   (let [curr (get-frame-buffer)
         fb (gen-frame-buffer)]
     (bind-frame-buffer fb)
     (try
-      (let [tex (create-texture :texture-rectangle [16 16] format (pixel-format tuple) type tuple)]
+     (println "trying write:" format)
+     (let [tex (create-texture :texture-rectangle [16 16] format (pixel-format tuple) type tuple)]
         (attach-textures [] [tex])
         (if (frame-buffer-ok?)
           (do (if tex (destroy-texture tex)) [format (pixel-format tuple) type])
@@ -82,7 +84,7 @@
         (destroy-frame-buffer fb)
         (bind-frame-buffer curr)))))
 
-(defn-memo write-format [type tuple]
+(defn write-format [type tuple]
   (some
     #(apply valid-write-format? %)
     (filter
