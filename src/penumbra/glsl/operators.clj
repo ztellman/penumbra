@@ -175,7 +175,7 @@
 
 (defn- create-operator
   ([body]
-     (create-program*
+     (create-literal-program
       "#extension GL_ARB_texture_rectangle : enable"
       (wrap-and-prepend fixed-transform)
       body)))

@@ -11,8 +11,7 @@
   (:use [penumbra.opengl.texture :only (texture? create-texture gl-tex-sub-image-2d release!)])
   (:use [penumbra.opengl.core])
   (:use [penumbra opengl geometry])
-  (:import (java.nio Buffer FloatBuffer IntBuffer ByteBuffer))
-  (:import (com.sun.opengl.util.texture TextureData)))
+  (:import (java.nio Buffer FloatBuffer IntBuffer ByteBuffer)))
 
 ;;;;;;;;;;;;;;;;;;;
 

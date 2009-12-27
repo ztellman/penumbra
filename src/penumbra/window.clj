@@ -9,7 +9,9 @@
 (ns penumbra.window
   (:use [clojure.contrib.def :only (defvar)])
   (:use [clojure.contrib.core :only (-?>)])
+  (:use [penumbra.opengl])
   (:use [penumbra.opengl.texture :only (create-texture-pool)])
+  (:use [penumbra.opengl.core :only (*texture-pool*)])
   (:require [penumbra.slate :as slate])
   (:import [org.lwjgl.opengl Display PixelFormat])
   (:import [java.awt Frame Canvas GridLayout Color])
@@ -75,7 +77,7 @@
      (check-for-resize *window*))
   ([window]
      (let [dim (dimensions window)]
-       (if (not= @(:size window) dim)
+       (when (not= @(:size window) dim)
          (reset! (:size window) dim)
          (*callback-handler* :reshape (concat [0 0] dim))))))
 
@@ -106,7 +108,8 @@
      (Display/destroy)))
 
 (defmacro with-window [window & body]
-  `(binding [*window* ~window]
+  `(binding [*window* ~window
+             *texture-pool* (:texture-pool ~window)]
      ~@body))
 
 ;;Frame
