@@ -83,8 +83,8 @@
 (defn clear
   "Clears the depth and color buffers."
   ([]
-    (gl-clear :depth-buffer-bit)
-    (gl-clear :color-buffer-bit))
+     (gl-clear :depth-buffer-bit)
+     (gl-clear :color-buffer-bit))
   ([r g b]
     (clear r g b 1))
   ([r g b a]

@@ -71,12 +71,10 @@
      (if (Keyboard/getEventKeyState)
        (do
          (swap! (:keys *input*) #(assoc % name key))
-         (println "press" key)
          (*callback-handler* :key-press key))
        (do
          (let [pressed-key (@(:keys *input*) name)]
            (swap! (:keys *input*) #(dissoc % name key))
-           (println "release" pressed-key)
            (*callback-handler* :key-release pressed-key)))))))
 
 ;;Mouse
