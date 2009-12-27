@@ -10,6 +10,7 @@
 (ns penumbra.app
   (:use [clojure.contrib.def :only [defmacro- defvar-]])
   (:use [penumbra.opengl])
+  (:use [penumbra.opengl.core :only [*texture-pool*]])
   (:require [penumbra.slate :as slate])
   (:require [penumbra.window :as window])
   (:require [penumbra.input :as input])

@@ -8,7 +8,8 @@
 
 (ns examples.mandelbrot
   (:use [penumbra opengl compute])
-  (:require [penumbra.window :as window]))
+  (:require [penumbra.app :as app])
+  (:require [penumbra.slate :as slate]))
 
 (defn init [state]
 
@@ -65,7 +66,7 @@
       :upper-left ul
       :lower-right lr)))
 
-(defn mouse-click [[x y] button state]
+(defn mouse-down [[x y] button state]
   (let [ul    (:upper-left state)
         lr    (:lower-right state)
         coord (map / [x y] (:dim state))]
@@ -77,6 +78,7 @@
         :offset (map + ul (map * coord (map - lr ul)))))))
 
 (defn reshape [[x y w h] state]
+  (println "reshaping")
   (ortho-view 0 1 1 0 -1 1)
   (update-bounds
     (assoc state
@@ -96,7 +98,6 @@
                        (initialize-fractal {:upper-left ul :lower-right lr} (:dim state)))
               next    (iterate-fractal {:upper-left ul :lower-right lr :num-iterations iterations-per-frame} [data])
               image   (color-fractal {:max-iterations max-iterations} [[next]])]
-          (repaint)
           (assoc state
             :iterations iters
             :data next
@@ -104,10 +105,11 @@
       state)))
 
 (defn display [_ state]
-  (blit! (:image state)))
+  (blit! (:image state))
+  (app/repaint))
 
 (defn start []
-  (window/start
-   {:init init, :reshape reshape, :update update, :display display, :mouse-click mouse-click}
+  (app/start
+   {:init init, :reshape reshape, :update update, :display display, :mouse-down mouse-down}
    (reset-fractal {:upper-left [-2.0 1.0] :lower-right [1.0 -1.0] :zoom 1 :offset [-0.5 0]})))
 

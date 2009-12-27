@@ -124,7 +124,7 @@
        (fn [pool]
          (assoc pool
            :textures (cons t (:textures pool))
-           :texture-size (+ (:texture-size pool) t)))))))
+           :texture-size (+ (:texture-size pool) (sizeof t))))))))
 
 (defn num-textures []
   (count (filter (complement available?) (:textures @*texture-pool*))))

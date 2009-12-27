@@ -9,6 +9,7 @@
 (ns penumbra.input
   (:use [clojure.contrib.seq-utils :only [indexed]])
   (:use [clojure.contrib.def :only [defvar]])
+  (:use [penumbra.window :only [dimensions]])
   (:import [org.lwjgl.input Keyboard Mouse]))
 
 (defstruct input-struct
@@ -82,31 +83,32 @@
     (keyword (str "button" (inc button-idx)))))
 
 (defn handle-mouse []
-  (loop [buttons (vec (map #(Mouse/isButtonDown %) (range (Mouse/getButtonCount))))]
-    (Mouse/poll)
-    (when (Mouse/next)
-      (let [dw (Mouse/getEventDWheel)
-            dx (Mouse/getEventDX), dy (Mouse/getEventDY)
-            x (Mouse/getEventX), y (Mouse/getEventY)
-            button (Mouse/getEventButton)
-            button? (not (neg? button))
-            button-state (Mouse/getEventButtonState)]
-        (when (not (zero? dw))
-          (*callback-handler* :mouse-wheel dw))
-        (cond
-         ;;mouse down/up 
-         (and (zero? dx) (zero? dy) button?)
-         (*callback-handler* (if button-state :mouse-down :mouse-up) [x y] (mouse-button-name button))
-         ;;mouse-move
-         (and (not-any? identity buttons) (or (not (zero? dx)) (not (zero? dy))))
-         (*callback-handler* :mouse-move [dx dy] [x y])
-         ;;mouse-drag
-         :else
-         (doseq [button-idx (map first (filter second (indexed buttons)))]
-           (*callback-handler* :mouse-drag [dx dy] [x y] (mouse-button-name button-idx))))
-        (if button?
-          (recur (assoc buttons button button-state))
-          (recur buttons))))))
+  (let [[w h] (dimensions)]
+    (loop [buttons (vec (map #(Mouse/isButtonDown %) (range (Mouse/getButtonCount))))]
+      (Mouse/poll)
+      (when (Mouse/next)
+        (let [dw (Mouse/getEventDWheel)
+              dx (Mouse/getEventDX), dy (- (Mouse/getEventDY))
+              x (Mouse/getEventX), y (- h (Mouse/getEventY))
+              button (Mouse/getEventButton)
+              button? (not (neg? button))
+              button-state (Mouse/getEventButtonState)]
+          (when (not (zero? dw))
+            (*callback-handler* :mouse-wheel dw))
+          (cond
+           ;;mouse down/up 
+           (and (zero? dx) (zero? dy) button?)
+           (*callback-handler* (if button-state :mouse-down :mouse-up) [x y] (mouse-button-name button))
+           ;;mouse-move
+           (and (not-any? identity buttons) (or (not (zero? dx)) (not (zero? dy))))
+           (*callback-handler* :mouse-move [dx dy] [x y])
+           ;;mouse-drag
+           :else
+           (doseq [button-idx (map first (filter second (indexed buttons)))]
+             (*callback-handler* :mouse-drag [dx dy] [x y] (mouse-button-name button-idx))))
+          (if button?
+            (recur (assoc buttons button button-state))
+            (recur buttons)))))))
 
 ;;;
 

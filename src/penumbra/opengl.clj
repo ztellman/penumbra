@@ -385,7 +385,8 @@
 (defn get-uniform-location [variable]
   (if-let [location (@*uniforms* variable)]
     location
-    (let [loc (gl-get-uniform-location *program* (.replace (name variable) \- \_))]
+    (let [uniform-buf (ByteBuffer/wrap (.getBytes (str (.replace (name variable) \- \_) "\0")))
+          loc (gl-get-uniform-location *program* uniform-buf)]
       (dosync (alter *uniforms* #(assoc % variable loc)))
       loc)))
 

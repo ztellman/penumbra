@@ -99,7 +99,7 @@
 
 (defn mouse-drag [[dx dy] _ button state]
   (assoc state
-    :rot-x (- (:rot-x state) dy)
+    :rot-x (+ (:rot-x state) dy)
     :rot-y (+ (:rot-y state) dx)))
 
 (defn display [[delta time] state]

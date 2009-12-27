@@ -91,7 +91,7 @@
 
 (defn print-compatible-types []
   (let [permutations (cartesian-product [:float :int :unsigned-byte] (range 1 5))]
-    (with-blank-slate
+    (with-slate
       (doseq [[type tuple] permutations]
         (println
           (name type) tuple ":"
