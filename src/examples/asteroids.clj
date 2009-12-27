@@ -7,7 +7,10 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns examples.asteroids
-  (:use [penumbra opengl window geometry])
+  (:use [penumbra opengl geometry])
+  (:require [penumbra.app :as app])
+  (:require [penumbra.input :as input])
+  (:require [penumbra.window :as window])
   (:use [clojure.contrib.seq-utils :only (separate)]))
 
 ;;;
@@ -62,7 +65,7 @@
     (nth s iterations)))
 
 (defn gen-asteroid-geometry [lod iterations]
-  (get-display-list
+  (create-display-list
    (doseq [arcs (partition 2 1 (gen-asteroid-vertices lod iterations))]
     (draw-quad-strip
      (doseq [[a b] (map list (first arcs) (second arcs))]
@@ -72,8 +75,8 @@
   (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 12 12))))))
 
 (defn gen-asteroid [initial radius theta speed]
-  (let [birth (clock)
-        elapsed #(/ (- (clock) birth) 1e9)
+  (let [birth (app/clock)
+        elapsed #(- (app/clock) birth)
         asteroid (nth asteroid-meshes (rand-int 20))
         [x y] (map (partial * speed) (cartesian theta))
         position #(wrap (map + initial (map * [x y] (repeat (elapsed)))))]
@@ -106,7 +109,7 @@
            [1 1 1 i])))
       tex))
   (def particle-quad
-    (get-display-list (textured-quad))))
+    (create-display-list (textured-quad))))
 
 (defn draw-particle [position radius tint]
   (push-matrix
@@ -116,11 +119,11 @@
     (call-display-list particle-quad)))
 
 (defn gen-particle [position theta speed radius [r g b] lifespan]
-  (let [birth (clock)
+  (let [birth (app/clock)
         [x y] (map (partial * speed) (cartesian theta))
-        elapsed #(/ (- (clock) birth) 1e9)
+        elapsed #(- (app/clock) birth)
         position #(wrap (map + position (map * [x y] (repeat (elapsed)))))]
-    {:expired? #(> (/ (- (clock) birth) 1e9) lifespan)
+    {:expired? #(> (- (app/clock) birth) lifespan)
      :position position
      :radius radius
      :render #(draw-particle
@@ -137,7 +140,7 @@
    (vertex 0.4 -0.5) (vertex 0 -0.4) (vertex 0 0.5)))
 
 (defn init-spaceship []
-  (def fuselage (get-display-list (draw-fuselage))))
+  (def fuselage (create-display-list (draw-fuselage))))
 
 (defn fire-bullet [state]
   (let [ship (:spaceship state)]
@@ -151,7 +154,7 @@
         15 0.25 [0 0 1] 2)))))
 
 (defn emit-flame [state]
-  (if (key-pressed? :up)
+  (if (input/key-pressed? :up)
     (let [ship (:spaceship state)
           theta (+ 180 (:theta ship) (- (rand 20) 10))
           particles (:particles state)
@@ -165,11 +168,11 @@
   (let [p     (:position ship)
         v     (:velocity ship)
         theta (:theta ship)
-        theta (condp key-pressed? nil
+        theta (condp (fn [x _] (input/key-pressed? x)) nil
                 :left  (rem (+ theta (* 360 dt)) 360)
                 :right (rem (- theta (* 360 dt)) 360)
                 theta)
-        a     (if (key-pressed? :up)
+        a     (if (input/key-pressed? :up)
                   (map (partial * 3) (cartesian theta))
                   [0 0])
         v     (map + v (map * a (repeat dt))) 
@@ -190,7 +193,7 @@
    :radius 0.5
    :velocity [0 0]
    :theta 0
-   :birth (clock)})
+   :birth (app/clock)})
 
 ;;game state
 
@@ -266,15 +269,15 @@
 ;;game loop
 
 (defn init [state]
-  (set-title "Asteroids")
-  (vsync true)
+  (app/set-title "Asteroids")
+  (window/vsync true)
   (init-asteroids)
   (init-particles)
   (init-spaceship)
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
-  (start-update-loop 20 update-collisions)
-  (start-update-loop 40 emit-flame)
+  (app/start-update-loop 20 update-collisions)
+  (app/start-update-loop 40 emit-flame)
   (reset state))
 
 (defn reshape [[x y w h] state]
@@ -305,8 +308,9 @@
       (doseq [a (:asteroids state)]
         (render a)))
     (draw-spaceship (:spaceship state))
-    (repaint)))
-   
-(start
- {:reshape reshape, :display display, :init init, :update update, :key-press key-press} 
- {:spaceship (gen-spaceship)})
+    (app/repaint)))
+
+(defn start []
+  (app/start
+   {:reshape reshape, :display display, :init init, :update update, :key-press key-press} 
+   {:spaceship (gen-spaceship)}))

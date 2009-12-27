@@ -7,7 +7,9 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns examples.tetris
-  (:use [penumbra window opengl])
+  (:use [penumbra opengl])
+  (:require [penumbra.app :as app])
+  (:require [penumbra.input :as input])
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.pprint]))
@@ -161,14 +163,14 @@
 ;;;
 
 (defn init [state]
-  (start-update-loop
+  (app/start-update-loop
    2
    (fn [state]
-     (if (key-pressed? :down)
-       (set-frequency 10)
-       (set-frequency 2))
+     (if (input/key-pressed? :down)
+       (app/frequency! 10)
+       (app/frequency! 2))
      (descend state)))
-  (key-repeat true)
+  (input/key-repeat true)
   state)
 
 (defn reshape [[x y w h] state]
@@ -203,7 +205,7 @@
      (vertex 0.5 0.5 0))))
 
 (defn-memo bordered-rectangle []
-  (get-display-list
+  (create-display-list
     (draw-quads (rectangle))
     (color 0 0 0)
     (draw-line-loop (rectangle))
@@ -240,8 +242,9 @@
   ;;draw next shape
   (draw-tetra (:next-tetra state) [13 5]))
 
-(start
- {:init init, :display display, :reshape reshape, :key-press key-press}
- (initialize-state {}))
+(defn start []
+  (app/start
+   {:init init, :display display, :reshape reshape, :key-press key-press}
+   (initialize-state {})))
 
 

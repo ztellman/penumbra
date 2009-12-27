@@ -35,7 +35,7 @@
 (defn get-integer
   "Calls glGetInteger."
   [param]
-  (let [ary (int-array 1)]
+  (let [ary (int-array 16)]
     (gl-get-integer (enum param) (IntBuffer/wrap ary))
     (first ary)))
 
@@ -230,7 +230,7 @@
   [display-list]
   (gl-call-list display-list))
 
-(defmacro get-display-list
+(defmacro create-display-list
   "Bounds inner scope in glNewList() ... glEndList(), and returns the display list value."
   [& body]
   `(let [list# (gl-gen-lists 1)]
@@ -439,31 +439,47 @@
 (gl-import glGetTexImage gl-get-tex-image)
 (gl-import glActiveTexture gl-active-texture)
 
-(defn gen-frame-buffer []
+(defn gen-frame-buffer
+  "Creates a single frame buffer object."
+  []
   (let [a (int-array 1)]
     (gl-gen-frame-buffers (IntBuffer/wrap a))
     (first a)))
 
-(defn get-frame-buffer []
+(defn get-frame-buffer
+  "Gets the currently bound frame buffer object."
+  []
   (get-integer :framebuffer-binding))
 
-(defn destroy-frame-buffer [fb]
+(defn destroy-frame-buffer
+  "Destroys a single frame buffer object."
+  [fb]
   (let [a (int-array [fb])]
     (gl-delete-frame-buffers (IntBuffer/wrap a))))
 
-(defn bind-frame-buffer [fb]
+(defn bind-frame-buffer
+  "Binds a frame buffer object."
+  [fb]
   (gl-bind-frame-buffer :framebuffer fb))
 
-(defn frame-buffer-ok? []
+(defn frame-buffer-ok?
+  "Checks whether the current frame buffer object has valid attachments."
+  []
   (= (gl-check-frame-buffer-status :framebuffer) (enum :framebuffer-complete)))
 
-(defn frame-buffer-status []
+(defn frame-buffer-status
+  "Returns the current status of the bound frame buffer object."
+  []
   (enum-name (gl-check-frame-buffer-status :framebuffer)))
 
-(defn-memo texture-lookup [point]
+(defn-memo texture-lookup
+  "Given n, returns integer value of GL_TEXTURE(n)"
+  [point]
   (enum (keyword (str "texture" point))))
 
-(defn attach [tex point]
+(defn attach
+  "Attaches a texture to point n."
+  [tex point]
   (let [p (attachment-lookup point)]
     (if (nil? tex)
       (gl-frame-buffer-texture-2d :framebuffer p :texture-rectangle 0 0)
@@ -471,17 +487,23 @@
         (gl-frame-buffer-texture-2d :framebuffer p (enum (:target tex)) (:id tex) 0)
         (attach! tex point)))))
 
-(defn bind-read [variable tex point]
+(defn bind-read
+  "Binds a texture as a uniform Sampler2DRect to point n."
+  [variable tex point]
   (let [loc (get-uniform-location variable)]
     (gl-active-texture (texture-lookup point))
     (gl-bind-texture (enum (:target tex)) (:id tex))
     (uniform-1i loc point)))
 
-(defn bind-write [start end]
+(defn bind-write
+  "Defines which textures will be written to, where textures are defined by their attachmennt points."
+  [start end]
   (let [buffers (int-array (map attachment-lookup (range start end)))]
     (gl-draw-buffers (IntBuffer/wrap buffers))))
 
-(defn attach-textures [read write]
+(defn attach-textures
+  "Attaches read and write textures, where read textures are a hash with names as keys, and write textures are a standard seq."
+  [read write]
   (let [read-textures (map #(last %) (partition 2 read))]
     (doseq [[idx tex] (indexed write)]
       (attach tex idx))
@@ -493,6 +515,7 @@
       (bind-write 0 (count write)))))
 
 (defmacro with-frame-buffer
+  "Renders anything within the inner scope to a frame buffer."
   [& body]
   `(let [fb# (gen-frame-buffer)]
      (bind-frame-buffer fb#)

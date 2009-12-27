@@ -41,7 +41,7 @@
   "The threshold for number of allocated textures which will trigger collection of any which are unused")
 
 (defvar *check-errors* true
-  "Causes errors in glGetError to throw an exception.  This averages 3% CPU overhead, and is almost always worth having enabled.")
+  "Causes errors in glGetError to throw an exception.  This creates minimal CPU overhead (~3%), and is almost always worth having enabled.")
 
 (defvar *view* (atom [0 0 0 0])
   "Pixel boundaries of render window.  Parameters represent [x y width height].")

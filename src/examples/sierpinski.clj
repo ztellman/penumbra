@@ -8,7 +8,7 @@
 
 (ns examples.sierpinski
   (:use [penumbra opengl])
-  (:require [penumbra.window :as window]))
+  (:require [penumbra.app :as app]))
 
 (defn draw-pyramid []
   (material :front-and-back
@@ -39,8 +39,8 @@
 
 (defn sierpinski []
   (iterate
-    #(get-display-list (subdivide %))
-    (get-display-list (draw-pyramid))))
+   #(create-display-list (subdivide %))
+   (create-display-list (draw-pyramid))))
 
 ;;;;;;;;;;;;;;;;;
 
@@ -53,7 +53,7 @@
   (enable :light0)
   (enable :fog)
   (shade-model :flat)
-  (assoc state :pyramid (nth (sierpinski) 6)))
+  (assoc state :pyramid (nth (sierpinski) 5)))
 
 (defn reshape [[x y width height] state]
   (frustum-view 50 (/ (double width) height) 0.1 100)
@@ -80,7 +80,7 @@
   (call-display-list (:pyramid state)))
 
 (defn start []
-  (window/start
+  (app/start
    {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init}
    {:rot-x 0, :rot-y 0, :pyramid nil}))
 

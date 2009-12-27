@@ -7,65 +7,24 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.slate
-  (:use [clojure.contrib.def :only (defmacro- defn-memo)])
+  (:use [clojure.contrib.def :only [defmacro- defn-memo defvar-]])
   (:use [clojure.contrib.pprint])
-  (:use [clojure.contrib.seq-utils :only (separate)])
+  (:use [clojure.contrib.seq-utils :only [separate]])
   (:use [penumbra opengl])
   (:use [penumbra.opengl core])
-  (:use [penumbra.opengl.texture :only [destroy-textures]])
-  (:import (java.util.concurrent Semaphore))
-  (:import (javax.media.opengl GLPbuffer GLEventListener GLCapabilities GLProfile GLAutoDrawable)))
+  (:use [penumbra.opengl.texture :only [destroy-textures create-texture-pool]])
+  (:import [org.lwjgl.opengl Pbuffer PixelFormat]))
 
-;;;;;;;;;;;;;;;;;
+;;;
 
-(defstruct slate-struct :p-buffer :queue :width :height :texture-pool)
+(defstruct slate-struct
+  :pixel-buffer
+  :frame-buffer
+  :texture-pool
+  :display-list
+  :base-context?)
 
-(def *slate* nil)
-
-(defn repaint [slate]
-  (.repaint #^GLPbuffer (:p-buffer slate)))
-
-(defn enqueue [slate f]
-  (dosync
-    (alter (:queue slate)
-      #(concat % (list f))))
-  (repaint slate))
-
-(defn execute [slate]
-  (let [coll @(:queue slate)]
-    (doseq [f coll]
-      (push-matrix (f)))
-    (dosync
-      (alter (:queue slate)
-        #(drop (count coll) %)))))
-
-(defn invoke [slate f]
-  (let [#^Semaphore s (Semaphore. 1)
-        exception (atom nil)
-        value (atom nil)]
-    (.acquire s)
-    (enqueue slate
-      (fn []
-        (try
-          (reset! value (f))
-          (catch Exception e
-            (reset! exception e))
-          (finally
-            (.release s)))))
-    (.acquire s)
-    (if @exception
-      (throw @exception))
-    @value))
-
-(defn destroy [slate]
-  (enqueue slate
-    (fn []
-      (let [textures @(:textures (:texture-pool slate))]
-        (println "cleaning up" (count textures) "textures:" (map :dim textures))
-        (destroy-textures textures)
-        (.destroy #^GLPbuffer (:p-buffer slate))))))
-
-;;;;;;;;;;;;;;;;;
+(defvar- *slate* nil)
 
 (defn- draw* []
   (with-projection (ortho-view 0 1 1 0 -1 1)
@@ -87,55 +46,42 @@
         (call-display-list @(:display-list *slate*))
         (draw*)))))
 
-;;;;;;;;;;;;;;;;;;
+(defn create
+  ([]
+     (create nil))
+  ([parent]
+     (let [drawable (when-let [drawable (:drawable parent)]
+                      (drawable))
+           pixel-buffer (Pbuffer. 1 1 (-> (PixelFormat.) (.withFloatingPoint true)) drawable)]
+       (.makeCurrent pixel-buffer)
+       (let [frame-buffer (gen-frame-buffer)]
+         (bind-frame-buffer frame-buffer)
+         (struct-map slate-struct
+           :drawable (constantly pixel-buffer)
+           :pixel-buffer pixel-buffer
+           :frame-buffer frame-buffer
+           :texture-pool (or (:texture-pool parent) (create-texture-pool))
+           :display-list (or (:display-list parent) (create-display-list (draw*)))
+           :base-context? (nil? parent))))))
 
-(defn create-slate
-  ([] (create-slate 1 1))
-  ([width height]
-    (let
-      [profile (GLProfile/get GLProfile/GL2GL3)
-       cap (GLCapabilities. profile)]
+(defn destroy
+  ([]
+     (destroy *slate*))
+  ([slate]
+     (when (:base-context? slate)
+       (destroy-frame-buffer (:frame-buffer slate))
+       (destroy-textures (-> slate :texture-pool :textures)))
+     (.destroy (:pixel-buffer slate))))
 
-      ;(.setPbufferFloatingPointBuffers cap true)
-      ;(.setPbufferRenderToTextureRectangle cap true)
-
-      (let [p-buffer  (.. (javax.media.opengl.GLDrawableFactory/getFactory profile) (createGLPbuffer cap nil width height nil))
-            tex-pool  {:texture-size (ref 0) :textures (ref '())}
-            slate     (struct-map slate-struct
-                        :p-buffer p-buffer :queue (ref '())
-                        :texture-pool tex-pool
-                        :width width :height height
-                        :display-list (atom nil))]
-
-        (doto p-buffer
-          (.addGLEventListener
-            (proxy [GLEventListener] []
-
-              (display [drawable]
-                (bind-gl drawable
-                  (with-frame-buffer
-                    (binding [*slate* slate
-                              *texture-pool* tex-pool]
-                      (execute slate)))))
-
-              (reshape [#^GLAutoDrawable drawable x y width height])
-
-              (init [#^GLAutoDrawable drawable]
-                (bind-gl drawable
-                  (set-display-list (:display-list slate)
-                    (draw*))
-                  (ortho-view 0 1 1 0 -1 1))))))
-        slate))))
-
-(defmacro with-slate
-  [slate & body]
-  `(invoke ~slate (fn [] ~@body)))
-
-(defmacro with-blank-slate
-  [& body]
-  `(let [slate# (create-slate)]
+(defmacro with-slate [& body]
+  `(let [slate# (create)]
      (try
-      (with-slate slate#
-        ~@body)
+      ~@body
       (finally
        (destroy slate#)))))
+
+;;;
+
+
+
+

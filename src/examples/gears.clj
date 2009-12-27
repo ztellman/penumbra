@@ -7,7 +7,8 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns examples.gears
-  (:use [penumbra opengl window geometry]))
+  (:use [penumbra opengl geometry])
+  (:require [penumbra.app :as app]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;Gear building functions
@@ -87,7 +88,7 @@
   (enable :light0)
   (shade-model :flat)
   (assoc state
-    :gear (get-display-list (draw-gear 30 0.5 3 4 2))))
+    :gear (create-display-list (draw-gear 30 0.5 3 4 2))))
 
 (defn reshape [[x y width height] state]
   (frustum-view 60.0 (/ (double width) height) 1.0 100.0)
@@ -96,9 +97,9 @@
   (light 0 :position [1 1 1 0])
   state)
 
-(defn mouse-drag [[[dx dy] _] button state]
+(defn mouse-drag [[dx dy] _ button state]
   (assoc state
-    :rot-x (+ (:rot-x state) dy)
+    :rot-x (- (:rot-x state) dy)
     :rot-y (+ (:rot-y state) dx)))
 
 (defn display [[delta time] state]
@@ -107,8 +108,9 @@
   (rotate (:rot-y state) 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
   (call-display-list (:gear state))
-  (repaint))
+  (app/repaint))
 
-(start
-  {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
-  {:rot-x 0, :rot-y 0, :gear nil})
+(defn start []
+  (app/start
+   {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
+   {:rot-x 0, :rot-y 0, :gear nil}))
