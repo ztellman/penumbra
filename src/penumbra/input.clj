@@ -23,7 +23,7 @@
 
 (defn create []
   (struct-map input-struct
-    :keys (atom #{})))
+    :keys (atom {})))
 
 (defn init
   ([]
@@ -46,7 +46,7 @@
 ;;Keyboard
 
 (defn key-pressed? [key]
-  (@(:keys *input*) key))
+  ((-> @(:keys *input*) vals set) key))
 
 (defn key-repeat [enabled]
   (Keyboard/enableRepeatEvents enabled))
@@ -55,24 +55,29 @@
   (let [char (Keyboard/getEventCharacter)
         key (Keyboard/getEventKey)
         name (Keyboard/getKeyName key)]
-    (cond
-     (= key Keyboard/KEY_DELETE) :delete
-     (= key Keyboard/KEY_BACK) :back
-     (= key Keyboard/KEY_RETURN) :return
-     (not= 0 (int char)) (str char)
-     :else (-> name .toLowerCase keyword))))
+    [name
+     (cond
+      (= key Keyboard/KEY_DELETE) :delete
+      (= key Keyboard/KEY_BACK) :back
+      (= key Keyboard/KEY_RETURN) :return
+      (not= 0 (int char)) (str char)
+      :else (-> name .toLowerCase keyword))]))
 
 (defn handle-keyboard []
   (Keyboard/poll)
   (while
    (Keyboard/next)
-   (if (Keyboard/getEventKeyState)
-     (do
-       (swap! (:keys *input*) #(conj % (current-key)))
-       (*callback-handler* :key-press (current-key)))
-     (do
-       (swap! (:keys *input*) #(disj % (current-key)))
-       (*callback-handler* :key-release (current-key))))))
+   (let [[name key] (current-key)]
+     (if (Keyboard/getEventKeyState)
+       (do
+         (swap! (:keys *input*) #(assoc % name key))
+         (println "press" key)
+         (*callback-handler* :key-press key))
+       (do
+         (let [pressed-key (@(:keys *input*) name)]
+           (swap! (:keys *input*) #(dissoc % name key))
+           (println "release" pressed-key)
+           (*callback-handler* :key-release pressed-key)))))))
 
 ;;Mouse
 

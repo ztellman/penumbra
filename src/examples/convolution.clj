@@ -40,8 +40,8 @@
   (def kernel
     (wrap (map float
                [1 0 0
-                0 1 0
-                0 0 1])))
+                0 0 0
+                0 0 0])))
 
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
@@ -57,7 +57,9 @@
      (= key :return)
      (assoc state
        :tex (with-frame-buffer
-              (blur [tex [kernel]]))))))
+              (blur [tex [kernel]]))))
+    :else
+    state))
 
 (defn display [_ state]
   (blit (:tex state)))
