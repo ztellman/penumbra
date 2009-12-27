@@ -10,7 +10,10 @@
   (:use [clojure.contrib.def :only (defn-memo defmacro- defvar defvar-)])
   (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32
                              ARBDrawBuffers
-                             EXTFramebufferObject))
+                             EXTFramebufferObject
+                             ARBHalfFloatPixel
+                             ATITextureFloat
+                             NVFloatBuffer))
   (:import (org.lwjgl.util.glu GLU))
   (:import (java.lang.reflect Field Method)))
 
@@ -50,6 +53,9 @@
 
 (defvar- containers [EXTFramebufferObject
                      ARBDrawBuffers
+                     ARBHalfFloatPixel
+                     ATITextureFloat
+                     NVFloatBuffer
                      GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32 GLU])
 
 (defn- get-fields [#^Class static-class]

@@ -7,7 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns examples.convolution
-  (:use [penumbra opengl compute window]))
+  (:use [penumbra opengl compute])
+  (:require [penumbra.app :as app]))
 
 (defn draw-rect [x y w h]
   (with-disabled :texture-rectangle
@@ -19,10 +20,11 @@
 
 (defn reset-image [tex w h]
   (render-to-texture tex
-    (with-projection (ortho-view 0 2 2 0 -1 1)
+    (with-projection (ortho-view 0 2 0 2 -1 1)
       (dotimes [_ 100]
         (apply color (take 3 (repeatedly rand)))
         (apply draw-rect (take 4 (repeatedly rand))))))
+  (app/repaint)
   tex)
 
 (defn init [state]
@@ -32,14 +34,14 @@
           sum 0.0]
       (convolve %2
          (+= sum %2)
-        (+= value (* %2 %1)))
+         (+= value (* %2 %1)))
       (/ value sum))) 
 
   (def kernel
     (wrap (map float
-               [1 0 0
-                0 1 0
-                0 0 1])))
+               [1 1 1
+                1 1 1
+                1 1 1])))
   
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
@@ -49,16 +51,17 @@
 (defn key-press [key state]
   (let [tex (:tex state)]
     (cond
-      (= key " ")
-      (enqueue #(assoc %
-                  :tex (reset-image tex 256 256)))
-      (= key :enter)
-      (enqueue #(assoc %
-                  :tex (with-frame-buffer
-                         (blur [tex [kernel]]))))))
-  state)
+     (= key " ")
+     (assoc state
+       :tex (reset-image tex 256 256))
+     (= key :return)
+     (assoc state
+       :tex (with-frame-buffer
+              (blur [tex [kernel]]))))))
 
 (defn display [_ state]
+  (println (:tex state))
   (blit (:tex state)))
 
-(start {:display display, :key-press key-press, :init init} {})
+(defn start []
+  (app/start {:display display, :key-press key-press, :init init} {}))

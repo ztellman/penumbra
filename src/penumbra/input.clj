@@ -58,6 +58,7 @@
     (cond
      (= key Keyboard/KEY_DELETE) :delete
      (= key Keyboard/KEY_BACK) :back
+     (= key Keyboard/KEY_RETURN) :return
      (not= 0 (int char)) (str char)
      :else (-> name .toLowerCase keyword))))
 
