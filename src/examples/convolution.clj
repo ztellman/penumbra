@@ -18,7 +18,7 @@
      (vertex (+ x w) (+ y h))
      (vertex x (+ y h)))))
 
-(defn reset-image [tex w h]
+(defn reset-image [tex]
   (render-to-texture tex
     (with-projection (ortho-view 0 2 0 2 -1 1)
       (dotimes [_ 100]
@@ -40,26 +40,27 @@
   (def kernel
     (wrap (map float
                [1 0 0
-                0 0 0
-                0 0 0])))
+                0 1 0
+                0 0 1])))
 
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
   (assoc state
-    :tex (create-byte-texture :texture-rectangle 256 256)))
+    :tex (reset-image (create-byte-texture :texture-rectangle 256 256))))
 
 (defn key-press [key state]
+  (app/repaint)
   (let [tex (:tex state)]
     (cond
      (= key " ")
      (assoc state
-       :tex (reset-image tex 256 256))
+       :tex (reset-image tex))
      (= key :return)
      (assoc state
        :tex (with-frame-buffer
-              (blur [tex [kernel]]))))
-    :else
-    state))
+              (blur [tex [kernel]])))
+     :else
+     state)))
 
 (defn display [_ state]
   (blit (:tex state)))

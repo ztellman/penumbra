@@ -28,7 +28,6 @@
     :else                   (throw (Exception. "Don't recognize type"))))
 
 (defn- array-to-buffer [a type]
-  (println (seq a) type)
   (cond
     (= type :float)         (FloatBuffer/wrap a)
     (= type :int)           (IntBuffer/wrap a)
@@ -47,7 +46,6 @@
 
 (defn write-to-texture [tex ary]
   (let [[w h] (:dim tex)]
-    (println tex)
     (gl-tex-sub-image-2d
      (int (enum (:target tex)))
      0 0 0 (int w) (int h)

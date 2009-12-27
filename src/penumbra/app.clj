@@ -172,6 +172,7 @@
        (when (:stopped? *app*)
          (window/init)
          (try-callback :init)
+         (try-callback :reshape (concat [0 0] @(:size window/*window*)))
          (input/init)
          (reset! (:stopped? app) false)))))
 
@@ -188,7 +189,7 @@
        (if (or (Display/isDirty) @(:invalidated? app))
          (do
            (reset! (:invalidated? app) false)
-           (clear)
+           (clear 0 0 0)
            (push-matrix
             ((-> app :callbacks :display) @(:state app))))
          (Thread/sleep 15))

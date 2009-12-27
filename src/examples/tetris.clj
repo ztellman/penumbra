@@ -163,6 +163,14 @@
 ;;;
 
 (defn init [state]
+  
+  (def bordered-rectangle
+       (create-display-list
+        (draw-quads (rectangle))
+        (color 0 0 0)
+        (draw-line-loop (rectangle))
+        (color 1 1 1)))
+  
   (app/start-update-loop
    2
    (fn [state]
@@ -178,6 +186,7 @@
         height (if (> 1 aspect) (/ 1.0 aspect) 1)
         aspect (max 1 aspect)]
     (ortho-view (- aspect) aspect height (- height) -1 1)
+    (load-identity)
     state))
 
 (defn key-press [key state] 
@@ -202,21 +211,14 @@
   (push-matrix
     (dotimes [_ 4]
      (rotate 90 0 0 1)
-     (vertex 0.5 0.5 0))))
-
-(defn-memo bordered-rectangle []
-  (create-display-list
-    (draw-quads (rectangle))
-    (color 0 0 0)
-    (draw-line-loop (rectangle))
-    (color 1 1 1)))
+     (vertex 0.5 0.5))))
 
 (defn draw-bordered-block [col [x y]]
   (when (<= 0 y)
     (apply color col)    
     (push-matrix
-      (translate x y)
-      (call-display-list (bordered-rectangle)))))
+     (translate x y)
+     (call-display-list bordered-rectangle))))
 
 (defn draw-tetra [tetra offset]
   (doseq [block (map #(translate* offset %) (:shape tetra))]
@@ -236,9 +238,10 @@
        (if block (draw-bordered-block block [x y])))))
   (translate (/ width -2) (/ height -2) 0)
   ;;draw border
+  ;;(color 1 1 1)
   (draw-line-loop
-   (vertex 0 0 0) (vertex width 0 0)
-   (vertex width height 0) (vertex 0 height 0))
+   (vertex 0 0) (vertex width 0)
+   (vertex width height) (vertex 0 height))
   ;;draw next shape
   (draw-tetra (:next-tetra state) [13 5]))
 
