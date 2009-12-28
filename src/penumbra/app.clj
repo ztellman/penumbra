@@ -49,6 +49,8 @@
     (reset! (:invalidated? *app*) true)))
 
 (defn set-title [title]
+  (System/setProperty "apple.laf.useScreenMenuBar" "true")
+  (System/setProperty "com.apple.mrj.application.apple.menu.about.name" title)
   (Display/setTitle title))
 
 (defn- try-callback [callback & args]

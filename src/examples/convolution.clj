@@ -29,6 +29,8 @@
 
 (defn init [state]
 
+  (app/set-title "Convolution")
+
   (defmap blur
     (let [value (float4 0.0)
           sum 0.0]

@@ -46,6 +46,7 @@
 ;;;;;;;;;;;;;;;;;
 
 (defn init [state]
+  (app/set-title "Render to Texture")
   (tex-env :texture-env :texture-env-mode :modulate)
   (enable :texture-2d)
   (enable :depth-test)

@@ -45,6 +45,7 @@
 ;;;;;;;;;;;;;;;;;
 
 (defn init [state]
+  (app/set-title "Sierpinski Pyramid")
   (enable :normalize)
   (enable :depth-test)
   (enable :multisample)
