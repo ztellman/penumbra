@@ -163,6 +163,8 @@
 ;;;
 
 (defn init [state]
+
+  (app/set-title "Tetris")
   
   (def bordered-rectangle
        (create-display-list

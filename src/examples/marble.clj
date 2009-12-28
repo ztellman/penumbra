@@ -64,6 +64,7 @@
   state)
 
 (defn init [state]
+  (app/set-title "Marble")
   (enable :depth-test)
   (enable :lighting)
   (enable :light0)

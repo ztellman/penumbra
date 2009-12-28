@@ -13,6 +13,8 @@
 
 (defn init [state]
 
+  (app/set-title "Mandelbrot Viewer")
+
   (defmap initialize-fractal
     (float3 (mix upper-left lower-right (/ :coord :dim)) 0))
 

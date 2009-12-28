@@ -197,7 +197,9 @@
 
 ;;game state
 
-(defn reset [state]
+(defn reset
+  "Reset to initial game state."
+  [state]
   (assoc state
     :spaceship (gen-spaceship)
     :asteroids (take 4 (repeatedly
@@ -205,7 +207,9 @@
                                pos (cartesian [theta 2])]
                            (gen-asteroid pos 1 theta (rand)))))))
 
-(defn split-asteroid [asteroid]
+(defn split-asteroid
+  "Turn asteroid into four sub-asteroids."
+  [asteroid]
   (when (< 0.25 (radius asteroid))
     (take 4
       (repeatedly
@@ -214,7 +218,9 @@
           (/ (radius asteroid) 2)
           (rand 360) (/ 1.5 (radius asteroid)))))))
 
-(defn gen-explosion [num object [lo-color hi-color] speed]
+(defn gen-explosion
+  "Create particles within a given color range."
+  [num object [lo-color hi-color] speed]
   (take num
     (repeatedly
       #(gen-particle
@@ -223,7 +229,9 @@
         (rand-color lo-color hi-color)
         2))))
 
-(defn explode-asteroids [asteroids state]
+(defn explode-asteroids
+  "Turn asteroid into sub-asteroids and explosion particles."
+  [asteroids state]
   (assoc state
     :asteroids (concat
                  (:asteroids state)
@@ -232,12 +240,16 @@
                  (:particles state)
                  (mapcat #(gen-explosion (* (radius %) 100) % [[1 0.5 0] [1 1 0.2]] 2) asteroids))))
 
-(defn check-complete [state]
+(defn check-complete
+  "Are all the asteroids gone?"
+  [state]
   (if (zero? (count (:asteroids state)))
     (reset state)
     state))
 
-(defn check-ship [state]
+(defn check-ship
+  "Has the ship collided with any asteroids?"
+  [state]
   (let [ship (:spaceship state)
         asteroids (:asteroids state)
         [hit missed] (separate #(intersects? ship %) asteroids)]
@@ -248,7 +260,9 @@
         :particles (concat (:particles state) (gen-explosion 300 ship [[0 0 0.6] [0.5 0.5 1]] 7)))
       state)))
 
-(defn check-asteroids [state]
+(defn check-asteroids
+  "Have the asteroids collided with any bullets?"
+  [state]
   (let [bullets (:bullets state)
         asteroids (:asteroids state)
         collisions (for [a asteroids, b bullets :when (intersects? a b)] [a b])

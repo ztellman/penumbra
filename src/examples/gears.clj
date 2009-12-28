@@ -73,7 +73,7 @@
       (normal 0 0 1)
       (translate 0 0 1)
       (draw-gear-face num-teeth inner low high))
-    ;;geaar teeth
+    ;;gear teeth
     (push-matrix
       (draw-gear-teeth num-teeth low high))
     ;;inner hole
@@ -83,6 +83,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn init [state]
+  (app/set-title "Gears")
   (enable :depth-test)
   (enable :lighting)
   (enable :light0)
