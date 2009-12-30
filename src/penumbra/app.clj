@@ -213,7 +213,9 @@
            (reset! (:invalidated? app) false)
            (clear 0 0 0)
            (push-matrix
-            ((-> app :callbacks :display) @(:state app))))
+            ((-> app :callbacks :display) @(:state app)))
+           (when @(:vsync? window/*window*)
+             (Display/sync 60)))
          (Thread/sleep 15))
        (if (Display/isCloseRequested)
          (stop)
