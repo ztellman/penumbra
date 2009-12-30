@@ -86,6 +86,11 @@
     (assoc state
       :dim [w h])))
 
+(defn key-press [key state]
+  (cond
+   (= key :escape) (do (app/pause) state)
+   :else state))
+
 (def iterations-per-frame 60)
 
 (defn update [_ state]
@@ -112,6 +117,6 @@
 
 (defn start []
   (app/start
-   {:init init, :reshape reshape, :update update, :display display, :mouse-down mouse-down}
+   {:init init, :reshape reshape, :update update, :display display, :mouse-down mouse-down, :key-press key-press}
    (reset-fractal {:upper-left [-2.0 1.0] :lower-right [1.0 -1.0] :zoom 1 :offset [-0.5 0]})))
 

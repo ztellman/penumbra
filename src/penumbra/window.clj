@@ -13,7 +13,9 @@
   (:use [penumbra.opengl.texture :only (create-texture-pool)])
   (:use [penumbra.opengl.core :only (*texture-pool*)])
   (:require [penumbra.slate :as slate])
+  (:require [penumbra.opengl.texture :as texture])
   (:import [org.lwjgl.opengl Display PixelFormat])
+  (:import [org.newdawn.slick.opengl InternalTextureLoader])
   (:import [java.awt Frame Canvas GridLayout Color])
   (:import [java.awt.event WindowAdapter]))
 
@@ -103,6 +105,8 @@
   ([]
      (destroy *window*))
   ([window]
+     (-> (InternalTextureLoader/get) .clear)
+     (texture/destroy-textures (:textures @*texture-pool*))
      (when-let [f @(:frame window)]
        (.dispose f))
      (Display/destroy)))

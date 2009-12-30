@@ -11,6 +11,7 @@
   (:use [clojure.contrib.def :only [defmacro- defvar-]])
   (:use [penumbra.opengl])
   (:use [penumbra.opengl.core :only [*texture-pool*]])
+  (:require [penumbra.opengl.texture :as texture])
   (:require [penumbra.slate :as slate])
   (:require [penumbra.window :as window])
   (:require [penumbra.input :as input])
@@ -31,16 +32,35 @@
   "Current application.")
 
 (defn- create [callbacks state]
-  (struct-map app-struct
-    :window (window/create)
-    :input (input/create)
-    :callbacks callbacks
-    :state (atom state)
-    :stopped? (atom true)
-    :paused? (atom false)
-    :latch (atom nil)
-    :started false
-    :invalidated? (atom true)))
+  (with-meta
+    (struct-map app-struct
+      :window (window/create)
+      :input (input/create)
+      :callbacks callbacks
+      :state (atom state)
+      :stopped? (atom true)
+      :paused? (atom false)
+      :latch (atom nil)
+      :started false
+      :invalidated? (atom true))
+    {:type ::app}))
+
+(defmethod print-method ::app [app writer]
+  (let [{size :texture-size textures :textures} @(-> app :window :texture-pool)
+        active-size (->> textures (remove texture/available?) (map texture/sizeof) (apply +))
+        active-percent (float (if (zero? size) 1 (/ active-size size)))]
+    (.write
+     writer
+     (if @(:stopped? app)
+       (format "<<%s: STOPPED>>" (Display/getTitle))
+       (format "<<%s: PAUSED\n  Allocated texture memory: %.2fM (%.2f%% in use)>>"
+               (Display/getTitle)
+               (/ size 1e6) (* 100 active-percent))))))
+
+(defn cleanup
+  "Cleans up any active apps."
+  []
+  (Display/destroy))
 
 (defn repaint
   "Forces a new frame to be redrawn"
@@ -49,8 +69,6 @@
     (reset! (:invalidated? *app*) true)))
 
 (defn set-title [title]
-  (System/setProperty "apple.laf.useScreenMenuBar" "true")
-  (System/setProperty "com.apple.mrj.application.apple.menu.about.name" title)
   (Display/setTitle title))
 
 (defn- try-callback [callback & args]
@@ -148,7 +166,8 @@
   ([]
      (stop *app*))
   ([app]
-     (reset! (:stopped? app) true)))
+     (reset! (:stopped? app) true)
+     nil))
 
 (defn pause
   "Halts main loop, and yields control back to the REPL."
@@ -156,7 +175,8 @@
      (pause *app*))
   ([app]
      (reset! (:paused? app) true)
-     (reset! (:latch app) (CountDownLatch. 1))))
+     (reset! (:latch app) (CountDownLatch. 1))
+     nil))
 
 (defn- destroy
   ([]
@@ -171,7 +191,7 @@
      (init *app*))
   ([app]
      (with-app app
-       (when (:stopped? *app*)
+       (when @(:stopped? *app*)
          (window/init)
          (try-callback :init)
          (try-callback :reshape (concat [0 0] @(:size window/*window*)))
@@ -199,13 +219,6 @@
          (stop)
          (Display/update)))))
 
-(defn resume
-  "Resumes an app which has been paused or stopped."
-  ([]
-     (resume *app*))
-  ([app]
-     ))
-
 (defn- alter-callbacks [app]
   (if (:started app)
     app
@@ -218,7 +231,8 @@
        (->
         callbacks
         (update-in [:update] #(timed-fn %))
-        (update-in [:display] #(timed-fn %))))))))
+        (update-in [:display] #(timed-fn %)))))
+    (with-meta (meta app)))))
 
 (defn start
   "Starts a window from scratch, or from a closed state."
@@ -237,7 +251,7 @@
             (reset! (:stopped? app) true)
             (throw e))
           (finally
-           (when (:stopped? app)
+           (when @(:stopped? app)
              (destroy)))))
        app)))
 

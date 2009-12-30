@@ -116,7 +116,6 @@
           (println "Don't recognize index type" location (typeof location)))))))))
 
 (defn- transform-dim [x]
-  (println "transform-dim" x)
   (let [idx (element-index (second x))]
     (add-meta (symbol (str "-dim" idx)) :tag :float2)))
 

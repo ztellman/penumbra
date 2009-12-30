@@ -303,9 +303,10 @@
       :dim dim)))
 
 (defn key-press [key state]
-  (if (= key " ")
-    (fire-bullet state)
-    state))
+  (cond
+   (= key " ") (fire-bullet state)
+   (= key :escape) (do (app/pause) state)
+   :else state))
 
 (defn update [[dt time] state]
   (binding [*dim* (:dim state)]

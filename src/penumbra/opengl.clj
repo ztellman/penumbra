@@ -15,7 +15,8 @@
   (:import (java.lang.reflect Field))
   (:import (java.awt Font))
   (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
-  (:import (java.io File)))
+  (:import (java.io File))
+  (:import (org.newdawn.slick.opengl InternalTextureLoader Texture)))
 
 ;;;
 
@@ -541,8 +542,12 @@
 
 (defmacro with-texture [t & body]
   `(do
+     (when (:transform ~t)
+       (gl-matrix-mode :texture) (gl-push-matrix) ((:transform ~t)) (gl-matrix-mode :modelview)) 
      (bind-texture ~t)
-     ~@body))
+     ~@body
+     (when (:transform ~t)
+       (gl-matrix-mode :texture) (gl-pop-matrix) (gl-matrix-mode :modelview))))
 
 (defn destroy-texture [tex]
   (gl-delete-textures (IntBuffer/wrap (int-array (:id tex)))))
@@ -572,14 +577,17 @@
     (release! tex)
     converted-texture))
 
-'(defn load-texture-from-file
+(defn load-texture-from-file
   ([filename subsample]
      (load-texture-from-file filename subsample :linear))
   ([filename subsample filter]
-     (let [rgba (enum :rgba)
-            data (TextureIO/newTextureData (File. filename) rgba rgba subsample "")
-           tex  (TextureIO/newTexture data)]
-       (texture-from-texture-io tex filter))))
+     (texture-from-texture-object
+      (-> (InternalTextureLoader/get)
+          (.getTexture
+           (File. filename)
+           false
+           (enum filter)))
+      filter)))
 
 '(defn load-texture-from-image
   ([image subsample]
@@ -642,10 +650,10 @@
           (with-projection (ortho-view 0 1 1 0 -1 1)
             (with-program nil
               (draw-quads
-               (texture 0 0) (vertex 0 0 0)
-               (texture w 0) (vertex 1 0 0)
-               (texture w h) (vertex 1 1 0)
-               (texture 0 h) (vertex 0 1 0)))))))))
+               (texture 0 0) (vertex 0 0)
+               (texture w 0) (vertex 1 0)
+               (texture w h) (vertex 1 1)
+               (texture 0 h) (vertex 0 1)))))))))
 
 (defn blit! [tex]
   (blit tex)
