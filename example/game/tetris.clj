@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns examples.tetris
+(ns example.game.tetris
   (:use [penumbra opengl])
   (:require [penumbra.app :as app])
   (:require [penumbra.input :as input])

@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns examples.asteroids
+(ns example.game.asteroids
   (:use [penumbra opengl geometry])
   (:require [penumbra.app :as app])
   (:require [penumbra.input :as input])

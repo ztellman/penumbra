@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns examples.convolution
+(ns example.gpgpu.convolution
   (:use [penumbra opengl compute])
   (:require [penumbra.app :as app]))
 

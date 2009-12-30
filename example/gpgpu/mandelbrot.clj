@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns examples.mandelbrot
+(ns example.gpgpu.mandelbrot
   (:use [penumbra opengl compute])
   (:require [penumbra.app :as app])
   (:require [penumbra.slate :as slate]))

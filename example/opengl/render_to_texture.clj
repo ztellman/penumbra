@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns examples.render-to-texture
+(ns example.opengl.render-to-texture
   (:use [penumbra opengl])
   (:require [penumbra.app :as app])
   (:require [penumbra.window :as window]))
