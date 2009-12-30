@@ -14,6 +14,7 @@
   (:use [penumbra.opengl.core :only (*texture-pool*)])
   (:require [penumbra.slate :as slate])
   (:require [penumbra.opengl.texture :as texture])
+  (:require [penumbra.text :as text])
   (:import [org.lwjgl.opengl Display PixelFormat])
   (:import [org.newdawn.slick.opengl InternalTextureLoader])
   (:import [java.awt Frame Canvas GridLayout Color])
@@ -72,7 +73,8 @@
        (:resolution (current-display-mode)))))
 
 (defn vsync [enabled]
-  (Display/setVSyncEnabled enabled))
+  (Display/setVSyncEnabled enabled)
+  (reset! (:vsync? *window*) enabled))
 
 (defn check-for-resize
   ([]
@@ -89,14 +91,17 @@
   (struct-map window-struct
     :drawable #(Display/getDrawable)
     :texture-pool (atom (create-texture-pool))
+    :font-cache (atom {})
     :frame (atom nil)
-    :size (atom [1024 768])))
+    :size (atom [1024 768])
+    :vsync? (atom false)))
 
 (defn init
   ([]
      (init *window*))
   ([window]
      (Display/create (-> (PixelFormat.) (.withSamples 4)))
+     (blend-func :src-alpha :one-minus-src-alpha)
      (Display/setParent nil)
      (apply set-display-mode @(:size window))
      (*callback-handler* :reshape (concat [0 0] @(:size window)))))
@@ -113,7 +118,8 @@
 
 (defmacro with-window [window & body]
   `(binding [*window* ~window
-             *texture-pool* (:texture-pool ~window)]
+             *texture-pool* (:texture-pool ~window)
+             text/*font-cache* (:font-cache ~window)]
      ~@body))
 
 ;;Frame

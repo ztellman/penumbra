@@ -77,6 +77,7 @@
 ;;;
 
 (gl-import glBindTexture gl-bind-texture)
+(gl-import- glScalef gl-scale-texture)
 (gl-import- glGenTextures gl-gen-textures)
 (gl-import- glTexImage1D gl-tex-image-1d)
 (gl-import- glTexImage2D gl-tex-image-2d)
@@ -193,13 +194,13 @@
      (let [alpha? (.hasAlpha tex)
            dim [(.getImageWidth tex) (.getImageHeight tex)]
            tex-dim [(.getTextureWidth tex) (.getTextureHeight tex)]
-           s (map / dim tex-dim)
+           [sx sy] (map / dim tex-dim)
            texture (with-meta
                      (struct-map texture-struct
                        :dim dim
                        :id (.getTextureID tex)
                        :target :texture-2d
-                       :transform #(apply penumbra.opengl/scale s)
+                       :transform #(gl-scale-texture sx sy 1)
                        :pixel-format (if alpha? :rgba :rgb)
                        :internal-format (if alpha? :rgba :rgb)
                        :internal-type :unsigned-byte
