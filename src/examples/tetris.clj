@@ -112,7 +112,7 @@
   (let [shape   (map shape-transform (:shape (:tetra state)))
         offset  (offset-transform (:offset state))
         shape*  (filter
-                 (fn [[x y]] (<= 0 y)) ;we don't care if it's too high
+                 (fn [[x y]] (<= 0 y)) ;;we don't care if it's too high
                  (map #(translate* offset %) shape))
         overlap (try
                  (some
@@ -162,6 +162,12 @@
 
 ;;;
 
+(defn rectangle []
+  (push-matrix
+    (dotimes [_ 4]
+     (rotate 90 0 0 1)
+     (vertex 0.5 0.5))))
+
 (defn init [state]
 
   (app/set-title "Tetris")
@@ -191,7 +197,7 @@
     (load-identity)
     state))
 
-(defn key-press [key state] 
+(defn key-press [key state]
   (cond
    (= key :up)
    (assoc state
@@ -206,14 +212,10 @@
    (try-move #(translate* [-1 0] %) identity state)
    (= key :right)
    (try-move #(translate* [1 0] %) identity state)
+   (= key :escape)
+   (do (app/pause) state)
    :else
    state))
-
-(defn rectangle []
-  (push-matrix
-    (dotimes [_ 4]
-     (rotate 90 0 0 1)
-     (vertex 0.5 0.5))))
 
 (defn draw-bordered-block [col [x y]]
   (when (<= 0 y)
@@ -240,7 +242,6 @@
        (if block (draw-bordered-block block [x y])))))
   (translate (/ width -2) (/ height -2) 0)
   ;;draw border
-  ;;(color 1 1 1)
   (draw-line-loop
    (vertex 0 0) (vertex width 0)
    (vertex width height) (vertex 0 height))

@@ -11,13 +11,14 @@
   (:use [clojure.contrib.seq-utils :only (separate)])
   (:use [penumbra.opengl.core])
   (:import (java.nio ByteBuffer FloatBuffer IntBuffer))
-  (:import (java.io File)))
+  (:import (java.io File))
+  (:import (org.newdawn.slick.opengl Texture)))
 
-;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 
 (defstruct texture-struct
   :target :id
-  :dim :size :tuple
+  :dim :size :tuple :transform
   :internal-type :internal-format :pixel-format
   :permanent :ref-count :attach-point)
 
@@ -25,7 +26,7 @@
   (count (:dim t)))
 
 (defn sizeof [t]
-  (* (apply * (:dim t)) (:tuple t) (if (= :unsigned-byte (:internal-type t)) 8 32)))
+  (* (apply * (:dim t)) (:tuple t) (if (= :unsigned-byte (:internal-type t)) 1 4)))
 
 (defn permanent? [t]
   (or (nil? (:permanent t)) @(:permanent t)))
@@ -43,7 +44,16 @@
   (dosync (alter (:ref-count t) dec)))
 
 (defn texture? [t]
-  (= 'texture-struct (:tag (meta t))))
+  (= ::texture (:type (meta t))))
+
+(defmethod print-method ::texture [tex writer]
+  (let [[w h] (:dim tex)]
+    (.write
+     writer
+     (format "<<Texture %dx%d %.2fM\n  :id %d refs: %d permanent: %b\n  %s %s %s %s >>"
+             (int w) (int h) (float (/ (sizeof tex) 1e6))
+             (:id tex) @(:ref-count tex) @(:permanent tex)
+             (:target tex) (:internal-format tex) (:internal-type tex) (:pixel-format tex)))))
 
 (defn-memo attachment-lookup [point]
   (enum (keyword (str "color-attachment" point))))
@@ -64,7 +74,7 @@
 (defn create-texture-pool []
   {:texture-size 0 :textures []})
 
-;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 
 (gl-import glBindTexture gl-bind-texture)
 (gl-import- glGenTextures gl-gen-textures)
@@ -84,7 +94,7 @@
 (gl-import- glPixelStorei gl-pixel-store)
 (gl-import- glGetTexParameter gl-get-tex-parameter)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 
 (defn- gen-texture []
   (let [a (int-array 1)]
@@ -95,8 +105,14 @@
   (separate available? textures))
 
 (defn destroy-textures [textures]
-  (when (not (empty? textures))
-    (gl-delete-textures (IntBuffer/wrap (int-array (map :id textures))))))
+  (let [ids (set (map :id textures))]
+    (swap!
+     *texture-pool*
+     (fn [x] (assoc x
+               :textures (remove #(ids (:id %)) (:textures x))
+               :texture-size (- (:texture-size x) (->> x :textures (map sizeof) (apply +))))))
+    (when (not (empty? textures))
+      (gl-delete-textures (IntBuffer/wrap (int-array ids))))))
 
 (defn- cleanup-textures []
   (let [[discard keep] (separate-textures (:textures @*texture-pool*))]
@@ -166,35 +182,35 @@
                   :dim dim :tuple tuple
                   :internal-type internal-type :internal-format internal-format :pixel-format pixel-format
                   :ref-count (ref 1) :attach-point (ref nil) :permanent (ref false))
-                {:tag 'texture-struct})]
+                {:type ::texture})]
           (add-texture tex)
           tex)))))
 
-;;;;;;;;;;;;;;;;;;;;;;
+;;;
 
-(defmacro get-tex-parameter [target param]
-  `(let [ary# (int-array 1)]
-    (gl-get-tex-parameter ~target ~param (IntBuffer/wrap ary#))
-    (get-name (first ary#))))
-
-;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn texture-from-texture-io
-  ([tex]
-     (with-meta
-       (struct-map texture-struct
-       :dim [(.getWidth tex) (.getHeight tex)]
-       :id (.getTextureObject tex)
-       :target :texture-2d
-       :pixel-format :rgba
-       :internal-format :rgba
-       :internal-type :unsigned-byte
-       :permanent (ref false)
-       :tuple 4
-       :ref-count (ref 1))
-     {:tag 'texture-struct}))
+(defn texture-from-texture-object
+  ([#^Texture tex]
+     (let [alpha? (.hasAlpha tex)
+           dim [(.getImageWidth tex) (.getImageHeight tex)]
+           tex-dim [(.getTextureWidth tex) (.getTextureHeight tex)]
+           s (map / dim tex-dim)
+           texture (with-meta
+                     (struct-map texture-struct
+                       :dim dim
+                       :id (.getTextureID tex)
+                       :target :texture-2d
+                       :transform #(apply penumbra.opengl/scale s)
+                       :pixel-format (if alpha? :rgba :rgb)
+                       :internal-format (if alpha? :rgba :rgb)
+                       :internal-type :unsigned-byte
+                       :permanent (ref false)
+                       :tuple (if alpha? 4 3)
+                       :ref-count (ref 1))
+                     {:type ::texture})]
+       (add-texture texture)
+       texture))
   ([tex filter]
-     (let [tex (texture-from-texture-io tex)
+     (let [tex (texture-from-texture-object tex)
            target (enum (:target tex))
            filter (enum filter)]
        (gl-bind-texture :texture-2d (:id tex))
@@ -202,7 +218,14 @@
        (gl-tex-parameter target :texture-mag-filter filter)
        tex)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+
+(defmacro get-tex-parameter [target param]
+  `(let [ary# (int-array 1)]
+    (gl-get-tex-parameter ~target ~param (IntBuffer/wrap ary#))
+    (get-name (first ary#))))
+
+;;;
 
 (defmacro to-byte [num] `(byte (* 255 (double ~num)))) ;;this is a macro for performance reasons
 

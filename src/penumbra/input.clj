@@ -60,6 +60,7 @@
       (= key Keyboard/KEY_DELETE) :delete
       (= key Keyboard/KEY_BACK) :back
       (= key Keyboard/KEY_RETURN) :return
+      (= key Keyboard/KEY_ESCAPE) :escape
       (not= 0 (int char)) (str char)
       :else (-> name .toLowerCase keyword))]))
 
