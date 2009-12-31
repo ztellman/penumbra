@@ -67,9 +67,9 @@
   (let [[w h] (app/dimensions)]
     (if (< x (int (/ w 2)))
       (let [[lx ly] (:left state)]
-        (assoc state :left [(+ lx dy) (+ ly dx)]))
+        (assoc state :left [(- lx dy) (- ly dx)]))
       (let [[rx ry] (:right state)]
-        (assoc state :right [(+ rx dy) (+ ry dx)])))))
+        (assoc state :right [(- rx dy) (- ry dx)])))))
 
 (defn display [[delta time] state]
   (let [[lx ly] (:left state)

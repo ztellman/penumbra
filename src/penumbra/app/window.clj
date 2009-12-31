@@ -15,7 +15,7 @@
   (:require [penumbra.slate :as slate])
   (:require [penumbra.opengl.texture :as texture])
   (:require [penumbra.text :as text])
-  (:import [org.lwjgl.opengl Display PixelFormat])
+  (:import [org.lwjgl.opengl Display PixelFormat AWTGLCanvas])
   (:import [org.newdawn.slick.opengl InternalTextureLoader])
   (:import [java.awt Frame Canvas GridLayout Color])
   (:import [java.awt.event WindowAdapter]))
@@ -35,6 +35,25 @@
    :fullscreen (.isFullscreenCapable m)
    :mode m})
 
+(defn display-modes []
+  (map transform-display-mode (Display/getAvailableDisplayModes)))
+
+(defn current-display-mode []
+  (transform-display-mode (Display/getDisplayMode)))
+
+(defn set-display-mode
+  ([width height]
+     (->>
+      (display-modes)
+      (filter #(= [width height] (:resolution %)))
+      (sort-by :bpp)
+      last
+      set-display-mode))
+  ([mode]
+     (Display/setDisplayMode (:mode mode))
+     (apply viewport (concat [0 0] (:resolution mode)))))
+
+
 (defn dimensions [w]
   (if-let [canvas (-?> w :frame deref (.getComponent 0))]
     [(.getWidth canvas) (.getHeight canvas)]
@@ -48,7 +67,8 @@
        (when (not= @(:size window) dim)
          (reset! (:size window) dim)
          (viewport 0 0 w h)
-         (*callback-handler* :reshape (concat [0 0] dim))))))
+         (*callback-handler* :reshape (concat [0 0] dim))
+         true))))
 
 ;;Frame
 
@@ -56,11 +76,11 @@
   (when (nil? @(-> app :window :frame))
     (let [window (:window app)
           frame (Frame.)
-          canvas (Canvas.)
+          canvas (AWTGLCanvas.)
           [w h] @(:size window)]
       (doto canvas
         (.setFocusable true)
-        (.setIgnoreRepaint true)
+        ;;(.setIgnoreRepaint true)
         (.setSize w h))
       (doto frame
         (.addWindowListener
@@ -68,8 +88,8 @@
            (windowOpened [event] (.requestFocus canvas))
            (windowClosing [event] (reset! (:stopped? app) true))))
         (.setTitle (Display/getTitle))
-        (.setIgnoreRepaint true)
-        (.setResizable true)
+        ;;(.setIgnoreRepaint true)
+        ;;(.setResizable true)
         (.setVisible true)
         (.add canvas)
         (.pack))
@@ -91,7 +111,7 @@
     :texture-pool (atom (create-texture-pool))
     :font-cache (atom {})
     :frame (atom nil)
-    :size (atom (dimensions nil))
+    :size (atom [800 600])
     :vsync? (atom false)))
 
 (defn init
@@ -99,7 +119,8 @@
      (init *window*))
   ([window]
      (Display/setParent nil)
-     (Display/create (-> (PixelFormat.) (.withSamples 1)))
+     (Display/create (-> (PixelFormat.) (.withSamples 4)))
+     (apply set-display-mode @(:size window))
      (blend-func :src-alpha :one-minus-src-alpha)
      (apply viewport @(:size window))
      (*callback-handler* :reshape (concat [0 0] @(:size window)))))

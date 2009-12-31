@@ -154,12 +154,20 @@
 (defn emit-flame [state]
   (if (app/key-pressed? :up)
     (let [ship (:spaceship state)
-          theta (+ 180 (:theta ship) (- (rand 20) 10))
+          offset (- (rand 30) 15)
+          theta (+ 180 (:theta ship) offset)
           particles (:particles state)
           position (map + (:position ship) (cartesian [theta 0.3]))
           [theta speed] (polar (map + (:velocity ship) (cartesian theta)))]
       (assoc state
-        :particles (conj particles (gen-particle position theta speed 0.2 (rand-color [1 0.5 0.7] [1 1 1]) 0.4))))
+        :particles (conj particles
+                         (gen-particle
+                          position
+                          theta
+                          speed
+                          0.2
+                          (rand-color [1 0.5 0.7] [1 1 1])
+                          (/ (Math/cos (radians (* 3 offset))) 3)))))
     state))
 
 (defn update-spaceship [dt ship]
@@ -283,13 +291,14 @@
 (defn init [state]
   (app/set-title "Asteroids")
   (app/vsync true)
+  (app/key-repeat false)
   (init-asteroids)
   (init-particles)
   (init-spaceship)
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
   (app/start-update-loop 20 update-collisions)
-  (app/start-update-loop 40 emit-flame)
+  (app/start-update-loop 50 emit-flame)
   (reset state))
 
 (defn reshape [[x y w h] state]
