@@ -48,7 +48,6 @@
   (app/set-title "Sierpinski Pyramid")
   (enable :normalize)
   (enable :depth-test)
-  (enable :multisample)
   (enable :cull-face)
   (enable :lighting)
   (enable :light0)

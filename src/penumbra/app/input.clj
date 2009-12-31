@@ -6,20 +6,15 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.input
+(ns penumbra.app.input
   (:use [clojure.contrib.seq-utils :only [indexed]])
   (:use [clojure.contrib.def :only [defvar]])
-  (:use [penumbra.window :only [dimensions]])
+  (:use [penumbra.app.window :only [dimensions]])
+  (:use [penumbra.app.core])
   (:import [org.lwjgl.input Keyboard Mouse]))
 
 (defstruct input-struct
   :keys)
-
-(defvar *input* nil
-  "Holds current input state.")
-
-(defvar *callback-handler* nil
-  "Function that receives callbacks")
 
 (defn create []
   (struct-map input-struct
@@ -44,12 +39,6 @@
      ~@body))
 
 ;;Keyboard
-
-(defn key-pressed? [key]
-  ((-> @(:keys *input*) vals set) key))
-
-(defn key-repeat [enabled]
-  (Keyboard/enableRepeatEvents enabled))
 
 (defn- current-key []
   (let [char (Keyboard/getEventCharacter)
@@ -88,7 +77,7 @@
     (keyword (str "button" (inc button-idx)))))
 
 (defn handle-mouse []
-  (let [[w h] (dimensions)]
+  (let [[w h] (dimensions *window*)]
     (loop [buttons (vec (map #(Mouse/isButtonDown %) (range (Mouse/getButtonCount))))]
       (Mouse/poll)
       (when (Mouse/next)

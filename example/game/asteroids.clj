@@ -9,8 +9,6 @@
 (ns example.game.asteroids
   (:use [penumbra opengl geometry])
   (:require [penumbra.app :as app])
-  (:require [penumbra.input :as input])
-  (:require [penumbra.window :as window])
   (:use [clojure.contrib.seq-utils :only (separate)]))
 
 ;;;
@@ -154,7 +152,7 @@
         15 0.25 [0 0 1] 2)))))
 
 (defn emit-flame [state]
-  (if (input/key-pressed? :up)
+  (if (app/key-pressed? :up)
     (let [ship (:spaceship state)
           theta (+ 180 (:theta ship) (- (rand 20) 10))
           particles (:particles state)
@@ -168,11 +166,11 @@
   (let [p     (:position ship)
         v     (:velocity ship)
         theta (:theta ship)
-        theta (condp (fn [x _] (input/key-pressed? x)) nil
+        theta (condp (fn [x _] (app/key-pressed? x)) nil
                 :left  (rem (+ theta (* 360 dt)) 360)
                 :right (rem (- theta (* 360 dt)) 360)
                 theta)
-        a     (if (input/key-pressed? :up)
+        a     (if (app/key-pressed? :up)
                   (map (partial * 3) (cartesian theta))
                   [0 0])
         v     (map + v (map * a (repeat dt))) 
@@ -284,7 +282,7 @@
 
 (defn init [state]
   (app/set-title "Asteroids")
-  (window/vsync true)
+  (app/vsync true)
   (init-asteroids)
   (init-particles)
   (init-spaceship)

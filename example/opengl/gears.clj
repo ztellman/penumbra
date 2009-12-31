@@ -9,7 +9,7 @@
 (ns example.opengl.gears
   (:use [penumbra opengl geometry])
   (:require [penumbra.app :as app])
-  (:require [penumbra.window :as window]))
+  (:require [penumbra.text :as text]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;Gear building functions
@@ -85,6 +85,7 @@
 
 (defn init [state]
   (app/set-title "Gears")
+  (disable :multisample)
   (enable :depth-test)
   (enable :lighting)
   (enable :light0)
@@ -105,7 +106,7 @@
     :rot-y (+ (:rot-y state) dx)))
 
 (defn display [[delta time] state]
-  (write-to-screen (format "%d fps" (int (/ 1 delta))) 0 0)  
+  (text/write-to-screen (format "%d fps" (int (/ 1 delta))) 0 0)  
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
