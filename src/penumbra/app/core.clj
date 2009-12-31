@@ -13,7 +13,10 @@
   "Current application.")
 
 (defvar *window* nil
-  "Current window")
+  "Current window.")
+
+(defvar *controller* nil
+  "Current controller.")
 
 (defvar *input* nil
   "Holds current input state.")
@@ -21,9 +24,12 @@
 (defvar *callback-handler* nil
   "Function which routes to callbacks.")
 
+(defvar *timer* nil
+  "Timer which measures the passage of loop time.")
+
 (defvar *hz* nil
   "Refresh rate of update-loop")
 
-(defvar *async-running?* nil
-  "Should update-loop continue running")
+(defvar *update-stopped?* nil
+  "Is update-loop stopped.")
 

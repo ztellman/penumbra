@@ -85,7 +85,7 @@
 
 (defn init [state]
   (app/set-title "Gears")
-  (disable :multisample)
+  (app/vsync false)
   (enable :depth-test)
   (enable :lighting)
   (enable :light0)

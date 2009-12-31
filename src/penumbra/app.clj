@@ -18,6 +18,7 @@
   (:require [penumbra.app.window :as window])
   (:require [penumbra.app.input :as input])
   (:require [penumbra.app.loop :as loop])
+  (:require [penumbra.app.timer :as timer])
   (:import [org.lwjgl.input Keyboard])
   (:import [org.lwjgl.opengl Display])
   (:import [java.util.concurrent CountDownLatch]))
@@ -27,25 +28,22 @@
 (defstruct app-struct
   :window
   :input
+  :controller
+  :timer
   :callbacks
-  :state
-  :stopped?
-  :paused?
-  :latch
-  :invalidated?)
+  :callbacks-altered?
+  :state)
 
 (defn create [callbacks state]
   (with-meta
     (struct-map app-struct
       :window (window/create)
       :input (input/create)
+      :controller (loop/create-controller)
+      :timer (timer/create)
       :callbacks callbacks
-      :state (atom state)
-      :stopped? (atom true)
-      :paused? (atom false)
-      :latch (atom nil)
-      :started false
-      :invalidated? (atom true))
+      :callbacks-altered? false
+      :state (atom state))
     {:type ::app}))
 
 (defmethod print-method ::app [app writer]
@@ -54,11 +52,49 @@
         active-percent (float (if (zero? size) 1 (/ active-size size)))]
     (.write
      writer
-     (if @(:stopped? app)
+     (if (loop/stopped? (:controller app))
        (format "<<%s: STOPPED>>" (Display/getTitle))
        (format "<<%s: PAUSED\n  Allocated texture memory: %.2fM (%.2f%% in use)>>"
                (Display/getTitle)
                (/ size 1e6) (* 100 active-percent))))))
+
+;;;
+
+(defn repaint []
+  (loop/repaint))
+
+(defn try-callback [callback & args]
+  (when-let [f (callback (:callbacks *app*))]
+    (let [state @(:state *app*)
+          new-state (swap!
+                     (:state *app*)
+                     (fn [s]
+                       (or (if (empty? args)
+                             (f s)
+                             (apply f (concat args [s])))
+                        state)))]
+      (when-not (identical? state new-state)
+        (repaint)))))
+
+(defmacro with-app [app & body]
+  `(binding [*app* ~app
+             *timer* (:timer ~app)
+             *callback-handler* try-callback]
+     (input/with-input (:input ~app)
+       (window/with-window (:window ~app)
+         (loop/with-controller (:controller ~app)
+           ~@body)))))
+
+;;Clock
+
+(defn clock
+  ([]
+     (clock *app*))
+  ([app]
+     (if app
+       (timer/now (:timer app))
+       (timer/real-time))))
+
 
 ;;Input
 
@@ -71,37 +107,29 @@
 ;;Window
 
 (defn set-title [title]
+  (when @(:frame *window*)
+    (.setTitle @(:frame *window*) title))
   (Display/setTitle title))
 
 (defn display-modes
   "Returns a list of available display modes."
   []
-  (map window/transform-display-mode (Display/getAvailableDisplayModes)))
+  (window/display-modes))
 
 (defn current-display-mode
   "Returns the current display mode."
   []
-  (window/transform-display-mode (Display/getDisplayMode)))
+  (window/current-display-mode))
 
 (defn set-display-mode
   "Sets the current display mode."
-  ([width height]
-     (->>
-      (display-modes)
-      (filter #(= [width height] (:resolution %)))
-      (sort-by :bpp)
-      last
-      set-display-mode))
-  ([mode]
-     (Display/setDisplayMode (:mode mode))
-     (apply viewport (concat [0 0] (:resolution mode)))))
+  ([width height] (window/set-display-mode width height))
+  ([mode] (window/set-display-mode mode)))
 
 (defn dimensions
   "Returns dimensions of window as [width height]."
-  ([]
-     (dimensions *window*))
-  ([w]
-     (window/dimensions w)))
+  ([] (dimensions *window*))
+  ([w] (window/dimensions w)))
 
 (defn vsync [enabled]
   (Display/setVSyncEnabled enabled)
@@ -121,11 +149,7 @@
 (defn fullscreen [enabled]
   (Display/setFullscreen enabled))
 
-
 ;;Update loops
-
-(defn clock []
-  (/ (System/nanoTime) 1e9))
 
 (defn frequency!
   "Update frequency of update-loop.  Can only be called from inside update-loop."
@@ -142,44 +166,29 @@
 (defn repaint
   "Forces a new frame to be redrawn"
   []
-  (when *app*
-    (reset! (:invalidated? *app*) true)))
+  (loop/repaint))
 
 (defn stop
   "Stops the application or update-loop, and returns nil."
   ([]
-     (if *async-running?*
-       (do
-         (reset! *async-running?* false)
-         nil)
-       (stop *app*)))
+     (stop *app*))
   ([app]
-     (reset! (:stopped? app) true)
+     (loop/stop (:controller app))
      nil))
 
 (defn pause
-  "Halts main loop, and yields control back to the REPL."
+  "Halts main loop, and yields control back to the REPL. Returns nil."
   ([]
      (pause *app*))
   ([app]
-     (reset! (:paused? app) true)
-     (reset! (:latch app) (CountDownLatch. 1))
-     nil))
-
-(defn pause
-  "Halts main loop, and yields control back to the REPL."
-  ([]
-     (pause *app*))
-  ([app]
-     (reset! (:paused? app) true)
-     (reset! (:latch app) (CountDownLatch. 1))
+     (loop/pause (:controller app))
      nil))
 
 (defn- destroy
   ([]
      (destroy *app*))
   ([app]
-     (loop/try-callback :close)
+     (try-callback :close)
      (input/destroy)
      (window/destroy)))
 
@@ -187,43 +196,42 @@
   ([]
      (init *app*))
   ([app]
-     (loop/with-app app
-       (when @(:stopped? *app*)
+     (with-app app
+       (when (loop/stopped?)
          (window/init)
-         (loop/try-callback :init)
-         (loop/try-callback :reshape (concat [0 0] (dimensions)))
-         (input/init)
-         (reset! (:stopped? app) false)))))
+         (try-callback :init)
+         (try-callback :reshape (concat [0 0] (dimensions)))
+         (input/init)))))
 
 (defn update-once
   "Runs through the main loop once."
   ([]
      (update-once *app*))
   ([app]
-     (loop/with-app app
+     (with-app app
+       (Display/processMessages)
        (input/handle-keyboard)
        (input/handle-mouse)
-       (window/check-for-resize)
-       (loop/try-callback :update)
-       (if (or (Display/isDirty) @(:invalidated? app))
+       (when (window/check-for-resize)
+         (repaint))
+       (if (or (Display/isDirty) (loop/invalidated?))
          (do
-           (reset! (:invalidated? app) false)
+           (try-callback :update)
+           (loop/repainted)
            (clear 0 0 0)
            (push-matrix
-            ((-> app :callbacks :display) @(:state app)))
-           (when (vsync?)
-             (Display/sync 60)))
+            ((-> app :callbacks :display) @(:state app))))
          (Thread/sleep 15))
        (if (Display/isCloseRequested)
          (stop)
          (Display/update)))))
 
 (defn- alter-callbacks [app]
-  (if (:started app)
+  (if (:altered? app)
     app
     (->
     app
-    (assoc :started true)
+    (assoc :altered? true)
     (update-in
      [:callbacks]
      (fn [callbacks]
@@ -238,29 +246,35 @@
   ([callbacks state]
      (start (create callbacks state)))
   ([app]
-     (let [app (alter-callbacks app)]
-       (loop/with-app app
-         (try
-          (init)
-          (reset! (:paused? app) false)
-          (when-let [latch @(:latch app)]
-            (.countDown #^CountDownLatch latch))
-          (loop/primary-loop app update-once)
-          (catch Exception e
-            (reset! (:stopped? app) true)
-            (throw e))
-          (finally
-           (when @(:stopped? app)
-             (destroy)))))
-       app)))
+     (with-app app
+       (let [app (alter-callbacks app)]
+         (with-app app
+           (try
+            (timer/start (:timer app))
+            (init)
+            (loop/resume)
+            (loop/primary-loop (fn [x] (x)) update-once)
+            (catch Exception e
+              (loop/stop)
+              (throw e))
+            (finally
+             (when (loop/stopped?)
+               (destroy)))))
+         (timer/stop (:timer app))
+         app))))
 
 (defn start-update-loop
   ([hz f]
      (start-update-loop *app* hz f))
   ([app hz f]
      (loop/secondary-loop
-      app
       hz
+      #(with-app app
+         (let [s (slate/create)]
+           (try
+            (%)
+            (finally
+             (slate/destroy s)))))
       #(do
          (swap! (:state app) f)
          (repaint)))))
