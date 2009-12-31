@@ -9,7 +9,6 @@
 (ns example.game.tetris
   (:use [penumbra opengl])
   (:require [penumbra.app :as app])
-  (:require [penumbra.input :as input])
   (:use [clojure.contrib.seq-utils :only (indexed)])
   (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.pprint]))
@@ -182,11 +181,11 @@
   (app/start-update-loop
    2
    (fn [state]
-     (if (input/key-pressed? :down)
+     (if (app/key-pressed? :down)
        (app/frequency! 10)
        (app/frequency! 2))
      (descend state)))
-  (input/key-repeat true)
+  (app/key-repeat true)
   state)
 
 (defn reshape [[x y w h] state]

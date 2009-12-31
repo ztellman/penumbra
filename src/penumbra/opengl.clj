@@ -9,7 +9,6 @@
 (ns penumbra.opengl
   (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.seq-utils :only (indexed)])
-  (:use [penumbra.text])
   (:use [penumbra.opengl core geometry shader texture])
   (:use [penumbra.glsl core])
   (:use [penumbra.geometry])
@@ -17,7 +16,7 @@
   (:import (java.awt Font))
   (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
   (:import (java.io File))
-  (:import (org.newdawn.slick.opengl InternalTextureLoader Texture TextureImpl)))
+  (:import (org.newdawn.slick.opengl InternalTextureLoader Texture)))
 
 ;;;
 
@@ -671,19 +670,3 @@
          (clear)
          (push-matrix
            ~@body)))))
-
-;;;;;;;;;;;;;;;;;;;;;;
-
-
-(defn write-to-screen
-  "writes string at pixel coordinates (x, y)"
-  [string x y]
-  (with-font (font "Tahoma" :size 20)
-    (with-disabled :lighting
-      (with-enabled [:texture-2d :blend]
-        (let [[x y w h] @*view*]
-          (with-projection (ortho-view x (+ x w) (+ y h) y -1 1)
-            (push-matrix
-             (load-identity)
-             (TextureImpl/bindNone)
-             (.drawString *font* x y string))))))))

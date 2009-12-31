@@ -8,8 +8,7 @@
 
 (ns example.opengl.render-to-texture
   (:use [penumbra opengl])
-  (:require [penumbra.app :as app])
-  (:require [penumbra.window :as window]))
+  (:require [penumbra.app :as app]))
 
 (defn textured-quad []
   (push-matrix
@@ -65,7 +64,7 @@
   state)
 
 (defn mouse-drag [[dx dy] [x y] button state]
-  (let [[w h] (window/dimensions)]
+  (let [[w h] (app/dimensions)]
     (if (< x (int (/ w 2)))
       (let [[lx ly] (:left state)]
         (assoc state :left [(+ lx dy) (+ ly dx)]))
@@ -77,7 +76,7 @@
         [rx ry] (:right state)
         checkers (:checkers state)
         view (:view state)
-        [w h] (window/dimensions)]
+        [w h] (app/dimensions)]
 
     (light 0
        :position [-1 -1 1 0])

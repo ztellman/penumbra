@@ -9,7 +9,6 @@
 (ns example.opengl.marble
   (:use [penumbra opengl geometry])
   (:require [penumbra.app :as app])
-  (:require [penumbra.window :as window])
   (:use [penumbra.glsl.effects]))
 
 ;;;;;;;;;;;;;;;;;
@@ -68,7 +67,6 @@
   (enable :depth-test)
   (enable :lighting)
   (enable :light0)
-  (window/vsync true)
   (assoc state
     :sphere (sphere-geometry 100)
     :program (create-program declarations vertex-shader fragment-shader)))
