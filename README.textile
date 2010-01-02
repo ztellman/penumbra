@@ -1,4 +1,4 @@
-Penumbra is an idiomatic wrapper for OpenGL in Clojure, by way of JOGL.  
+Penumbra is an idiomatic wrapper for OpenGL in Clojure, by way of LWJGL.  
 
 This Java/C code
 
