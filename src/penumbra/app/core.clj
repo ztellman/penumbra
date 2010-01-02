@@ -24,8 +24,8 @@
 (defvar *callback-handler* nil
   "Function which routes to callbacks.")
 
-(defvar *timer* nil
-  "Timer which measures the passage of loop time.")
+(defvar *clock* nil
+  "Measures loop time")
 
 (defvar *hz* nil
   "Refresh rate of update-loop")

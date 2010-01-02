@@ -18,7 +18,7 @@
   (:require [penumbra.app.window :as window])
   (:require [penumbra.app.input :as input])
   (:require [penumbra.app.loop :as loop])
-  (:require [penumbra.app.timer :as timer])
+  (:require [penumbra.app.clock :as clock])
   (:import [org.lwjgl.input Keyboard])
   (:import [org.lwjgl.opengl Display])
   (:import [java.util.concurrent CountDownLatch]))
@@ -29,7 +29,7 @@
   :window
   :input
   :controller
-  :timer
+  :clock
   :callbacks
   :callbacks-altered?
   :state)
@@ -40,7 +40,7 @@
       :window (window/create)
       :input (input/create)
       :controller (loop/create-controller)
-      :timer (timer/create)
+      :clock (atom (clock/create))
       :callbacks callbacks
       :callbacks-altered? false
       :state (atom state))
@@ -78,7 +78,7 @@
 
 (defmacro with-app [app & body]
   `(binding [*app* ~app
-             *timer* (:timer ~app)
+             *clock* (:clock ~app)
              *callback-handler* try-callback]
      (input/with-input (:input ~app)
        (window/with-window (:window ~app)
@@ -92,8 +92,8 @@
      (clock *app*))
   ([app]
      (if app
-       (timer/now (:timer app))
-       (timer/real-time))))
+       (clock/now (:clock app))
+       (clock/real-time))))
 
 
 ;;Input
@@ -250,7 +250,7 @@
        (let [app (alter-callbacks app)]
          (with-app app
            (try
-            (timer/start (:timer app))
+            (clock/start (:clock app))
             (init)
             (loop/resume)
             (loop/primary-loop (fn [x] (x)) update-once)
@@ -260,7 +260,7 @@
             (finally
              (when (loop/stopped?)
                (destroy)))))
-         (timer/stop (:timer app))
+         (clock/stop (:clock app))
          app))))
 
 (defn start-update-loop
