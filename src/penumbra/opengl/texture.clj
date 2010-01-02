@@ -107,11 +107,12 @@
 
 (defn destroy-textures [textures]
   (let [ids (set (map :id textures))]
-    (swap!
-     *texture-pool*
-     (fn [x] (assoc x
-               :textures (remove #(ids (:id %)) (:textures x))
-               :texture-size (- (:texture-size x) (->> x :textures (map sizeof) (apply +))))))
+    (when *texture-pool*
+      (swap!
+       *texture-pool*
+       (fn [x] (assoc x
+                 :textures (remove #(ids (:id %)) (:textures x))
+                 :texture-size (- (:texture-size x) (->> x :textures (map sizeof) (apply +)))))))
     (when (not (empty? textures))
       (gl-delete-textures (IntBuffer/wrap (int-array ids))))))
 

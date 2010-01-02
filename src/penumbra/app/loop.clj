@@ -9,7 +9,7 @@
 (ns penumbra.app.loop
   (:use [penumbra.opengl])
   (:use [penumbra.app.core])
-  (:require [penumbra.app.timer :as timer])
+  (:require [penumbra.app.clock :as clock])
   (:import [org.lwjgl.opengl Display])
   (:import [java.util.concurrent CountDownLatch]))
 
@@ -108,9 +108,9 @@
               (Thread/sleep (long (* sleep 1e3)) (long (rem (* sleep 1e6) 1e6))))))))))
 
 (defn timed-fn [f]
-  (let [last-time (atom (timer/now *timer*))]
+  (let [last-time (atom (clock/now *clock*))]
     (fn [& args]
-      (let [current-time (timer/now *timer*)]
+      (let [current-time (clock/now *clock*)]
         (try
          (if f
            (apply f (list* [(- current-time @last-time) current-time] args))

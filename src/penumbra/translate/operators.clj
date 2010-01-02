@@ -7,6 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.translate.operators
+  (:use [clojure.walk])
   (:use [penumbra.geometry])
   (:use [penumbra.translate core])
   (:use [clojure.contrib.seq-utils :only (indexed group-by)])
@@ -64,12 +65,13 @@
        %)
     coll)))
 
-(defn apply-element-transform
-  [f x]
-  (cond
-   (element? x)    (let [x* (or (f x) x)] (with-meta x* (merge (meta x) (meta x*))))
-   (sequential? x) (mimic-expr x (map #(apply-element-transform f %) x))
-   :else           x))
+(defn apply-element-transform [f x]
+  (merge-meta
+   x
+   (cond
+    (element? x) (or (f x) x)
+    (sequential? x) (walk #(apply-element-transform f %) identity x)
+    :else x)))
 
 ;;results
 

@@ -9,6 +9,7 @@
 (ns penumbra.translate.core
   (:use [clojure.contrib.pprint])
   (:use [clojure.contrib.def :only (defmacro- defvar defvar-)])
+  (:use [clojure.walk])
   (:import (java.text ParseException))
   (:import (java.io StringWriter))
   (:require [clojure.zip :as zip]))
@@ -53,6 +54,11 @@
     (with-meta x (apply assoc (list* (meta x) metadata)))
     x))
 
+(defn merge-meta [x x*]
+  (cond
+   (meta? x*) (with-meta x* (merge (meta x) (meta x*)))
+   :else x*))
+
 (defn seq-wrap [s]
   (if (sequential? s) s (list s)))
 
@@ -72,50 +78,20 @@
 
 ;;;
 
-(defn mimic-expr [a b]
-  (if (meta? b)
-    (with-meta
-      (cond
-        (vector? a) (vec b)
-        (map? a) (hash-map b)
-        :else b)
-      (merge ^a ^b))
-    b))
-
 (defn tree-filter [f x]
   (filter f (tree-seq sequential? seq x)))
 
-(defn- do-tree* [f x depth]
-  (cond
-    (not (sequential? x))
+(defn do-tree
+  ([f x]
+     (do-tree f x 0))
+  ([f x depth]
+     (cond
+      (not (sequential? x))
       (f x depth)
-    :else
+      :else
       (do
         (f x depth)
-        (doseq [i x] (do-tree* f i (inc depth))))))
-            
-(defn- do-tree [f x]
-  (do-tree* f x 0))
-  
-(defn tree-map
-  "A post-order recursion, so that we can build transforms upwards."
-  [f x]
-  (cond
-    (not (meta? x))
-      (or (f x) x)
-    (not (sequential? x))
-      (let [x* (or (f x) x)]
-        (with-meta x* (merge ^x ^x*)))
-    (empty? x)
-      ()
-    :else
-      (let [x* (mimic-expr x (realize (map #(tree-map f %) x)))]
-        (mimic-expr x* (or (f x*) x*)))))
-
-(defn tree-map* [f x]
-  (loop [x (tree-map f x)]
-    (let [x* (tree-map f x)]
-      (if (= x x*) x (recur x*)))))
+        (doseq [i x] (do-tree f i (inc depth)))))))
 
 (defn print-tree [x]
   (println
@@ -125,6 +101,18 @@
         (apply str (realize (take (* 2 %2) (repeat "  "))))
         (realize %) "|" (typeof %) "|" (meta (realize %)) "\n")
       x))))
+
+(defn tree-map [f x]
+  (let [f* #(or (f %) %)]
+    (walk
+     #(merge-meta % (tree-map f %))
+     #(merge-meta % (f* (merge-meta x %)))
+     x)))
+
+(defn tree-map* [f x]
+  (loop [x (tree-map f x)]
+    (let [x* (tree-map f x)]
+      (if (= x x*) x (recur x*)))))
 
 ;;;
 
@@ -187,29 +175,22 @@
 ;;;
 
 (defn- scope? [x]
-  (and (meta? x) (:scope ^x)))
+  (:scope (meta x)))
 
 (defn- let? [x]
-  (and (meta? x) (:let ^x)))
+  (:let (meta x)))
 
 (defvar- *vars* nil)
 (defvar- *let* false)
 
-(defn scope-map
-  [f x]
+(defn scope-map [f x]
   (binding [*vars* (if (scope? x) (atom @*vars*) *vars*)
-            *let*  (if (let? x) true false)]
-    (cond
-      (not (meta? x))
-      (or (f x) x)
-      (not (sequential? x))
-      (let [x* (or (f x) x)]
-        (with-meta x* (merge ^x ^x*)))
-      (empty? x)
-      ()
-      :else
-      (let [x* (mimic-expr x (realize (map #(scope-map f %) x)))]
-        (mimic-expr x* (or (f x*) x*))))))
+            *let* (let? x)]
+    (let [f* #(or (f %) %)]
+      (walk
+       #(merge-meta % (scope-map f* %))
+       identity
+       (merge-meta x (f* x))))))
 
 (defn tag-first-appearance [x]
   (binding [*vars* (atom #{})]
@@ -217,14 +198,14 @@
       x
       (scope-map
        (fn [x]
-         (if (and (symbol? x) (:assignment ^x) (or *let* (not (@*vars* x))))
-          (do
-            (swap! *vars* #(conj % x))
-            (add-meta x :first-appearance true))
-          x))))))
+         (when (and (symbol? x)
+                    (:assignment (meta x))
+                    (or *let* (not (@*vars* x))))
+           (swap! *vars* #(conj % x))
+           (add-meta x :first-appearance true)))))))
 
 (defn-try try-tag
-  #(realize (*tagger* %))
+  #(*tagger* %)
   "Error while tagging")
 
 (defn- tag-exprs [x]
@@ -240,7 +221,7 @@
 (defn typeof-var
   "Determine type, if possible, of var within x"
   [var x]
-  (let [vars  (tree-filter #(or (= var %) (and (meta? %) (= var (:defines ^%)))) x)
+  (let [vars  (tree-filter #(or (= var %) (= var (:defines (meta %)))) x)
         types (distinct (filter identity (map typeof vars)))]
     (cond
       (empty? types)

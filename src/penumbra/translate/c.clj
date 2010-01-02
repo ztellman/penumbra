@@ -203,15 +203,18 @@
             s2# (second b#)
             s3# (third b#)]
         (cond
-          (not (meta? s2#))
-            b#
-          (= 2 (count b#))
-            (list s1# (add-meta s2# :assignment (symbol? s2#), :defines s2#))
-          :else
-            (list
-             s1#
-             (add-meta s2# :assignment (symbol? s2#), :defines s2#, :numeric-value (if (number? s3#) s3# nil))
-             (if (meta? s3#) (add-meta s3# :defines s2#) s3#)))))))
+         (not (meta? s2#))
+         b#
+         (= 2 (count b#))
+         (list
+          s1#
+          (add-meta s2# :assignment (symbol? s2#), :defines s2#))
+         :else
+         (do
+           (list
+           s1#
+           (add-meta s2# :assignment (symbol? s2#), :defines s2#, :numeric-value (when (number? s3#) s3#))
+           (add-meta s3# :defines s2#))))))))
 
 (defmacro- def-scope-parser
   "Defines a wrapper for any keyword that wraps a scope

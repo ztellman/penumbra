@@ -12,7 +12,8 @@
   (:use [penumbra.opengl.core])
   (:use [penumbra.glsl.core])
   (:use [penumbra.translate.core])
-  (:import (java.nio ByteBuffer IntBuffer FloatBuffer)))
+  (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
+  (:import (org.lwjgl BufferUtils)))
 
 ;;;;;;;;;;;;;;;;;;
 
@@ -47,21 +48,34 @@
 (defvar *verbose* true
   "Full feedback on shader compilation.")
 
-(defmacro- gl-query-status
+(defmacro- gl-query-info
   [query-fn setting fn-name]
   `(defn- ~fn-name [param#]
     (let [a# (int-array 1)]
       (~query-fn param# ~setting (IntBuffer/wrap a#))
-      (not (zero? (first a#))))))
+      (first a#))))
+
+(defmacro- gl-query-status
+  [query-fn setting fn-name]
+  (let [fn-name* (symbol (str fn-name "*"))]
+    `(do
+       (gl-query-info ~query-fn ~setting ~fn-name*)
+       (defn ~fn-name [param#]
+         (not (zero? (~fn-name* param#)))))))
 
 (gl-query-status gl-get-shader :compile-status shader-compiled?)
 (gl-query-status gl-get-program :link-status program-linked?)
 (gl-query-status gl-get-program :validate-status program-valid?)
+(gl-query-info gl-get-shader :info-log-length shader-info-length)
+(gl-query-info gl-get-program :info-log-length program-info-length)
 
 (defn- get-shader-log [shader]
-  (let [buf (make-array Byte/TYPE 4096)]
-    (gl-get-shader-info-log shader 4096 buf)
-    (.trim #^String (apply str (map #(char %) buf)))))
+  (let [len (shader-info-length shader)
+        buf (BufferUtils/createByteBuffer len)]
+    (gl-get-shader-info-log shader (IntBuffer/wrap (int-array [len])) buf)
+    (let [ary (byte-array len)]
+      (.get buf ary)
+      (.trim (String. ary)))))
 
 (defn- replace-string [regex replacement s]
   (.replaceAll (re-matcher regex s) replacement))
@@ -80,12 +94,15 @@
       (println (indent source)))
     (if (shader-compiled? shader)
       (if *verbose* (println "Compiled.\n"))
-      (throw (Exception. (str "*** Error compiling shader: " (get-shader-log shader)))))))
+      (throw (Exception. (str "*** Error compiling shader:\n" (get-shader-log shader)))))))
 
 (defn- get-program-log [program]
-  (let [buf (byte-array 4096)]
-    (gl-get-program-info-log program 4096 (ByteBuffer/wrap buf))
-    (.trim (apply str (map #(char %) buf)))))
+  (let [len (program-info-length program)
+        buf (BufferUtils/createByteBuffer len)]
+    (gl-get-program-info-log program (IntBuffer/wrap (int-array [len])) (ByteBuffer/wrap buf))
+    (let [ary (byte-array len)]
+      (.get buf ary)
+      (.trim (String. ary)))))
 
 (defn create-program-from-source
   "Takes translated source (in GLSL, not s-expressions) for two shaders, and combines them into a program"
@@ -99,10 +116,10 @@
     (gl-attach-shader program fragment-shader)
     (gl-link-program program)
     (if (not (program-linked? program))
-      (throw (Exception. (str "*** Error linking program: " (get-program-log program)))))
+      (throw (Exception. (str "*** Error linking program:\n" (get-program-log program)))))
     (gl-validate-program program)
     (if (not (program-valid? program))
-      (throw (Exception. (str "*** Error validating program: "(get-program-log program)))))
+      (throw (Exception. (str "*** Error validating program:\n"(get-program-log program)))))
     (if *verbose* (println "Linked.\n"))
     (struct-map program-struct
       :vertex vertex-shader :fragment fragment-shader :program program :uniforms (ref {}))))

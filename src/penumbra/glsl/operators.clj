@@ -150,7 +150,7 @@
     (if ((set (flatten x)) :index)
       (concat
         index
-        (apply-transforms [(replace-with :index '-index)] x))
+        (apply-transforms [(replace-with :index #^:float '-index)] x))
       x)))
 
 (defn- frag-data-typecast
@@ -199,8 +199,8 @@
              (apply-transforms
               (list
                #(when (first= % 'dim) (transform-dim %))
-               (replace-with :coord '-coord)
-               (replace-with :dim '-dim)))
+               (replace-with :coord #^:float2 '-coord)
+               (replace-with :dim #^:float2 '-dim)))
              (transform-results frag-data-typecast)
              wrap-and-prepend)]
     (list 'do declarations body)))
