@@ -25,11 +25,11 @@
   "Function which routes to callbacks.")
 
 (defvar *clock* nil
-  "Measures loop time")
+  "Application clock.")
+
+(defvar *queue* nil
+  "Update queue.")
 
 (defvar *hz* nil
   "Refresh rate of update-loop")
-
-(defvar *update-stopped?* nil
-  "Is update-loop stopped.")
 

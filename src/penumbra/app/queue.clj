@@ -9,43 +9,75 @@
 (ns penumbra.app.queue
   (:use [penumbra.app.core])
   (:require [penumbra.slate :as slate])
-  (:import [java.util Timer TimerTask]))
+  (:require [penumbra.app.loop :as loop])
+  (:import [java.util.concurrent Executors ExecutorService ThreadFactory]))
 
 ;;;
 
-(defstruct queue-struct
-  :actions
-  :promises)
+(defprotocol Queue
+  (enqueue! [this delay f]))
 
-(defn create-queue []
-  (let [q (repeatedly promise)]
-    (with-meta
-      (struct-map queue-struct
-        :promises q
-        :empty-promises q)
-      {:type ::queue})))
-
-(defn enqueue [q-ref f]
-  (let [prm (dosync
-             (let [head (first (:empty-promises @q))]
-               (ref-set q (rest @q))
-               head))]
-    (deliver prm f)))
-
-(defn dequeue [q-ref f]
-  )
-
-;;;
-
-(defn create-thread [outer-fn inner-fn]
-  (.start
-   (Thread.
-    #(outer-fn
+(defn create-thread [app clock heap]
+  (Thread.
+   (fn []
+     (loop/secondary-loop
+      app #(%)
       (fn []
-        (let [s (slate/create)]
-          (try (inner-fn)
-               (finally (slate/destroy s)))))))))
+        (if-let [actions
+                 (dosync
+                  (let [now @@clock
+                        top (take-while #(>= now (first %)) @heap)]
+                    (when-not (empty? top)
+                      (alter heap #(drop (count top) %))
+                      (map second top))))]
+          (doseq [a actions]
+            (a))
+          (Thread/sleep 0 500)))))))
 
-(defn create-queue-thread []
-  )
+(defn create
+  ([]
+     (create *app*))
+  ([app]
+     (let [clock  (:clock app)
+           heap   (ref (sorted-set-by #(apply compare (map first %&))))]
+       (dotimes [_ 1]
+         (.start (create-thread app clock heap)))
+       (reify
+        Queue
+        (enqueue! [delay f] (dosync (alter heap #(conj % [(+ @@clock delay) f]))))))))
+
+;;;
+
+(defn update
+  ([f]
+     (update 0 f))
+  ([delay f]
+     (update *queue* delay f))
+  ([queue delay f]
+     (enqueue!
+      queue delay
+      #(try
+        (f)
+        (catch Exception e
+          (.printStackTrace e))))))
+
+(defn recurring-update
+  ([hz f]
+     (recurring-update *app* hz f))
+  ([app hz f]
+     (let [queue @(:queue app)
+           clock (:clock app)
+           hz (atom hz)]
+       (letfn [(f*
+                []
+                (let [start @@clock]
+                  (binding [*hz* hz]
+                    (f))
+                  (let [hz @hz
+                        end @@clock]
+                    (when (pos? hz)
+                      (update queue (-  (/ 1 hz) (- end start)) f*)))))]
+         (update queue (/ 1 @hz) f*)))))
+
+
 

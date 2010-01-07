@@ -14,25 +14,31 @@
   (:import [org.lwjgl.input Keyboard Mouse]))
 
 (defstruct input-struct
-  :keys)
+  :keys
+  :mouse-buttons)
 
 (defn create []
   (struct-map input-struct
-    :keys (atom {})))
+    :keys (atom {})
+    :mouse-buttons (atom {})))
 
 (defn init
   ([]
      (init *input*))
   ([input]
      (Keyboard/create)
-     (Mouse/create)))
+     (Mouse/create)
+     (assoc input
+       :keys (atom {})
+       :mouse-buttons (atom {}))))
 
 (defn destroy
   ([]
      (destroy *input*))
   ([input]
      (Keyboard/destroy)
-     (Mouse/destroy)))
+     (Mouse/destroy)
+     input))
 
 (defmacro with-input [input & body]
   `(binding [*input* ~input]
@@ -53,7 +59,7 @@
       (not= 0 (int char)) (str char)
       :else (-> name .toLowerCase keyword))]))
 
-(defn handle-keyboard []
+(defn handle-keyboard! []
   (Keyboard/poll)
   (while
    (Keyboard/next)
@@ -65,7 +71,8 @@
        (do
          (let [pressed-key (@(:keys *input*) name)]
            (swap! (:keys *input*) #(dissoc % name key))
-           (*callback-handler* :key-release pressed-key)))))))
+           (*callback-handler* :key-release pressed-key))))
+     nil)))
 
 ;;Mouse
 
@@ -76,7 +83,7 @@
     2 :center
     (keyword (str "button" (inc button-idx)))))
 
-(defn handle-mouse []
+(defn handle-mouse! []
   (let [[w h] (dimensions *window*)]
     (loop [buttons (vec (map #(Mouse/isButtonDown %) (range (Mouse/getButtonCount))))]
       (Mouse/poll)
@@ -102,7 +109,8 @@
              (*callback-handler* :mouse-drag [dx dy] [x y] (mouse-button-name button-idx))))
           (if button?
             (recur (assoc buttons button button-state))
-            (recur buttons)))))))
+            (recur buttons)))))
+    nil))
 
 ;;;
 

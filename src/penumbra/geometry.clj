@@ -11,7 +11,7 @@
 
 ;;;
 
-(defn- prime-factors
+(defn prime-factors
   "Returns prime factors of a number"
   ([n] (prime-factors primes [] n))
   ([primes factors n]
@@ -21,7 +21,10 @@
 		 (zero? (rem n p)) (recur primes (conj factors p) (/ n p))
 		 :else (recur (rest primes) factors n)))))
 
-(defn rectangle [n]
+(defn rectangle
+  "Returns two values [x y], where x*y == n.
+   x and y should be relatively close to each other in value."
+  [n]
   (let [factors   (prime-factors n)
         reordered (take (count factors) (interleave factors (reverse factors)))
         sqrt      (int (Math/sqrt n))
@@ -30,31 +33,55 @@
 
 ;;;
 
-(defn dot [u v]
+(defn lerp [a b t]
+  "Does a linear interpolation between two n-vectors, a and b, based on scalar value t."
+  (if (sequential? a)
+    (map #(+ %1 (* t (- %2 %1))) a b)
+    (+ a (* t (- b a)))))
+
+(defn dot
+  "Returns dot product of two vectors, which must have equal length."
+  [u v]
   (apply + (map * u v)))
 
-(defn length-squared [v]
+(defn length-squared
+  "Returns scalar length of vector, multiplied by itself."
+  [v]
   (dot v v))
 
-(defn length [v]
+(defn length
+  "Returns scalar length of vector."
+  [v]
   (Math/sqrt (length-squared v)))
 
- (defn normalize [v]
+(defn normalize
+  "Normalizes vector of arbitrary lengths."
+  [v]
   (let [len (length v)]
     (map #(/ % len) v)))
 
-(defn cross [[ax ay az] [bx by bz]]
+(defn cross
+  "Returns cross product of two 3-vectors."
+  [[ax ay az] [bx by bz]]
   [(- (* ay bz) (* az by))
    (- (* az bx) (* ax bz))
    (- (* ax bz) (* ay bx))])
 
-(defn radians [x]
+(defn radians
+  "Transforms degrees to radians."
+  [x]
   (* (/ Math/PI 180) x))
 
-(defn degrees [x]
+(defn degrees
+  "Transforms radians to degrees."
+  [x]
   (* (/ 180 Math/PI) x))
 
-(defn polar [v]
+(defn polar
+  "Transforms cartesian coordinates into polar coordinates.
+   [x y] => [theta r]
+   [x y z] => [theta phi r]"
+  [v]
   (condp = (count v)
     2 (let [[x y] v]
          [(degrees (Math/atan2 y x))
@@ -65,7 +92,12 @@
          (degrees (Math/asin (/ y len)))
          len])))
 
-(defn cartesian [v]
+(defn cartesian
+  "Transforms polar coordinates to cartesian coordinates.
+   theta => (cartesian [theta 1])
+   [theta r] => [x y]
+   [theta phi r] => [x y z]"
+  [v]
   (if (number? v)
     (cartesian [v 1])
     (condp = (count v)

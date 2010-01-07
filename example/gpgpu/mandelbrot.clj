@@ -13,7 +13,7 @@
 
 (defn init [state]
 
-  (app/set-title "Mandelbrot Viewer")
+  (app/title! "Mandelbrot Viewer")
 
   (defmap initialize-fractal
     (float3 (mix upper-left lower-right (/ :coord :dim)) 0))
@@ -49,9 +49,9 @@
   state)
 
 (defn reset-fractal [state]
-  (if (:data state)
+  (when (:data state)
     (release! (:data state)))
-  (if (:image state)
+  (when (:image state)
     (release! (:image state)))
   (assoc state
     :iterations 0
@@ -80,7 +80,6 @@
         :offset (map + ul (map * coord (map - lr ul)))))))
 
 (defn reshape [[x y w h] state]
-  (println "reshaping")
   (ortho-view 0 1 1 0 -1 1)
   (update-bounds
     (assoc state
@@ -88,7 +87,7 @@
 
 (defn key-press [key state]
   (cond
-   (= key :escape) (do (app/pause) state)
+   (= key :escape) (app/pause!)
    :else state))
 
 (def iterations-per-frame 60)
@@ -115,7 +114,7 @@
 
 (defn display [_ state]
   (when (:repaint state)
-    (app/repaint))
+    (app/repaint!))
   (blit! (:image state)))
 
 (defn start []
