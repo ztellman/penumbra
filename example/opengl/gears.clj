@@ -84,8 +84,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn init [state]
-  (app/set-title "Gears")
-  (app/vsync false)
+  (app/title! "Gears")
+  (app/vsync! false)
   (enable :depth-test)
   (enable :lighting)
   (enable :light0)
@@ -111,7 +111,7 @@
   (rotate (:rot-y state) 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
   (call-display-list (:gear state))
-  (app/repaint))
+  (app/repaint!))
 
 (defn start []
   (app/start

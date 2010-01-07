@@ -45,7 +45,7 @@
 ;;;;;;;;;;;;;;;;;
 
 (defn init [state]
-  (app/set-title "Sierpinski Pyramid")
+  (app/title! "Sierpinski Pyramid")
   (enable :normalize)
   (enable :depth-test)
   (enable :cull-face)

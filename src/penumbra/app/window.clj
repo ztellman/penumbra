@@ -41,18 +41,17 @@
 (defn current-display-mode []
   (transform-display-mode (Display/getDisplayMode)))
 
-(defn set-display-mode
+(defn display-mode!
   ([width height]
      (->>
       (display-modes)
       (filter #(= [width height] (:resolution %)))
       (sort-by :bpp)
       last
-      set-display-mode))
+      display-mode!))
   ([mode]
      (Display/setDisplayMode (:mode mode))
      (apply viewport (concat [0 0] (:resolution mode)))))
-
 
 (defn dimensions [w]
   (if-let [canvas (-?> w :frame deref (.getComponent 0))]
@@ -70,9 +69,20 @@
          (*callback-handler* :reshape (concat [0 0] dim))
          true))))
 
+(defn vsync?
+  ([] (vsync? *window*))
+  ([window] @(:vsync window)))
+
+(defn vsync!
+  ([enabled]
+     (vsync! *window* enabled))
+  ([window enabled]
+     (Display/setVSyncEnabled enabled)
+     (reset! (:vsync? window) enabled)))
+
 ;;Frame
 
-(defn enable-resizable [app]
+(defn enable-resizable! [app]
   (when (nil? @(-> app :window :frame))
     (let [window (:window app)
           frame (Frame.)
@@ -94,14 +104,16 @@
         (.add canvas)
         (.pack))
       (Display/setParent canvas)
-      (reset! (:frame window) frame))))
+      (reset! (:frame window) frame)
+      nil)))
 
-(defn disable-resizable [app]
+(defn disable-resizable! [app]
   (let [window (:window app)]
     (when-let [frame @(:frame window)]
       (.dispose frame)
       (Display/setParent nil)
-      (reset! (:frame window) nil))))
+      (reset! (:frame window) nil)
+      nil)))
 
 ;;;
 
@@ -118,12 +130,13 @@
   ([]
      (init *window*))
   ([window]
-     (Display/setParent nil)
-     (Display/create (-> (PixelFormat.) (.withSamples 4)))
-     (apply set-display-mode @(:size window))
+     (when-not (Display/isCreated)
+       (Display/setParent nil)
+       (Display/create (-> (PixelFormat.) (.withSamples 4))))
+     (apply display-mode! @(:size window))
      (blend-func :src-alpha :one-minus-src-alpha)
      (apply viewport @(:size window))
-     (*callback-handler* :reshape (concat [0 0] @(:size window)))))
+     window))
 
 (defn destroy
   ([]
@@ -133,7 +146,8 @@
      (texture/destroy-textures (:textures @*texture-pool*))
      (when-let [f @(:frame window)]
        (.dispose f))
-     (Display/destroy)))
+     (Display/destroy)
+     window))
 
 (defmacro with-window [window & body]
   `(binding [*window* ~window

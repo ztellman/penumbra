@@ -169,7 +169,7 @@
 
 (defn init [state]
 
-  (app/set-title "Tetris")
+  (app/title! "Tetris")
   
   (def bordered-rectangle
        (create-display-list
@@ -178,14 +178,14 @@
         (draw-line-loop (rectangle))
         (color 1 1 1)))
   
-  (app/start-update-loop
+  (app/recurring-update
    2
    (fn [state]
      (if (app/key-pressed? :down)
        (app/frequency! 10)
        (app/frequency! 2))
      (descend state)))
-  (app/key-repeat true)
+  (app/key-repeat! true)
   state)
 
 (defn reshape [[x y w h] state]
@@ -212,7 +212,7 @@
    (= key :right)
    (try-move #(translate* [1 0] %) identity state)
    (= key :escape)
-   (do (app/pause) state)
+   (app/pause!)
    :else
    state))
 

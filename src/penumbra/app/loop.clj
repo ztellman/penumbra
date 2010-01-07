@@ -9,142 +9,92 @@
 (ns penumbra.app.loop
   (:use [penumbra.opengl])
   (:use [penumbra.app.core])
-  (:require [penumbra.app.clock :as clock])
-  (:import [org.lwjgl.opengl Display])
-  (:import [java.util.concurrent CountDownLatch]))
+  (:require [penumbra.app.controller :as controller])
+  (:require [penumbra.app.window :as window])
+  (:require [penumbra.app.input :as input])
+  (:require [penumbra.slate :as slate])
+  (:require [penumbra.time :as time]))
 
 ;;;
 
-(defstruct controller-struct
-  :paused?
-  :stopped?
-  :invalidated?
-  :latch)
+(defn sync-update
+  ([f]
+     (sync-update *app* f))
+  ([app f]
+     (let [state @(:state app)
+           new-state (swap! (:state app) #(or (f %) %))]
+       (when-not (identical? state new-state)
+         (controller/repaint!)))))
 
-(defn create-controller []
-  (with-meta
-    (struct-map controller-struct
-      :paused? (atom false)
-      :stopped? (atom true)
-      :invalidated? (atom false)
-      :latch (atom nil))
-    {:type ::controller}))
+(defn try-callback [callback & args]
+  (when-let [f (callback (:callbacks *app*))]
+    (sync-update
+     (if (empty? args)
+       f
+       (apply partial (list* f args))))))
 
-(defn stopped?
-  ([] (stopped? *controller*))
-  ([controller] @(:stopped? controller)))
+(defmacro with-app [app & body]
+  `(let [app# ~app]
+     (binding [*app* app#
+               *clock* (:clock app#)
+               *queue* (deref (:queue app#))
+               *callback-handler* try-callback]
+      (input/with-input (:input app#)
+        (window/with-window (:window app#)
+          (controller/with-controller (:controller app#)
+            ~@body))))))
 
-(defn update-stopped? []
-  (or (not *update-stopped?*) @*update-stopped?*))
+;;;
 
-(defn stop
-  ([] (stop *controller*))
-  ([controller] (reset! (:stopped? controller) true)))
-
-(defn stop-update []
-  (when *update-stopped?*
-    (reset! *update-stopped?* true)))
-
-(defn paused?
-  ([] (paused? *controller*))
-  ([controller] @(:paused? controller)))
-
-(defn pause
-  ([]
-     (pause *controller*))
-  ([controller]
-     (reset! (:paused? controller) true)
-     (reset! (:latch controller) (CountDownLatch. 1))
-     nil))
-
-(defn resume
-  ([]
-     (resume *controller*))
-  ([controller]
-     (reset! (:paused? controller) false)
-     (reset! (:stopped? controller) false)
-     (when-let [latch @(:latch controller)]
-       (.countDown #^CountDownLatch latch))))
-
-(defn invalidated?
-  ([] (invalidated? *controller*))
-  ([controller] @(:invalidated? controller)))
-
-(defn try-latch [latch]
-  (when latch
-    (.await #^CountDownLatch latch)))
-
-(defn repaint
-  ([]
-     (repaint *controller*))
-  ([controller]
-     (reset! (:invalidated? controller) true)))
-
-(defn repainted
-  ([]
-     (repaint *controller*))
-  ([controller]
-     (reset! (:invalidated? controller) false)))
-
-(defmacro with-controller [controller & body]
-  `(binding [*controller* ~controller]
-     ~@body))
-
-;;Loops
-
-(defn- clock []
-  (/ (System/nanoTime) 1e9))
-
-(defn periodic-fn
-  [hz]
-  (let [frequency (atom hz)]
-    (fn [f]
-      (binding [*hz* frequency]
-        (let [start (clock)]
-          (f)
-          (let [delta (- (clock) start)
-                sleep (max 0 (- (/ 1 @*hz*) delta))]
-            (when-not (zero? sleep)
-              (Thread/sleep (long (* sleep 1e3)) (long (rem (* sleep 1e6) 1e6))))))))))
-
-(defn timed-fn [f]
-  (let [last-time (atom (clock/now *clock*))]
+(defn timed-fn [clock f]
+  (let [previous (atom @clock)]
     (fn [& args]
-      (let [current-time (clock/now *clock*)]
+      (let [now @clock]
         (try
          (if f
-           (apply f (list* [(- current-time @last-time) current-time] args))
+           (apply f (list* [(- now @previous) now] args))
            @(:state *app*))
          (finally
-          (reset! last-time current-time)))))))
+          (reset! previous now)))))))
 
-(defn update-loop
-  [outer-fn inner-fn latch-fn complete-fn]
-  (outer-fn
-   (fn []
-     (loop []
-       (try-latch (latch-fn))
-       (inner-fn)
-       (when-not (complete-fn)
-         (recur))))))
+(defn create-thread [app outer-fn inner-fn]
+  (Thread.
+   #(with-app app
+      (outer-fn
+       (fn []
+         (let [s (slate/create ((-> app :window :drawable)))]
+           (try
+            (inner-fn)
+            (finally
+             (slate/destroy s)))))))))
 
-(defn secondary-loop [hz outer-fn inner-fn]
-  (let [periodic (periodic-fn hz)]
-    (->
-     (Thread.
-      (fn []
-        (binding [*update-stopped?* (atom false)]
-          (Thread/sleep (/ 1000 hz))
-          (update-loop
-           outer-fn
-           #(periodic inner-fn)
-           #(deref (:latch *controller*))
-           #(or (update-stopped?) (stopped?))))))
-     .start)))
+(defn secondary-loop
+  [app outer-fn inner-fn]
+  (with-app app
+    (outer-fn
+     (fn []
+       (loop []
+         (controller/try-latch!)
+         (try
+          (inner-fn)
+          (catch Exception e
+            (.printStackTrace e)))
+         (when-not (controller/stopped?)
+           (recur)))))))
 
-(defn primary-loop [outer-fn inner-fn]
-  (update-loop
-   outer-fn
-   inner-fn
-   (constantly nil)
-   #(or (paused?) (stopped?))))
+(defn secondary-thread
+  [app outer-fn inner-fn]
+  (create-thread
+   app
+   #(with-app (%))
+   #(secondary-loop app outer-fn inner-fn)))
+
+(defn primary-loop
+  [app outer-fn inner-fn]
+  (with-app app
+    (outer-fn
+     (fn []
+       (loop []
+         (inner-fn)
+         (when-not (or (controller/paused?) (controller/stopped?))
+           (recur)))))))

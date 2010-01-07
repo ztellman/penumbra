@@ -24,12 +24,12 @@
       (dotimes [_ 100]
         (apply color (take 3 (repeatedly rand)))
         (apply draw-rect (take 4 (repeatedly rand))))))
-  (app/repaint)
+  (app/repaint!)
   tex)
 
 (defn init [state]
 
-  (app/set-title "Convolution")
+  (app/title! "Convolution")
 
   (defmap blur
     (let [value (float4 0.0)
@@ -51,7 +51,6 @@
     :tex (reset-image (create-byte-texture :texture-rectangle 256 256))))
 
 (defn key-press [key state]
-  (app/repaint)
   (let [tex (:tex state)]
     (cond
      (= key " ")

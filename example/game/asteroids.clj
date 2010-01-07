@@ -73,8 +73,8 @@
   (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 12 12))))))
 
 (defn gen-asteroid [initial radius theta speed]
-  (let [birth (app/clock)
-        elapsed #(- (app/clock) birth)
+  (let [birth (app/now)
+        elapsed #(- (app/now) birth)
         asteroid (nth asteroid-meshes (rand-int 20))
         [x y] (map (partial * speed) (cartesian theta))
         position #(wrap (map + initial (map * [x y] (repeat (elapsed)))))]
@@ -117,11 +117,11 @@
     (call-display-list particle-quad)))
 
 (defn gen-particle [position theta speed radius [r g b] lifespan]
-  (let [birth (app/clock)
+  (let [birth (app/now)
         [x y] (map (partial * speed) (cartesian theta))
-        elapsed #(- (app/clock) birth)
+        elapsed #(- (app/now) birth)
         position #(wrap (map + position (map * [x y] (repeat (elapsed)))))]
-    {:expired? #(> (- (app/clock) birth) lifespan)
+    {:expired? #(> (- (app/now) birth) lifespan)
      :position position
      :radius radius
      :render #(draw-particle
@@ -165,9 +165,9 @@
                           position
                           theta
                           speed
-                          0.2
+                          0.25
                           (rand-color [1 0.5 0.7] [1 1 1])
-                          (/ (Math/cos (radians (* 3 offset))) 3)))))
+                          (/ (Math/cos (radians (* 3 offset))) 2.5)))))
     state))
 
 (defn update-spaceship [dt ship]
@@ -199,7 +199,7 @@
    :radius 0.5
    :velocity [0 0]
    :theta 0
-   :birth (app/clock)})
+   :birth (app/now)})
 
 ;;game state
 
@@ -289,16 +289,16 @@
 ;;game loop
 
 (defn init [state]
-  (app/set-title "Asteroids")
-  (app/vsync true)
-  (app/key-repeat false)
+  (app/title! "Asteroids")
+  (app/vsync! true)
+  (app/key-repeat! false)
   (init-asteroids)
   (init-particles)
   (init-spaceship)
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
-  (app/start-update-loop 20 update-collisions)
-  (app/start-update-loop 50 emit-flame)
+  (app/recurring-update 20 update-collisions)
+  (app/recurring-update 40 emit-flame)
   (reset state))
 
 (defn reshape [[x y w h] state]
@@ -312,7 +312,7 @@
 (defn key-press [key state]
   (cond
    (= key " ") (fire-bullet state)
-   (= key :escape) (do (app/pause) state)
+   (= key :escape) (app/pause!)
    :else state))
 
 (defn update [[dt time] state]
@@ -330,9 +330,9 @@
       (doseq [a (:asteroids state)]
         (render a)))
     (draw-spaceship (:spaceship state))
-    (app/repaint)))
+    (app/repaint!)))
 
 (defn start []
   (app/start
-   {:reshape reshape, :display display, :init init, :update update, :key-press key-press} 
-   {:spaceship (gen-spaceship)}))
+   {:reshape reshape, :init init, :key-press key-press, :update update, :display display} 
+   {}))

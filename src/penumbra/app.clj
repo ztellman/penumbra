@@ -12,16 +12,16 @@
   (:use [clojure.contrib.def :only [defmacro- defvar-]])
   (:use [penumbra.opengl])
   (:use [penumbra.app.core])
-  (:use [penumbra.opengl.core :only [*texture-pool*]])
   (:require [penumbra.opengl.texture :as texture])
   (:require [penumbra.slate :as slate])
   (:require [penumbra.app.window :as window])
   (:require [penumbra.app.input :as input])
+  (:require [penumbra.app.controller :as controller])
   (:require [penumbra.app.loop :as loop])
-  (:require [penumbra.app.clock :as clock])
-  (:import [org.lwjgl.input Keyboard])
+  (:require [penumbra.app.queue :as queue])
+  (:require [penumbra.time :as time])
   (:import [org.lwjgl.opengl Display])
-  (:import [java.util.concurrent CountDownLatch]))
+  (:import [org.lwjgl.input Keyboard]))
 
 ;;;
 
@@ -29,22 +29,32 @@
   :window
   :input
   :controller
+  :queue
   :clock
   :callbacks
-  :callbacks-altered?
   :state)
 
+(defn- alter-callbacks [clock callbacks]
+  (let [callbacks (if-not (:update callbacks)
+                    callbacks
+                    (update-in callbacks [:update] #(loop/timed-fn clock %)))
+        callbacks (if-not (:display callbacks)
+                    callbacks
+                    (update-in callbacks [:display] #(loop/timed-fn clock %)))]
+    callbacks))
+
 (defn create [callbacks state]
-  (with-meta
-    (struct-map app-struct
-      :window (window/create)
-      :input (input/create)
-      :controller (loop/create-controller)
-      :clock (atom (clock/create))
-      :callbacks callbacks
-      :callbacks-altered? false
-      :state (atom state))
-    {:type ::app}))
+  (let [clock (time/clock)]
+    (with-meta
+      (struct-map app-struct
+        :window (window/create)
+        :input (input/create)
+        :controller (controller/create)
+        :queue (atom nil)
+        :clock (atom clock)
+        :callbacks (alter-callbacks clock callbacks)
+        :state (atom state))
+      {:type ::app})))
 
 (defmethod print-method ::app [app writer]
   (let [{size :texture-size textures :textures} @(-> app :window :texture-pool)
@@ -52,38 +62,11 @@
         active-percent (float (if (zero? size) 1 (/ active-size size)))]
     (.write
      writer
-     (if (loop/stopped? (:controller app))
+     (if (controller/stopped? (:controller app))
        (format "<<%s: STOPPED>>" (Display/getTitle))
        (format "<<%s: PAUSED\n  Allocated texture memory: %.2fM (%.2f%% in use)>>"
                (Display/getTitle)
                (/ size 1e6) (* 100 active-percent))))))
-
-;;;
-
-(defn repaint []
-  (loop/repaint))
-
-(defn try-callback [callback & args]
-  (when-let [f (callback (:callbacks *app*))]
-    (let [state @(:state *app*)
-          new-state (swap!
-                     (:state *app*)
-                     (fn [s]
-                       (or (if (empty? args)
-                             (f s)
-                             (apply f (concat args [s])))
-                        state)))]
-      (when-not (identical? state new-state)
-        (repaint)))))
-
-(defmacro with-app [app & body]
-  `(binding [*app* ~app
-             *clock* (:clock ~app)
-             *callback-handler* try-callback]
-     (input/with-input (:input ~app)
-       (window/with-window (:window ~app)
-         (loop/with-controller (:controller ~app)
-           ~@body)))))
 
 ;;Clock
 
@@ -91,22 +74,25 @@
   ([]
      (clock *app*))
   ([app]
-     (if app
-       (clock/now (:clock app))
-       (clock/real-time))))
+     (:clock app)))
 
+(defn now
+  ([]
+     (now *app*))
+  ([app]
+     @@(clock app)))
 
 ;;Input
 
 (defn key-pressed? [key]
   ((-> @(:keys *input*) vals set) key))
 
-(defn key-repeat [enabled]
+(defn key-repeat! [enabled]
   (Keyboard/enableRepeatEvents enabled))
 
 ;;Window
 
-(defn set-title [title]
+(defn title! [title]
   (when @(:frame *window*)
     (.setTitle @(:frame *window*) title))
   (Display/setTitle title))
@@ -121,163 +107,154 @@
   []
   (window/current-display-mode))
 
-(defn set-display-mode
+(defn display-mode!
   "Sets the current display mode."
-  ([width height] (window/set-display-mode width height))
-  ([mode] (window/set-display-mode mode)))
+  ([width height] (window/display-mode! width height))
+  ([mode] (window/display-mode! mode)))
 
 (defn dimensions
   "Returns dimensions of window as [width height]."
   ([] (dimensions *window*))
   ([w] (window/dimensions w)))
 
-(defn vsync [enabled]
-  (Display/setVSyncEnabled enabled)
-  (reset! (:vsync? *window*) enabled))
-
 (defn vsync? []
-  @(:vsync? *window*))
+  (window/vsync?))
 
-(defn resizable
+(defn vsync! [enabled]
+  (window/vsync! enabled))
+
+(defn resizable!
   ([enabled]
-     (resizable *app* enabled))
+     (resizable! *app* enabled))
   ([app enabled]
      (if enabled
-       (window/enable-resizable app)
-       (window/disable-resizable app))))
+       (window/enable-resizable! app)
+       (window/disable-resizable! app))))
 
-(defn fullscreen [enabled]
+(defn fullscreen! [enabled]
   (Display/setFullscreen enabled))
 
-;;Update loops
+;;Updates
 
 (defn frequency!
-  "Update frequency of update-loop.  Can only be called from inside update-loop."
+  "Update frequency of recurring update.  Can only be called from inside recurring-update callback."
   [hz]
   (reset! *hz* hz))
 
+(defn speed!
+  ([clock-speed]
+     (speed! *app* clock-speed))
+  ([app clock-speed]
+     (swap! (:clock app) #(time/speed % clock-speed))))
+
+(defn update
+  ([f]
+     (update *app* f))
+  ([app f]
+     (queue/update app #(loop/sync-update app f))))
+
+(defn recurring-update
+  ([hz f]
+     (recurring-update *app* hz f))
+  ([app hz f]
+     (queue/recurring-update app hz #(loop/sync-update app f))))
+
 ;;App state
 
-(defn cleanup
+(defn cleanup!
   "Cleans up any active apps."
   []
   (Display/destroy))
 
-(defn repaint
+(defn repaint!
   "Forces a new frame to be redrawn"
   []
-  (loop/repaint))
+  (controller/repaint!))
 
-(defn stop
-  "Stops the application or update-loop, and returns nil."
+(defn stop!
+  "Stops the application."
   ([]
-     (stop *app*))
+     (stop! *app*))
   ([app]
-     (loop/stop (:controller app))
-     nil))
+     (controller/stop! (:controller app))))
 
-(defn pause
+(defn pause!
   "Halts main loop, and yields control back to the REPL. Returns nil."
   ([]
-     (pause *app*))
+     (pause! *app*))
   ([app]
-     (loop/pause (:controller app))
-     nil))
+     (controller/pause! (:controller app))))
 
 (defn- destroy
   ([]
      (destroy *app*))
   ([app]
-     (try-callback :close)
-     (input/destroy)
-     (window/destroy)))
+     (loop/try-callback :close)
+     (-> app
+          (update-in [:input] input/destroy)
+          (update-in [:window] window/destroy))))
 
 (defn- init
-  ([]
-     (init *app*))
-  ([app]
-     (with-app app
-       (when (loop/stopped?)
-         (window/init)
-         (try-callback :init)
-         (try-callback :reshape (concat [0 0] (dimensions)))
-         (input/init)))))
+  [app]
+  (if (controller/stopped? (:controller app))
+    (assoc app
+      :window (window/init (:window app))
+      :input (input/init (:input app)))
+    app)) 
+       
+;;;
 
-(defn update-once
-  "Runs through the main loop once."
+(defn single-thread-main-loop
+  "Does everything in one pass."
   ([]
-     (update-once *app*))
+     (single-thread-main-loop *app*))
   ([app]
-     (with-app app
-       (Display/processMessages)
-       (input/handle-keyboard)
-       (input/handle-mouse)
-       (when (window/check-for-resize)
-         (repaint))
-       (if (or (Display/isDirty) (loop/invalidated?))
-         (do
-           (try-callback :update)
-           (loop/repainted)
+     (Display/processMessages)
+     (input/handle-keyboard!)
+     (input/handle-mouse!)
+     (when (window/check-for-resize)
+       (repaint!))
+     (if (or (Display/isDirty) (controller/invalidated?))
+       (do
+         (loop/try-callback :update)
+         (controller/repainted!)
+         (when-let [display (-> app :callbacks :display)]
            (clear 0 0 0)
            (push-matrix
-            ((-> app :callbacks :display) @(:state app))))
-         (Thread/sleep 15))
-       (if (Display/isCloseRequested)
-         (stop)
-         (Display/update)))))
+            (display @(:state app)))))
+       (Thread/sleep 1))
+     (if (Display/isCloseRequested)
+       (stop!)
+       (Display/update))))
 
-(defn- alter-callbacks [app]
-  (if (:altered? app)
-    app
-    (->
-    app
-    (assoc :altered? true)
-    (update-in
-     [:callbacks]
-     (fn [callbacks]
-       (->
-        callbacks
-        (update-in [:update] #(loop/timed-fn %))
-        (update-in [:display] #(loop/timed-fn %)))))
-    (with-meta (meta app)))))
+(defn start-single-thread [app]
+  (loop/primary-loop
+   (init app)
+   (fn [inner-fn]
+     (try
+      (when (controller/stopped?)
+        (controller/resume!)
+        (reset! (:queue app) (queue/create))
+        (loop/try-callback :init)
+        (loop/try-callback :reshape (concat [0 0] (dimensions))))
+      (controller/resume!)
+      (speed! 1)
+      (inner-fn)
+      (catch Exception e
+        (.printStackTrace e)
+        (controller/stop!)))
+     (speed! 0)
+     (if (controller/stopped?)
+       (destroy app)
+       app))
+   single-thread-main-loop))
 
 (defn start
   "Starts a window from scratch, or from a closed state."
   ([callbacks state]
      (start (create callbacks state)))
   ([app]
-     (with-app app
-       (let [app (alter-callbacks app)]
-         (with-app app
-           (try
-            (clock/start (:clock app))
-            (init)
-            (loop/resume)
-            (loop/primary-loop (fn [x] (x)) update-once)
-            (catch Exception e
-              (loop/stop)
-              (throw e))
-            (finally
-             (when (loop/stopped?)
-               (destroy)))))
-         (clock/stop (:clock app))
-         app))))
-
-(defn start-update-loop
-  ([hz f]
-     (start-update-loop *app* hz f))
-  ([app hz f]
-     (loop/secondary-loop
-      hz
-      #(with-app app
-         (let [s (slate/create)]
-           (try
-            (%)
-            (finally
-             (slate/destroy s)))))
-      #(do
-         (swap! (:state app) f)
-         (repaint)))))
+     (start-single-thread app)))
 
 
 
