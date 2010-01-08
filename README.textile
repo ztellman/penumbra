@@ -24,7 +24,7 @@ becomes
     (vertex 1 1 0)
     (vertex 1 0 0)))</code></pre>
 
-Numerous sample programs can be found in @/src/example@.  They include clean, functional implementations of "Tetris":http://github.com/ztellman/penumbra/blob/master/example/game/tetris.clj and "Asteroids":http://github.com/ztellman/penumbra/blob/master/src/example/game/asteroids.clj, and a GPU-driven "Mandelbrot viewer":http://github.com/ztellman/penumbra/blob/master/src/example/gpgpu/mandelbrot.clj.
+Numerous sample programs can be found in @/src/example@.  They include clean, functional implementations of "Tetris":http://github.com/ztellman/penumbra/blob/master/src/example/game/tetris.clj and "Asteroids":http://github.com/ztellman/penumbra/blob/master/src/example/game/asteroids.clj, and a GPU-driven "Mandelbrot viewer":http://github.com/ztellman/penumbra/blob/master/src/example/gpgpu/mandelbrot.clj.
 
 A long term goal for Penumbra is to simplify GPU programming as much as possible, allowing for both advanced graphical effects and general computation.  This is a work in progress, but this "n-body simulation":http://github.com/ztellman/penumbra/blob/master/src/example/gpgpu/n_body.clj is a good example of what's possible.
 
