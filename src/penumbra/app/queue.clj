@@ -28,9 +28,9 @@
                   (let [now @@clock
                         top (take-while #(>= now (first %)) @heap)]
                     (when-not (empty? top)
-                      (alter heap #(drop (count top) %))
-                      (map second top))))]
-          (doseq [a actions]
+                      (alter heap #(apply disj (list* % top)))
+                      top)))]
+          (doseq [a (map second actions)]
             (a))
           (Thread/sleep 0 500)))))))
 
@@ -39,7 +39,7 @@
      (create *app*))
   ([app]
      (let [clock  (:clock app)
-           heap   (ref (sorted-set-by #(apply compare (map first %&))))]
+           heap   (ref (sorted-set-by #(- (compare (first %2) (first %1)))))]
        (dotimes [_ 1]
          (.start (create-thread app clock heap)))
        (reify
@@ -67,16 +67,17 @@
   ([app hz f]
      (let [queue @(:queue app)
            clock (:clock app)
-           hz (atom hz)]
+           hz (atom hz)
+           target (atom (+ @@clock (/ 1 @hz)))]
        (letfn [(f*
                 []
                 (let [start @@clock]
                   (binding [*hz* hz]
                     (f))
-                  (let [hz @hz
-                        end @@clock]
+                  (let [hz @hz]
                     (when (pos? hz)
-                      (update queue (-  (/ 1 hz) (- end start)) f*)))))]
+                      (update queue (+ (/ 1 hz) (- @target start)) f*)
+                      (swap! target #(+ % (/ 1 hz)))))))]
          (update queue (/ 1 @hz) f*)))))
 
 
