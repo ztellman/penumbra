@@ -59,13 +59,17 @@
 (defmethod print-method ::app [app writer]
   (let [{size :texture-size textures :textures} @(-> app :window :texture-pool)
         active-size (->> textures (remove texture/available?) (map texture/sizeof) (apply +))
-        active-percent (float (if (zero? size) 1 (/ active-size size)))]
+        active-percent (float (if (zero? size) 1 (/ active-size size)))
+        elapsed-time @@(:clock app)]
     (.write
      writer
      (if (controller/stopped? (:controller app))
-       (format "<<%s: STOPPED>>" (Display/getTitle))
-       (format "<<%s: PAUSED\n  Allocated texture memory: %.2fM (%.2f%% in use)>>"
+       (format "<<%s: STOPPED\n  %.2f seconds elapsed>>"
                (Display/getTitle)
+               elapsed-time)
+       (format "<<%s: PAUSED\n  %.2f seconds elapsed\n  Allocated texture memory: %.2fM (%.2f%% in use)>>"
+               (Display/getTitle)
+               elapsed-time
                (/ size 1e6) (* 100 active-percent))))))
 
 ;;Clock
@@ -185,6 +189,20 @@
   ([app]
      (controller/pause! (:controller app))))
 
+(defn- resume!
+  ([]
+     (resume! *app*))
+  ([app]
+     (loop/with-app app
+       (let [stopped? (controller/stopped?)]
+         (controller/resume!)
+         (input/resume!)
+         (when stopped?
+            (reset! (:queue app) (queue/create))
+            (loop/try-callback :init)
+            (loop/try-callback :reshape (concat [0 0] (dimensions))))
+         (speed! 1)))))
+
 (defn- destroy
   ([]
      (destroy *app*))
@@ -228,26 +246,21 @@
        (Display/update))))
 
 (defn start-single-thread [app]
-  (loop/primary-loop
-   (init app)
-   (fn [inner-fn]
-     (try
-      (when (controller/stopped?)
-        (controller/resume!)
-        (reset! (:queue app) (queue/create))
-        (loop/try-callback :init)
-        (loop/try-callback :reshape (concat [0 0] (dimensions))))
-      (controller/resume!)
-      (speed! 1)
-      (inner-fn)
-      (catch Exception e
-        (.printStackTrace e)
-        (controller/stop!)))
-     (speed! 0)
-     (if (controller/stopped?)
-       (destroy app)
-       app))
-   single-thread-main-loop))
+  (let [app (init app)]
+    (loop/primary-loop
+     app
+     (fn [inner-fn]
+       (try
+        (resume!)
+        (inner-fn)
+        (catch Exception e
+          (.printStackTrace e)
+          (controller/stop!)))
+       (speed! 0)
+       (if (controller/stopped?)
+         (destroy app)
+         app))
+     single-thread-main-loop)))
 
 (defn start
   "Starts a window from scratch, or from a closed state."

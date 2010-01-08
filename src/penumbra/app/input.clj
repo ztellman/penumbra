@@ -19,8 +19,8 @@
 
 (defn create []
   (struct-map input-struct
-    :keys (atom {})
-    :mouse-buttons (atom {})))
+    :keys (ref {})
+    :mouse-buttons (ref {})))
 
 (defn init
   ([]
@@ -29,8 +29,17 @@
      (Keyboard/create)
      (Mouse/create)
      (assoc input
-       :keys (atom {})
-       :mouse-buttons (atom {}))))
+       :keys (ref {})
+       :mouse-buttons (ref {}))))
+
+(defn resume!
+  ([]
+     (resume! *input*))
+  ([input]
+     (dosync
+      (doseq [key @(:keys input)]
+        (*callback-handler* :key-release key))
+      (ref-set (:keys input) {}))))
 
 (defn destroy
   ([]
@@ -66,11 +75,11 @@
    (let [[name key] (current-key)]
      (if (Keyboard/getEventKeyState)
        (do
-         (swap! (:keys *input*) #(assoc % name key))
+         (dosync (alter (:keys *input*) #(assoc % name key)))
          (*callback-handler* :key-press key))
-       (do
+       (dosync
          (let [pressed-key (@(:keys *input*) name)]
-           (swap! (:keys *input*) #(dissoc % name key))
+           (alter (:keys *input*) #(dissoc % name key))
            (*callback-handler* :key-release pressed-key))))
      nil)))
 

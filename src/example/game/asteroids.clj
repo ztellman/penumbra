@@ -152,7 +152,7 @@
         15 0.25 [0 0 1] 2)))))
 
 (defn emit-flame [state]
-  (if (app/key-pressed? :up)
+  (when (app/key-pressed? :up)
     (let [ship (:spaceship state)
           offset (- (rand 30) 15)
           theta (+ 180 (:theta ship) offset)
@@ -167,8 +167,7 @@
                           speed
                           0.25
                           (rand-color [1 0.5 0.7] [1 1 1])
-                          (/ (Math/cos (radians (* 3 offset))) 2.5)))))
-    state))
+                          (/ (Math/cos (radians (* 3 offset))) 2.5)))))))
 
 (defn update-spaceship [dt ship]
   (let [p     (:position ship)
@@ -298,7 +297,7 @@
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
   (app/recurring-update 20 update-collisions)
-  (app/recurring-update 40 emit-flame)
+  (app/recurring-update 50 emit-flame)
   (reset state))
 
 (defn reshape [[x y w h] state]
