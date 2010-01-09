@@ -61,9 +61,9 @@
         (catch Exception e
           (.printStackTrace e))))))
 
-(defn recurring-update
+(defn periodic-update
   ([hz f]
-     (recurring-update *app* hz f))
+     (periodic-update *app* hz f))
   ([app hz f]
      (let [queue @(:queue app)
            clock (:clock app)
