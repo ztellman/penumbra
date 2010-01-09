@@ -296,8 +296,8 @@
   (init-spaceship)
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
-  (app/recurring-update 20 update-collisions)
-  (app/recurring-update 50 emit-flame)
+  (app/periodic-update 20 update-collisions)
+  (app/periodic-update 50 emit-flame)
   (reset state))
 
 (defn reshape [[x y w h] state]

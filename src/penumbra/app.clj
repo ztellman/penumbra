@@ -157,11 +157,11 @@
   ([app f]
      (queue/update app #(loop/sync-update app f))))
 
-(defn recurring-update
+(defn periodic-update
   ([hz f]
-     (recurring-update *app* hz f))
+     (periodic-update *app* hz f))
   ([app hz f]
-     (queue/recurring-update app hz #(loop/sync-update app f))))
+     (queue/periodic-update app hz #(loop/sync-update app f))))
 
 ;;App state
 
