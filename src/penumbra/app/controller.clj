@@ -7,8 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.app.controller
-  (:use [penumbra.opengl])
-  (:use [penumbra.app.core])
+  (:use [penumbra.opengl]
+        [penumbra.app.core])
   (:require [penumbra.time :as time])
   (:import [java.util.concurrent CountDownLatch]))
 
@@ -86,8 +86,4 @@
   ([controller]
      (reset! (:invalidated? controller) false)
      nil))
-
-(defmacro with-controller [controller & body]
-  `(binding [*controller* ~controller]
-     ~@body))
 

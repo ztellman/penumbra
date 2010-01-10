@@ -7,18 +7,19 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.app.window
-  (:use [penumbra.app.core])
-  (:use [penumbra.opengl])
-  (:use [penumbra.opengl.texture :only (create-texture-pool)])
-  (:use [penumbra.opengl.core :only (*texture-pool*)])
-  (:use [clojure.contrib.core :only (-?>)])
-  (:require [penumbra.slate :as slate])
-  (:require [penumbra.opengl.texture :as texture])
-  (:require [penumbra.text :as text])
-  (:import [org.lwjgl.opengl Display PixelFormat AWTGLCanvas])
-  (:import [org.newdawn.slick.opengl InternalTextureLoader])
-  (:import [java.awt Frame Canvas GridLayout Color])
-  (:import [java.awt.event WindowAdapter]))
+  (:use [penumbra.app.core]
+        [penumbra.opengl]
+        [penumbra.opengl.texture :only (create-texture-pool)]
+        [penumbra.opengl.core :only (*texture-pool*)]
+        [clojure.contrib.core :only (-?>)])
+  (:require  [penumbra.slate :as slate]
+             [penumbra.opengl.texture :as texture]
+             [penumbra.text :as text]
+             [penumbra.app.event :as event])
+  (:import [org.lwjgl.opengl Display PixelFormat AWTGLCanvas]
+           [org.newdawn.slick.opengl InternalTextureLoader]
+           [java.awt Frame Canvas GridLayout Color]
+           [java.awt.event WindowAdapter]))
 
 ;;
 
@@ -26,6 +27,11 @@
   :texture-pool
   :frame
   :size)
+
+;;;
+
+(defn- publish! [hook & args]
+  (apply event/publish! (list* (:event *app*) hook args)))
 
 ;;Display Mode
 
@@ -66,7 +72,7 @@
        (when (not= @(:size window) dim)
          (reset! (:size window) dim)
          (viewport 0 0 w h)
-         (*callback-handler* :reshape (concat [0 0] dim))
+         (publish! :reshape (concat [0 0] dim))
          true))))
 
 (defn vsync?
