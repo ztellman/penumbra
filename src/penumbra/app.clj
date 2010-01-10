@@ -8,20 +8,65 @@
 ;;   software.
 
 (ns penumbra.app
-  (:use [clojure.contrib.core :only (-?>)])
-  (:use [clojure.contrib.def :only [defmacro- defvar-]])
-  (:use [penumbra.opengl])
-  (:use [penumbra.app.core])
-  (:require [penumbra.opengl.texture :as texture])
-  (:require [penumbra.slate :as slate])
-  (:require [penumbra.app.window :as window])
-  (:require [penumbra.app.input :as input])
-  (:require [penumbra.app.controller :as controller])
-  (:require [penumbra.app.loop :as loop])
-  (:require [penumbra.app.queue :as queue])
-  (:require [penumbra.time :as time])
-  (:import [org.lwjgl.opengl Display])
-  (:import [org.lwjgl.input Keyboard]))
+  (:use [clojure.contrib.core :only (-?>)]
+        [clojure.contrib.def :only [defmacro- defvar-]]
+        [penumbra.opengl]
+        [penumbra.app.core])
+  (:require [penumbra.opengl.texture :as texture]
+            [penumbra.slate :as slate]
+            [penumbra.app.window :as window]
+            [penumbra.app.input :as input]
+            [penumbra.app.controller :as controller]
+            [penumbra.app.loop :as loop]
+            [penumbra.app.event :as event]
+            [penumbra.app.queue :as queue]
+            [penumbra.time :as time])
+  (:import [org.lwjgl.opengl Display]
+           [org.lwjgl.input Keyboard]))
+
+;;;
+
+(defn sync-update
+  ([f]
+     (sync-update *app* f))
+  ([app f]
+     (let [state @(:state app)
+           new-state (dosync (alter (:state app) #(or (f %) %)))]
+       (when-not (identical? state new-state)
+         (controller/repaint!)))))
+
+(defn- subscribe-callback [app callback f]
+  (dosync
+   (alter (:event app)
+          #(event/subscribe!
+            %
+            callback
+            (fn [& args]
+              (sync-update
+               app
+               (if (empty? args)
+                 f
+                 (apply partial (list* f args)))))))))
+
+(defn- alter-callbacks [clock callbacks]
+  (let [callbacks (if-not (:update callbacks)
+                    callbacks
+                    (update-in callbacks [:update] #(loop/timed-fn clock %)))
+        callbacks (if-not (:display callbacks)
+                    callbacks
+                    (update-in callbacks [:display] #(loop/timed-fn clock %)))]
+    callbacks))
+
+;;;
+
+(defn publish! [hook & args]
+  (apply event/publish! (list* (:event *app*) hook args)))
+
+(defn subscribe! [hook f]
+  (apply event/subscribe! (list* (:event *app*) hook f)))
+
+(defn unsubscribe! [hook f]
+  (reset! *unsubscribe* true))
 
 ;;;
 
@@ -34,43 +79,42 @@
   :callbacks
   :state)
 
-(defn- alter-callbacks [clock callbacks]
-  (let [callbacks (if-not (:update callbacks)
-                    callbacks
-                    (update-in callbacks [:update] #(loop/timed-fn clock %)))
-        callbacks (if-not (:display callbacks)
-                    callbacks
-                    (update-in callbacks [:display] #(loop/timed-fn clock %)))]
-    callbacks))
-
 (defn create [callbacks state]
-  (let [clock (time/clock)]
-    (with-meta
-      (struct-map app-struct
-        :window (window/create)
-        :input (input/create)
-        :controller (controller/create)
-        :queue (atom nil)
-        :clock (atom clock)
-        :callbacks (alter-callbacks clock callbacks)
-        :state (atom state))
-      {:type ::app})))
+  (let [clock (time/clock)
+        app (with-meta
+              (struct-map app-struct
+                :window (window/create)
+                :input (input/create)
+                :controller (controller/create)
+                :queue (ref nil)
+                :event (ref (event/create))
+                :clock (ref clock)
+                :state (ref state))
+              {:type ::app})]
+    (doseq [[c f] (alter-callbacks clock callbacks)]
+      (if (= :display c)
+        (dosync
+         (alter (:event app)
+                (fn [event] (event/subscribe! event c #(f @(:state app))))))
+        (subscribe-callback app c f)))
+    app))
 
 (defmethod print-method ::app [app writer]
   (let [{size :texture-size textures :textures} @(-> app :window :texture-pool)
         active-size (->> textures (remove texture/available?) (map texture/sizeof) (apply +))
         active-percent (float (if (zero? size) 1 (/ active-size size)))
-        elapsed-time @@(:clock app)]
+        elapsed-time @@(:clock app)
+        state (cond
+               (controller/stopped? (:controller app)) "STOPPED"
+               (controller/paused? (:paused app)) "PAUSED"
+               :else "RUNNING")]
     (.write
      writer
-     (if (controller/stopped? (:controller app))
-       (format "<<%s: STOPPED\n  %.2f seconds elapsed>>"
-               (Display/getTitle)
-               elapsed-time)
-       (format "<<%s: PAUSED\n  %.2f seconds elapsed\n  Allocated texture memory: %.2fM (%.2f%% in use)>>"
-               (Display/getTitle)
-               elapsed-time
-               (/ size 1e6) (* 100 active-percent))))))
+     (format "<<%s: %s\n  %.2f seconds elapsed\n  Allocated texture memory: %.2fM (%.2f%% in use)>>"
+             state
+             (Display/getTitle)
+             elapsed-time
+             (/ size 1e6) (* 100 active-percent)))))
 
 ;;Clock
 
@@ -86,6 +130,14 @@
   ([app]
      @@(clock app)))
 
+(defn speed!
+  ([clock-speed]
+     (speed! *app* clock-speed))
+  ([app clock-speed]
+     (dosync
+      (alter (:clock app)
+             #(time/speed % clock-speed)))))
+
 ;;Input
 
 (defn key-pressed? [key]
@@ -97,7 +149,7 @@
 ;;Window
 
 (defn title! [title]
-  (when @(:frame *window*)
+  (when (-?> *window* :frame deref)
     (.setTitle @(:frame *window*) title))
   (Display/setTitle title))
 
@@ -145,23 +197,17 @@
   [hz]
   (reset! *hz* hz))
 
-(defn speed!
-  ([clock-speed]
-     (speed! *app* clock-speed))
-  ([app clock-speed]
-     (swap! (:clock app) #(time/speed % clock-speed))))
-
 (defn update
   ([f]
      (update *app* f))
   ([app f]
-     (queue/update app #(loop/sync-update app f))))
+     (queue/update app #(sync-update app f))))
 
 (defn periodic-update
   ([hz f]
      (periodic-update *app* hz f))
   ([app hz f]
-     (queue/periodic-update app hz #(loop/sync-update app f))))
+     (queue/periodic-update app hz #(sync-update app f))))
 
 ;;App state
 
@@ -198,16 +244,16 @@
          (controller/resume!)
          (input/resume!)
          (when stopped?
-            (reset! (:queue app) (queue/create))
-            (loop/try-callback :init)
-            (loop/try-callback :reshape (concat [0 0] (dimensions))))
+           (dosync (ref-set (:queue app) (queue/create)))
+           (publish! :init)
+           (publish! :reshape (concat [0 0] (dimensions))))
          (speed! 1)))))
 
 (defn- destroy
   ([]
      (destroy *app*))
   ([app]
-     (loop/try-callback :close)
+     (publish! :close)
      (-> app
           (update-in [:input] input/destroy)
           (update-in [:window] window/destroy))))
@@ -215,9 +261,11 @@
 (defn- init
   [app]
   (if (controller/stopped? (:controller app))
-    (assoc app
-      :window (window/init (:window app))
-      :input (input/init (:input app)))
+    (do
+      (title! "Penumbra")
+      (assoc app
+        :window (window/init (:window app))
+        :input (input/init (:input app))))
     app)) 
        
 ;;;
@@ -234,12 +282,11 @@
        (repaint!))
      (if (or (Display/isDirty) (controller/invalidated?))
        (do
-         (loop/try-callback :update)
+         (publish! :update)
          (controller/repainted!)
-         (when-let [display (-> app :callbacks :display)]
-           (clear 0 0 0)
-           (push-matrix
-            (display @(:state app)))))
+         (push-matrix
+          (clear 0 0 0)
+          (publish! :display)))
        (Thread/sleep 1))
      (if (Display/isCloseRequested)
        (stop!)

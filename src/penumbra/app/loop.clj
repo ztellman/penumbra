@@ -7,42 +7,26 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.app.loop
-  (:use [penumbra.opengl])
-  (:use [penumbra.app.core])
-  (:require [penumbra.app.controller :as controller])
-  (:require [penumbra.app.window :as window])
-  (:require [penumbra.app.input :as input])
-  (:require [penumbra.slate :as slate])
-  (:require [penumbra.time :as time]))
+  (:use [penumbra.opengl]
+        [penumbra.app.core])
+  (:require [penumbra.app.controller :as controller]
+            [penumbra.app.window :as window]
+            [penumbra.app.input :as input]
+            [penumbra.slate :as slate]
+            [penumbra.time :as time]))
 
 ;;;
-
-(defn sync-update
-  ([f]
-     (sync-update *app* f))
-  ([app f]
-     (let [state @(:state app)
-           new-state (swap! (:state app) #(or (f %) %))]
-       (when-not (identical? state new-state)
-         (controller/repaint!)))))
-
-(defn try-callback [callback & args]
-  (when-let [f (callback (:callbacks *app*))]
-    (sync-update
-     (if (empty? args)
-       f
-       (apply partial (list* f args))))))
 
 (defmacro with-app [app & body]
   `(let [app# ~app]
      (binding [*app* app#
                *clock* (:clock app#)
                *queue* (deref (:queue app#))
-               *callback-handler* try-callback]
+               *controller* (:controller app#)
+               *event* (:event app#)]
       (input/with-input (:input app#)
         (window/with-window (:window app#)
-          (controller/with-controller (:controller app#)
-            ~@body))))))
+          ~@body)))))
 
 ;;;
 

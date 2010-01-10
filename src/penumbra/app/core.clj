@@ -21,8 +21,11 @@
 (defvar *input* nil
   "Holds current input state.")
 
-(defvar *callback-handler* nil
-  "Function which routes to callbacks.")
+(defvar *event* nil
+  "Holds current publish/subscribe callbacks.")
+
+(defvar *unsubscribe* nil
+  "Hook for unsubscribing.")
 
 (defvar *clock* nil
   "Application clock.")

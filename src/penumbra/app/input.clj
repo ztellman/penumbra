@@ -7,11 +7,20 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.app.input
-  (:use [clojure.contrib.seq-utils :only [indexed]])
-  (:use [clojure.contrib.def :only [defvar]])
-  (:use [penumbra.app.window :only [dimensions]])
-  (:use [penumbra.app.core])
+  (:use [clojure.contrib.seq-utils :only [indexed]]
+        [clojure.contrib.def :only [defvar]]
+        [penumbra.app.window :only [dimensions]]
+        [penumbra.app.core])
+  (:require [penumbra.app.event :as event])
   (:import [org.lwjgl.input Keyboard Mouse]))
+
+;;;
+
+(defn- publish! [hook & args]
+  (apply event/publish! (list* (:event *app*) hook args)))
+
+;;;
+
 
 (defstruct input-struct
   :keys
@@ -38,7 +47,7 @@
   ([input]
      (dosync
       (doseq [key @(:keys input)]
-        (*callback-handler* :key-release key))
+        (event/publish! :key-release key))
       (ref-set (:keys input) {}))))
 
 (defn destroy
@@ -70,17 +79,16 @@
 
 (defn handle-keyboard! []
   (Keyboard/poll)
-  (while
-   (Keyboard/next)
+  (while (Keyboard/next)
    (let [[name key] (current-key)]
      (if (Keyboard/getEventKeyState)
        (do
          (dosync (alter (:keys *input*) #(assoc % name key)))
-         (*callback-handler* :key-press key))
+         (publish! :key-press key))
        (dosync
          (let [pressed-key (@(:keys *input*) name)]
            (alter (:keys *input*) #(dissoc % name key))
-           (*callback-handler* :key-release pressed-key))))
+           (publish! :key-release pressed-key))))
      nil)))
 
 ;;Mouse
@@ -104,18 +112,18 @@
               button? (not (neg? button))
               button-state (Mouse/getEventButtonState)]
           (when (not (zero? dw))
-            (*callback-handler* :mouse-wheel dw))
+            (publish! :mouse-wheel dw))
           (cond
            ;;mouse down/up 
            (and (zero? dx) (zero? dy) button?)
-           (*callback-handler* (if button-state :mouse-down :mouse-up) [x y] (mouse-button-name button))
+           (publish! (if button-state :mouse-down :mouse-up) [x y] (mouse-button-name button))
            ;;mouse-move
            (and (not-any? identity buttons) (or (not (zero? dx)) (not (zero? dy))))
-           (*callback-handler* :mouse-move [dx dy] [x y])
+           (publish! :mouse-move [dx dy] [x y])
            ;;mouse-drag
            :else
            (doseq [button-idx (map first (filter second (indexed buttons)))]
-             (*callback-handler* :mouse-drag [dx dy] [x y] (mouse-button-name button-idx))))
+             (publish! :mouse-drag [dx dy] [x y] (mouse-button-name button-idx))))
           (if button?
             (recur (assoc buttons button button-state))
             (recur buttons)))))
