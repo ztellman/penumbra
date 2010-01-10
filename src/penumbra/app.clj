@@ -88,7 +88,7 @@
                 :controller (controller/create)
                 :queue (ref nil)
                 :event (ref (event/create))
-                :clock (ref clock)
+                :clock clock
                 :state (ref state))
               {:type ::app})]
     (doseq [[c f] (alter-callbacks clock callbacks)]
@@ -103,7 +103,7 @@
   (let [{size :texture-size textures :textures} @(-> app :window :texture-pool)
         active-size (->> textures (remove texture/available?) (map texture/sizeof) (apply +))
         active-percent (float (if (zero? size) 1 (/ active-size size)))
-        elapsed-time @@(:clock app)
+        elapsed-time @(:clock app)
         state (cond
                (controller/stopped? (:controller app)) "STOPPED"
                (controller/paused? (:paused app)) "PAUSED"
@@ -128,15 +128,13 @@
   ([]
      (now *app*))
   ([app]
-     @@(clock app)))
+     @(clock app)))
 
 (defn speed!
   ([clock-speed]
      (speed! *app* clock-speed))
   ([app clock-speed]
-     (dosync
-      (alter (:clock app)
-             #(time/speed % clock-speed)))))
+     (time/clock-speed! (:clock app) clock-speed)))
 
 ;;Input
 

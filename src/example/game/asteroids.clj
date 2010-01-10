@@ -312,6 +312,9 @@
   (cond
    (= key " ") (fire-bullet state)
    (= key :escape) (app/pause!)
+   (= key "1") (app/speed! 0.5)
+   (= key "2") (app/speed! 1)
+   (= key "3") (app/speed! 2)
    :else state))
 
 (defn update [[dt time] state]

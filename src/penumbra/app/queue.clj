@@ -8,9 +8,8 @@
 
 (ns penumbra.app.queue
   (:use [penumbra.app.core])
-  (:require [penumbra.slate :as slate])
-  (:require [penumbra.app.loop :as loop])
-  (:import [java.util.concurrent Executors ExecutorService ThreadFactory]))
+  (:require [penumbra.slate :as slate]
+            [penumbra.app.loop :as loop]))
 
 ;;;
 
@@ -25,14 +24,14 @@
       (fn []
         (if-let [actions
                  (dosync
-                  (let [now @@clock
+                  (let [now @clock
                         top (take-while #(>= now (first %)) @heap)]
                     (when-not (empty? top)
                       (alter heap #(apply disj (list* % top)))
                       top)))]
           (doseq [a (map second actions)]
             (a))
-          (Thread/sleep 0 500)))))))
+          (Thread/sleep 1)))))))
 
 (defn create
   ([]
@@ -44,7 +43,7 @@
          (.start (create-thread app clock heap)))
        (reify
         Queue
-        (enqueue! [delay f] (dosync (alter heap #(conj % [(+ @@clock delay) f]))))))))
+        (enqueue! [delay f] (dosync (alter heap #(conj % [(+ @clock delay) f]))))))))
 
 ;;;
 
@@ -68,10 +67,10 @@
      (let [queue @(:queue app)
            clock (:clock app)
            hz (atom hz)
-           target (atom (+ @@clock (/ 1 @hz)))]
+           target (atom (+ @clock (/ 1 @hz)))]
        (letfn [(f*
                 []
-                (let [start @@clock]
+                (let [start @clock]
                   (binding [*hz* hz]
                     (f))
                   (let [hz @hz]
