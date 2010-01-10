@@ -14,16 +14,19 @@
 
 (defprotocol Composition
   (inner [this])
-  (outer [this]))
+  (outer [this])
+  (outer! [this o]))
 
 (defn composition
-  [value modifier]
-  (reify
-   clojure.lang.IDeref
-   (deref [] (modifier (value)))
-   Composition
-   (inner [] value)
-   (outer [] modifier)))
+  [inner outer]
+  (let [outer (atom outer)]
+    (reify
+     clojure.lang.IDeref
+     (deref [] (@outer (inner)))
+     Composition
+     (inner [] inner)
+     (outer [] @outer)
+     (outer! [o] (reset! outer o) nil))))
 
 (defn clock
   ([]
@@ -34,17 +37,15 @@
   ([inner-clock modifier]
      (composition inner-clock modifier)))
 
-(defn modify-clock [c modifier-fn]
-  (let [inner-0 ((inner c))
-        outer-0 ((outer c) inner-0)]
-    (clock
-     #(- ((inner c)) inner-0)
-     #(+ outer-0 (modifier-fn %)))))
+(defn update-clock! [c outer-fn]
+  (let [i-start ((inner c))
+        o-start ((outer c) i-start)]
+    (outer! c #(+ o-start (outer-fn (- % i-start))))))
 
-(defn speed
+(defn clock-speed!
   "Sets the speed of the clock, where 1 is real-time."
   [c speed]
-  (modify-clock c #(* % speed)))
+  (update-clock! c #(* % speed)))
 
 (defprotocol Animation
   (to! [this target time])

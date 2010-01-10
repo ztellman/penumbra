@@ -7,16 +7,16 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl
-  (:use [clojure.contrib.def :only (defn-memo)])
-  (:use [clojure.contrib.seq-utils :only (indexed)])
-  (:use [penumbra.opengl core geometry shader texture])
-  (:use [penumbra.glsl core])
-  (:use [penumbra.geometry])
-  (:import (java.lang.reflect Field))
-  (:import (java.awt Font))
-  (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
-  (:import (java.io File))
-  (:import (org.newdawn.slick.opengl InternalTextureLoader Texture)))
+  (:use [clojure.contrib.def :only (defn-memo)]
+        [clojure.contrib.seq-utils :only (indexed)]
+        [penumbra.opengl core geometry shader texture]
+        [penumbra.glsl core]
+        [penumbra.geometry])
+  (:import (java.lang.reflect Field)
+           (java.awt Font)
+           (java.nio ByteBuffer IntBuffer FloatBuffer)
+           (java.io File)
+           (org.newdawn.slick.opengl InternalTextureLoader Texture)))
 
 ;;;
 

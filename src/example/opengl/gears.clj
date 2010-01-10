@@ -8,8 +8,8 @@
 
 (ns example.opengl.gears
   (:use [penumbra opengl geometry])
-  (:require [penumbra.app :as app])
-  (:require [penumbra.text :as text]))
+  (:require [penumbra.app :as app]
+            [penumbra.text :as text]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;Gear building functions
