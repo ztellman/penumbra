@@ -37,13 +37,21 @@
       (convolve %2
        (+= sum %2)
        (+= value (* %2 %1)))
-      (/ value sum))) 
+      (/ value sum)))
+
+  '(defmap blur
+    (let [value (float4 0.0)
+          sum 0.0]
+      (convolve 1
+       (+= sum 1.0)
+       (+= value %1))
+      (/ value sum)))
 
   (def kernel
     (wrap (map float
-               [1 0 0
-                0 1 0
-                0 0 1])))
+               [1 1 1
+                1 1 1
+                1 1 1])))
 
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
@@ -59,7 +67,7 @@
      (= key :return)
      (assoc state
        :tex (with-frame-buffer
-              (blur [tex [kernel]])))
+              (blur tex [kernel])))
      :else
      state)))
 

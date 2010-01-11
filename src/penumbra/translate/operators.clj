@@ -7,12 +7,13 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.translate.operators
-  (:use [clojure.walk])
-  (:use [penumbra.geometry])
-  (:use [penumbra.translate core])
-  (:use [clojure.contrib.seq-utils :only (indexed group-by)])
-  (:use [clojure.contrib.def :only (defn-memo defvar-)])
-  (:use [penumbra.translate.core])
+  (:use [clojure.walk]
+        [penumbra.geometry]
+        [penumbra.translate core]
+        [penumbra.opengl.texture :only (texture?)]
+        [clojure.contrib.seq-utils :only (indexed group-by separate)]
+        [clojure.contrib.def :only (defn-memo defvar-)]
+        [penumbra.translate.core])
   (:require [clojure.zip :as zip]))
 
 ;;
@@ -103,11 +104,16 @@
   (cond
    (and (vector? t) (number? (first t))) :dim
    (number? t) :dim
-   (vector? t) :elements
+   (or (texture? t) (vector? t)) :elements
    (map? t) :params
    (symbol? t) :symbol
    (keyword? t) :keyword
-   :else (println "Don't recognize" t (meta t))))
+   :else (throw (Exception. (str "Don't recognize " (with-out-str (println t)))))))
+
+(defn group-elements [params]
+  (concat
+   (filter #(not= :elements (param-dispatch %)) params)
+   (list (vec (filter #(= :elements (param-dispatch %)) params)))))
 
 (defn process-operator [x params elements]
   (->> x
@@ -127,7 +133,7 @@
 
 ;;special map operators
 
-(defvar- convolution-expr
+(defvar- element-convolution-expr
   '(let [-half-dim (/ (dim :element) 2.0)
          -start    (max (float2 0.0) (- :coord (floor -half-dim)))
          -end      (min :dim (+ :coord (ceil -half-dim)))]
@@ -136,6 +142,16 @@
          (let [-location (float2 i j)
                -offset   (- -location :coord)
                -lookup   (:element (+ -offset -half-dim))]
+           :body)))))
+
+(defvar- radius-convolution-expr
+  '(let [-radius (float2 (float  :radius))
+         -start  (max (float2 0.0) (float2 (- :coord -radius)))
+         -end    (min :dim (+ :coord -radius (float2 1.0)))]
+     (for [(<- i (.x -start)) (< i (.x -end)) (+= i 1.0)]
+       (for [(<- j (.y -start)) (< j (.y -end)) (+= j 1.0)]
+         (let [-location (float2 i j)
+               -offset   (- -location :coord)]
            :body)))))
 
 (defmulti transform-convolution #(param-dispatch (second %)))
@@ -153,42 +169,40 @@
      (list
       #(if (= :element %) element)
       #(if (= :body %) body))
-     convolution-expr)))
+     element-convolution-expr)))
 
-(defmethod transform-convolution :dim [[_ dim & body]]
+(defmethod transform-convolution :dim [[_ radius & body]]
   (let [body (apply-transforms
               (list
                (replace-with :offset '-offset)
                #(when (and (element? %) (symbol? %))
-                  (if (zero? (element-index %))
-                    '-lookup
-                    '(% -location))))
+                  (list % '-location)))
               body)]
     (apply-transforms
      (list
-      #(if (= :element %) '%)
+      #(if (= :radius %) radius)
       #(if (= :body %) body))
-     convolution-expr)))
+     radius-convolution-expr)))
 
 ;;defmap
 
-(defmulti process-map (fn [& args] (->> args rest (map param-dispatch) vec)))
+(defmulti process-map (fn [& args] (->> args rest group-elements (map param-dispatch) vec)))
 
 (defmethod process-map [:dim] [program dim]
-  (process-map program {} [] dim))
+  (process-map program {} dim))
 
-(defmethod process-map [:elements] [program elements]
+(defmethod process-map [:elements] [program & elements]
   (let [elements* (process-elements elements)]
-    (process-map program {} elements* (*dim-element* (first elements*)))))
+    (apply process-map (list* program {} (*dim-element* (first elements*)) elements*))))
 
 (defmethod process-map [:params :dim] [program params dim]
-  (process-map program params [] dim))
+  (process-map program params dim))
 
-(defmethod process-map [:params :elements] [program params elements]
+(defmethod process-map [:params :elements] [program params & elements]
   (let [elements* (process-elements elements)]
-    (process-map program params elements* (*dim-element* (first elements*)))))
+    (apply process-map (list* program params (*dim-element* (first elements*)) elements*))))
 
-(defmethod process-map [:params :elements :dim] [program params elements dim]
+(defmethod process-map [:params :dim :elements] [program params dim & elements]
   (let [num-elements (->> program
                           (tree-filter element?)
                           (map #(if (symbol? %) % (first %)))
@@ -237,17 +251,17 @@
          :expr))
      -a))
 
-(defmulti process-reduce (fn [& args] (->> args rest (map param-dispatch) vec)))
+(defmulti process-reduce (fn [& args] (->> args rest group-elements (map param-dispatch) vec)))
 
-(defmethod process-reduce [:elements] [program elements]
-  (process-reduce program {} elements))
+(defmethod process-reduce [:elements] [program & elements]
+  (apply process-reduce (list* program {} elements)))
 
-(defmethod process-reduce [:params :elements] [program params elements]
-  (let [elements (process-elements [elements])
+(defmethod process-reduce [:params :elements] [program params & elements]
+  (let [elements (process-elements elements)
         dim (*dim-element* (first elements))]
-    (process-reduce program params elements dim)))
+    (apply process-reduce (list* program params dim elements))))
 
-(defmethod process-reduce [:params :elements :dim] [program params elements dim]
+(defmethod process-reduce [:params :dim :elements] [program params dim & elements]
   (let [yield-program (memoize
                        (fn []
                          (let [expr (apply-transforms

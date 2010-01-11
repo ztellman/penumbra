@@ -102,8 +102,8 @@
               data    (or
                        (:data state)
                        (initialize-fractal {:upper-left ul :lower-right lr} (:dim state)))
-              next    (iterate-fractal {:upper-left ul :lower-right lr :num-iterations iterations-per-frame} [data])
-              image   (color-fractal {:max-iterations max-iterations} [[next]])]
+              next    (iterate-fractal {:upper-left ul :lower-right lr :num-iterations iterations-per-frame} data)
+              image   (color-fractal {:max-iterations max-iterations} [next])]
           (assoc state
             :repaint true
             :iterations iters
