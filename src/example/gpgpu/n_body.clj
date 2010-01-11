@@ -56,8 +56,8 @@
       (reduce add (map #(reduce add (doall (map f %))) s))))
 
   (defn energy [m v p num]
-    (let [ke (first (sum [(kinetic-energy [ [m] [v] ])]))
-          pe (first (sum [(piecewise-add #(potential-energy {:idx % :g 6.673e-11} [ [m] [p] ]) num)]))]
+    (let [ke (first (sum [(kinetic-energy [m] [v])]))
+          pe (first (sum [(piecewise-add #(potential-energy {:idx % :g 6.673e-11} [m] [p]) num)]))]
       (println "kinetic:" ke "potential:" pe "total:" (+ ke pe))))
 
   (defn run-sim [num iterations]
@@ -73,9 +73,9 @@
              (do
                (energy m v p num)
                (release! m) (release! v) (release! p))
-             (let [a  (piecewise-add #(gravity {:g 6.673e-11 :idx %} [ [m] [p] ]) num)
-                   v* (add {:k dt} [ v a ])
-                   p* (add {:k dt} [ p [v*] ])]
+             (let [a  (piecewise-add #(gravity {:g 6.673e-11 :idx %} [m] [p]) num)
+                   v* (add {:k dt} v a)
+                   p* (add {:k dt} p [v*])]
                (energy m v* p* num)
                (recur v* p* (inc i)))))))))
 
