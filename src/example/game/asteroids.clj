@@ -100,7 +100,7 @@
 (defn init-particles []
   (def particle-tex
     (let [tex (create-byte-texture 128 128)]
-      (draw-to-texture
+      (draw-to-texture!
        tex
        (fn [_ pos]
          (let [i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
