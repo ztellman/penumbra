@@ -47,7 +47,7 @@
   ([input]
      (dosync
       (doseq [key @(:keys input)]
-        (event/publish! :key-release key))
+        (publish! :key-release key))
       (ref-set (:keys input) {}))))
 
 (defn destroy

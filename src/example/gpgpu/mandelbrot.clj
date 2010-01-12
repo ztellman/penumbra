@@ -25,14 +25,14 @@
         (let [z (.xy val)
               iterations (.z val)]
           (<- val
-            (? (< 4.0 (dot z z))
+            (if (< 4. (dot z z))
                val
                (float3
                 (+ c
                    (float2
                     (- (* (.x z) (.x z)) (* (.y z) (.y z)))
-                    (* 2.0 (.x z) (.y z))))
-                (+ 1.0 iterations))))))
+                    (* 2. (.x z) (.y z))))
+                (+ 1. iterations))))))
       val))
 
   (defmap color-fractal
@@ -40,9 +40,9 @@
           z (.xy val)
           n (.z val)
           escape (/ n (float max-iterations))]
-      (? (< 4.0 (dot z z))
-         (color3 escape escape (mix 0.2 1.0 escape))
-         (color3 0.0 0.0 0.0))))
+      (if (< 4.0 (dot z z))
+         (color3 escape escape (mix 0.2 1. escape))
+         (color3 0. 0. 0.))))
 
   (enable :texture-rectangle)
     

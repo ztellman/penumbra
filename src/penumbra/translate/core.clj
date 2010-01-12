@@ -116,18 +116,34 @@
 
 ;;;
 
+(defvar *translate-exception* nil
+  "First exception encountered while translating.")
+
 (defmacro- defn-try [name f message]
   `(defn ~name [x#]
-    (try
+     (try
       (~f x#)
-      (catch ParseException pe#
-        (throw pe#))
       (catch Exception e#
-        (throw (ParseException. (str "\n" ~message "\n" (-> x# print-tree with-out-str) (.getMessage e#)) 0))))))
+        (when-not @*translate-exception*
+          (let [ex# (Exception. (str "\n" ~message "\n"
+                                     (-> x# pprint with-out-str) "\n"
+                                     (with-out-str (.printStackTrace e#)))
+                                e#)]
+            (reset! *translate-exception* ex#)
+            (throw ex#)))
+        (throw e#)))))
 
 (defmacro- defn-try-
   [name f message]
   (list `defn-try (add-meta name :private true) f message))
+
+(defmacro try-translate [& body]
+  `(binding [*translate-exception* (atom nil)]
+    (try
+     (realize ~@body)
+     (finally
+      (when @*translate-exception*
+        (throw @*translate-exception*))))))
 
 ;;;
 
@@ -249,6 +265,7 @@
 (defn infer-types
   "Repeatedly applies inspect-exprs and tag-var until everything is typed"
   [x]
+  (println "infer-types")
   (loop [x x, tagged (tagged-vars x), iterations 0]
     (let [vars          (declared-vars x)
           types         (zipmap vars (map #(typeof-var % x) vars))
@@ -283,21 +300,25 @@
         (apply str terminated-exprs)))))
 
 (defn-try parse
-  #(realize (*parser* %))
+  #(*parser* %)
   "Error while parsing")
 
 ;;;
 
 (defn transform-expr
   [x]
-  (->> x
+  (try-translate
+   (->>
+    x
     transform-expr*
     generate-exprs reverse
     tag-exprs
-    infer-types))
+    infer-types)))
 
 (defn translate-expr
   [x]
-  (parse-lines (transform-expr x)))
+  (try-translate
+   (parse-lines
+    (transform-expr x))))
 
 

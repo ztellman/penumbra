@@ -36,7 +36,7 @@
   "writes string at pixel coordinates (x, y)"
   [string x y]
   (with-font (font "Tahoma" :size 20)
-    (with-disabled :lighting
+    (with-disabled [:texture-rectangle :lighting]
       (with-enabled [:texture-2d :blend]
         (let [[x y w h] @*view*]
           (with-projection (ortho-view x (+ x w) (+ y h) y -1 1)
