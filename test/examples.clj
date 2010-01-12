@@ -8,14 +8,15 @@
 
 (ns test.examples
   (:use [clojure.test])
-  (:require [example.opengl.gears :as gears])
-  (:require [example.opengl.sierpinski :as sierpinski])
-  (:require [example.opengl.render-to-texture :as rtt])
-  (:require [example.opengl.marble :as marble])
-  (:require [example.game.tetris :as tetris])
-  (:require [example.game.asteroids :as asteroids])
-  (:require [example.gpgpu.mandelbrot :as mandelbrot])
-  (:require [example.gpgpu.convolution :as convolution]))
+  (:require [example.opengl.gears :as gears]
+            [example.opengl.sierpinski :as sierpinski]
+            [example.opengl.render-to-texture :as rtt]
+            [example.opengl.marble :as marble]
+            [example.game.tetris :as tetris]
+            [example.game.asteroids :as asteroids]
+            [example.gpgpu.mandelbrot :as mandelbrot]
+            [example.gpgpu.convolution :as convolution]
+            [example.gpgpu.brians-brain :as brian]))
 
 (deftest run
   (testing "Gears"
@@ -33,4 +34,6 @@
   (testing "Mandelbrot"
     (mandelbrot/start))
   (testing "Convolution"
-    (convolution/start)))
+    (convolution/start))
+  (testing "Brian's Brains"
+    (brian/start)))

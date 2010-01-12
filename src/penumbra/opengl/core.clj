@@ -50,6 +50,8 @@
 (defvar *view* (atom [0 0 0 0])
   "Pixel boundaries of render window.  Parameters represent [x y width height].")
 
+(defvar *inside-frame-buffer* false)
+
 ;;;
 
 (defvar- containers [EXTFramebufferObject
@@ -98,10 +100,13 @@
               #(if (= enum-value (.get #^Field % nil)) % nil)
               (mapcat get-fields containers)))))     
 
-(defn check-error []
-  (let [error (GL11/glGetError)]
-    (if (not (zero? error))
-      (throw (Exception. (str "OpenGL error: " (enum-name error)))))))
+(defn check-error
+  ([]
+     (check-error ""))
+  ([name]
+     (let [error (GL11/glGetError)]
+       (if (not (zero? error))
+         (throw (Exception. (str "OpenGL error: " name " " (enum-name error))))))))
 
 (defn-memo enum [k]
   (when (keyword? k)
@@ -125,7 +130,8 @@
 
 (defmacro gl-import
   [import-from import-as]
-  (let [container (method-container import-from)]
+  (let [method-name (str import-from)
+        container (method-container import-from)]
     (when (nil? container)
       (throw (Exception. (str "Cannot locate method " import-from))))
     (let [doc-string (get-doc-string import-from)]
@@ -135,7 +141,7 @@
          `(do
             (let [~'value# (. ~'~container ~'~import-from ~@(map (fn [x#] (or (enum x#) x#)) args#))]
               (when (and *check-errors* (not *inside-begin-end*))
-                (check-error))
+                (check-error ~'~method-name))
               ~'value#))))))
 
 (defmacro gl-import-

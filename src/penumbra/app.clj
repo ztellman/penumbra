@@ -30,9 +30,11 @@
   ([f]
      (sync-update *app* f))
   ([app f]
-     (let [state @(:state app)
-           new-state (dosync (alter (:state app) #(or (f %) %)))]
-       (when-not (identical? state new-state)
+     (let [state* (dosync
+                   (when-let [value (f @(:state app))]
+                     (ref-set (:state app) value)
+                     value))]
+       (when state*
          (controller/repaint!)))))
 
 (defn- subscribe-callback [app callback f]
@@ -106,7 +108,7 @@
         elapsed-time @(:clock app)
         state (cond
                (controller/stopped? (:controller app)) "STOPPED"
-               (controller/paused? (:paused app)) "PAUSED"
+               (controller/paused? (:controller app)) "PAUSED"
                :else "RUNNING")]
     (.write
      writer

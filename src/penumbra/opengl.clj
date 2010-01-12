@@ -519,13 +519,17 @@
 (defmacro with-frame-buffer
   "Renders anything within the inner scope to a frame buffer."
   [& body]
-  `(let [fb# (gen-frame-buffer)]
-     (bind-frame-buffer fb#)
-     (try
-      ~@body
-      (finally
-       (bind-frame-buffer 0)
-       (destroy-frame-buffer fb#)))))
+  `(let [inner# (fn [] ~@body)]
+     (if *inside-frame-buffer*
+       (inner#)
+       (binding [*inside-frame-buffer* true]
+         (let [fb# (gen-frame-buffer)]
+           (bind-frame-buffer fb#)
+           (try
+            (inner#)
+            (finally
+             (bind-frame-buffer 0)
+             (destroy-frame-buffer fb#))))))))
 
 ;;Texture
 
@@ -542,12 +546,19 @@
 
 (defmacro with-texture [t & body]
   `(do
-     (when (:transform ~t)
-       (gl-matrix-mode :texture) (gl-push-matrix) ((:transform ~t)) (gl-matrix-mode :modelview)) 
-     (bind-texture ~t)
-     ~@body
-     (when (:transform ~t)
-       (gl-matrix-mode :texture) (gl-pop-matrix) (gl-matrix-mode :modelview))))
+     (try
+      (when (:transform ~t)
+        (gl-matrix-mode :texture)
+        (gl-push-matrix)
+        ((:transform ~t))
+        (gl-matrix-mode :modelview)) 
+      (bind-texture ~t)
+      ~@body
+      (finally
+       (when (:transform ~t)
+         (gl-matrix-mode :texture)
+         (gl-pop-matrix)
+         (gl-matrix-mode :modelview))))))
 
 (defn destroy-texture [tex]
   (gl-delete-textures (IntBuffer/wrap (int-array (:id tex)))))
@@ -611,7 +622,7 @@
       2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
       3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
 
-(defn draw-to-subsampled-texture
+(defn draw-to-subsampled-texture!
   [tex fun]
   (bind-texture tex)
   (tex-parameter (enum (:target tex)) :texture-min-filter :linear-mipmap-linear)
@@ -623,9 +634,10 @@
       (dim 0) (dim 1)
       (enum (:pixel-format tex))
       (enum (:internal-type tex))
-      buf)))
+      buf)
+    nil))
 
-(defn draw-to-texture
+(defn draw-to-texture!
   [tex fun]
   (bind-texture tex)
   (let [target  (enum (:target tex))
@@ -636,7 +648,8 @@
     (condp = (count (filter #(not= 1 %) dim))
       1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
       2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
-      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
+      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))
+    nil))
 
 (defn blit [tex]
   (when tex

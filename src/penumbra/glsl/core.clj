@@ -159,7 +159,7 @@
 (def-maximum-inspectors
   '* 'div 'mix 'pow)
 
-(defmethod inspector '? [x]
+(defmethod inspector 'if [x]
   (if (= 3 (count x))
     (typeof (nth x 2))
     (or (typeof (nth x 2)) (typeof (nth x 3)))))
@@ -197,8 +197,9 @@
    x))
 
 (defn translate-glsl [x]
-  (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
-    (-> x transform-expr transform-tags transform-constructors parser)))
+  (try-translate
+   (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
+     (-> x transform-expr transform-tags transform-constructors parser))))
 
 (defn transform-glsl [x]
   (binding [*transformer* transformer, *generator* generator, *inspector* inspector, *tagger* c/tagger]

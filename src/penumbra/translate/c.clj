@@ -7,8 +7,8 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.translate.c
-  (:use [penumbra.translate core])
-  (:use [clojure.contrib
+  (:use [penumbra.translate core]
+        [clojure.contrib
          (def :only (defmacro-))
          (seq-utils :only (flatten))]))
   
@@ -85,6 +85,17 @@
   (let [[var limit] (second x)]
     (list* 'for `[(<- ~var 0) (< ~var ~limit) (++ ~var)] (nnext x))))
 
+(defn- wrap-cond [pred clause & rest]
+  (if (= pred :else)
+    clause
+    (if (empty? rest)
+      (list 'if pred clause)
+      (list 'if pred clause (apply wrap-cond rest)))))
+
+(defmethod transformer 'cond
+  [x]
+  (apply wrap-cond (rest x)))
+
 ;;;;;;;;;;;;;;;;;;;;
 ;shader generators
 
@@ -144,9 +155,9 @@
 
 (defn- special-parse-case? [x]
   (or
-    (swizzle? x)
-    (not (seq? x))
-    (-> x first seq?)))
+   (swizzle? x)
+   (not (seq? x))
+   (-> x first seq?)))
 
 (def *line-terminator* ";")
 
@@ -189,6 +200,8 @@
   `(defmethod parser ~op-symbol [x#]
      (str ~op-string (parse (second x#)))))
 
+(def *assignment* false)
+
 (defmacro- def-assignment-parser
   "Defines an assignment operator, making use of parse-assignment for the l-value
   (set! a b) -> a = b"
@@ -197,7 +210,8 @@
     (defmethod parser ~op-symbol [a#]
       (if (= 2 (count a#))
         (str (parse-assignment-left (second a#)))
-        (str (parse-assignment-left (second a#)) " " ~op-string " " (parse-assignment-right (third a#)))))
+        (str (parse-assignment-left (second a#)) " " ~op-string " " (binding [*assignment* true]
+                                                                      (parse-assignment-right (third a#))))))
     (defmethod tagger ~op-symbol [b#]
       (let [s1# (first b#)
             s2# (second b#)
@@ -260,26 +274,23 @@
   [x]
   (parse (next x)))
 
-(defmethod parser '?
-  [x]
-  (str "(" (parse (second x))
-       " ? " (parse (third x))
-       " : " (parse (fourth x)) ")"))
-
 (defmethod parser 'when
-  [_ pred & body]
+  [x]
   (str
-   "if (" (parse pred) ")"
-   "\n{\n" (indent (parse-lines body) ";") "}\n"))
+   "if (" (parse (second x)) ")"
+   "\n{\n" (indent (parse-lines (nnext x) ";")) "}\n"))
 
 (defmethod parser 'if
   [x]
-  (str
-     "if (" (parse (second x)) ")"
-     "\n{\n" (indent (parse-lines (third x) ";")) "}\n"
-     (if (< 3 (count x))
-       (str "else\n{\n" (indent (parse-lines (fourth x) ";")) "}\n")
-       "")))
+  (if *assignment*
+    (str "(" (parse (second x))
+         " ? " (parse (third x))
+         " : " (parse (or (fourth x) (third x))) ")")
+    (str "if (" (parse (second x)) ")"
+         "\n{\n" (indent (parse-lines (third x) ";")) "}\n"
+         (if (< 3 (count x))
+           (str "else\n{\n" (indent (parse-lines (fourth x) ";")) "}\n")
+           ""))))
 
 (defmethod parser 'return
   [x]

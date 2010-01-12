@@ -34,7 +34,7 @@
 (defn init-textures []
   (let [view (create-byte-texture 256 256)
         checkers (create-byte-texture 128 128)]
-    (draw-to-subsampled-texture
+    (draw-to-subsampled-texture!
       checkers
       (fn [[x y] _]
         (if (xor (even? (bit-shift-right x 4)) (even? (bit-shift-right y 4)))
@@ -60,8 +60,7 @@
 (defn reshape [_ state]
   (load-identity)
   (scale 1 1 -1)
-  (translate 0 0 2)
-  state)
+  (translate 0 0 2))
 
 (defn mouse-drag [[dx dy] [x y] button state]
   (let [[w h] (app/dimensions)]
