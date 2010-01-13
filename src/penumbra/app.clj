@@ -102,9 +102,7 @@
     app))
 
 (defmethod print-method ::app [app writer]
-  (let [{size :texture-size textures :textures} @(-> app :window :texture-pool)
-        active-size (->> textures (remove texture/available?) (map texture/sizeof) (apply +))
-        active-percent (float (if (zero? size) 1 (/ active-size size)))
+  (let [{size :size active-percent :active-percent} (texture/texture-pool-stats @(-> app :window :texture-pool))
         elapsed-time @(:clock app)
         state (cond
                (controller/stopped? (:controller app)) "STOPPED"

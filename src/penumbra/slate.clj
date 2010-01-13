@@ -13,8 +13,8 @@
         [clojure.contrib.core :only [-?>]]
         [penumbra opengl]
         [penumbra.opengl core]
-        [penumbra.app core]
-        [penumbra.opengl.texture :only [destroy-textures create-texture-pool]])
+        [penumbra.app core])
+  (:require [penumbra.opengl.texture :as texture])
   (:import [org.lwjgl.opengl Pbuffer PixelFormat]))
 
 ;;;
@@ -59,7 +59,7 @@
            :drawable (constantly pixel-buffer)
            :pixel-buffer pixel-buffer
            :frame-buffer frame-buffer
-           :texture-pool (or (:texture-pool parent) (create-texture-pool))
+           :texture-pool (or (:texture-pool parent) (atom (texture/create-texture-pool)))
            :base-context? (nil? parent))))))
 
 (defn destroy
@@ -68,14 +68,14 @@
   ([slate]
      (when (:base-context? slate)
        (destroy-frame-buffer (:frame-buffer slate))
-       (destroy-textures (-> slate :texture-pool :textures)))
+       (texture/destroy-textures (-> slate :texture-pool deref :textures)))
      (.destroy (:pixel-buffer slate))))
 
 (defmacro with-slate [& body]
   `(let [slate# (create)]
      (binding [*slate* slate#
-               *frame-buffer-display-list* (delay (create-display-list (draw*)))]
-       (println "with-slate" *frame-buffer-display-list*)
+               *frame-buffer-display-list* (delay (create-display-list (draw*)))
+               *texture-pool* (:texture-pool slate#)]
        (try
         ~@body
         (finally
