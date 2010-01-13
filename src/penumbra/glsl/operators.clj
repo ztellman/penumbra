@@ -314,7 +314,7 @@
   (let [cache (operator-cache process-reduce)]
     (fn [& args]
       (with-glsl
-        (let [info (apply cache (list* x args))]
+        (let [info (cache x args)]
           (with-program (:program info)
             (run-reduce info)))))))
 
