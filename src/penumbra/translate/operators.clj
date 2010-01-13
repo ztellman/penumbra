@@ -188,24 +188,23 @@
 
 (defmulti signature (fn [& args] (->> args group-elements (map param-dispatch) vec)))
 
-(defmethod signature [:dim] [dim]
-  (signature {} dim))
+(defmethod signature [:dim :elements] [dim]
+  (signature {} dim []))
 
 (defmethod signature [:elements] [& elements]
   (apply signature (list* {} elements)))
-
-(defmethod signature [:params :dim] [params dims]
-  (signature params dims []))
 
 (defmethod signature [:params :elements] [params & elements]
   (let [elements* (process-elements elements)]
     (apply signature (list* params (*dim-element* (first elements*)) elements*))))
 
 (defmethod signature [:params :dim :elements] [params dim & elements]
-  {:signature [(map *typeof-param* params) (map *typeof-element* elements)]
-   :params params
-   :elements elements
-   :dim dim})
+  (let [elements (remove empty? elements)
+        dim (if (number? dim) (rectangle dim) dim)]
+    {:signature [(map *typeof-param* params) (map *typeof-element* elements)]
+     :params params
+     :elements elements
+     :dim dim}))
 
 ;;defmap
 

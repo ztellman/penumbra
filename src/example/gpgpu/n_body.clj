@@ -48,8 +48,7 @@
   (defreduce sum (+ %1 %2)))
 
 (defn prn-tex [t]
-  (acquire! t)
-  (println (partition 3 (unwrap* t))))
+  (println (partition 3 (unwrap t))))
 
 (defn piecewise-add [f size]
   (let [add #(add {:k 1.0} %1 %2)

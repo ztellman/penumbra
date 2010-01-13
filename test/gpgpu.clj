@@ -22,27 +22,27 @@
          (defmap identity-map %1)
          (doseq [tuple [3 4 3 4]] ;;repeated tuples test whether we're recreating the program when we shouldn't
            (let [tex (wrap s tuple)]
-             (is (= s (unwrap* (identity-map tex))))))
+             (is (= s (unwrap! (identity-map tex))))))
 
          (defmap multiply-map (* %1 k))
          (doseq [tuple [3 4]]
            (let [tex (wrap s tuple)]
-             (is (= s2 (unwrap* (multiply-map {:k 2.0} tex))))))
+             (is (= s2 (unwrap! (multiply-map {:k 2.0} tex))))))
 
          (defmap index-map
            (let [i (* 4.0 :index)]
              (float4 i (+ 1.0 i) (+ 2.0 i) (+ 3.0 i))))
-         (is (= (unwrap* (index-map 3)) s))
+         (is (= (unwrap! (index-map 3)) s))
 
          (defmap add-map (+ %1 %2))
          (doseq [tuple [3 4]]
            (let [tex1 (wrap s tuple), tex2 (wrap s2 tuple)]
-             (is (= s3 (unwrap* (add-map tex1 tex2))))))
+             (is (= s3 (unwrap! (add-map tex1 tex2))))))
 
          (defmap split-map [%1 (* 2.0 %1) (* 3.0 %1)])
          (doseq [tuple [3 4 3 4]]
            (let [tex (wrap s tuple)]
-             (let [[a b c] (map unwrap* (split-map tex))]
+             (let [[a b c] (map unwrap! (split-map tex))]
                (is (= a s))
                (is (= b s2))
                (is (= c s3))))))
