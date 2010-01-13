@@ -7,12 +7,14 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.slate
-  (:use [clojure.contrib.def :only [defmacro- defn-memo defvar-]])
-  (:use [clojure.contrib.pprint])
-  (:use [clojure.contrib.seq-utils :only [separate]])
-  (:use [penumbra opengl])
-  (:use [penumbra.opengl core])
-  (:use [penumbra.opengl.texture :only [destroy-textures create-texture-pool]])
+  (:use [clojure.contrib.def :only [defmacro- defn-memo defvar-]]
+        [clojure.contrib.pprint]
+        [clojure.contrib.seq-utils :only [separate]]
+        [clojure.contrib.core :only [-?>]]
+        [penumbra opengl]
+        [penumbra.opengl core]
+        [penumbra.app core]
+        [penumbra.opengl.texture :only [destroy-textures create-texture-pool]])
   (:import [org.lwjgl.opengl Pbuffer PixelFormat]))
 
 ;;;
@@ -21,12 +23,11 @@
   :pixel-buffer
   :frame-buffer
   :texture-pool
-  :display-list
   :base-context?)
 
 (defvar- *slate* nil)
 
-(defn- draw* []
+(defn draw* []
   (with-projection (ortho-view 0 1 1 0 -1 1)
     (gl-active-texture :texture0)
     (push-matrix
@@ -39,19 +40,17 @@
 
 (defn draw
   ([w h]
-    (draw 0 0 w h))
+     (draw 0 0 w h))
   ([x y w h]
-    (with-viewport [x y w h]
-      (if *slate*
-        (call-display-list @(:display-list *slate*))
-        (draw*)))))
+     (with-viewport [x y w h]
+       (call-display-list (force *frame-buffer-display-list*)))))
 
 (defn create
   ([]
      (create nil))
   ([parent]
-     (let [drawable (when-let [drawable (:drawable parent)]
-                      (drawable))
+     (let [drawable (when-let [drawable-fn (-?> *app* :window :drawable)]
+                      (drawable-fn))
            pixel-buffer (Pbuffer. 1 1 (-> (PixelFormat.)) drawable)]
        (.makeCurrent pixel-buffer)
        (let [frame-buffer (gen-frame-buffer)]
@@ -61,7 +60,6 @@
            :pixel-buffer pixel-buffer
            :frame-buffer frame-buffer
            :texture-pool (or (:texture-pool parent) (create-texture-pool))
-           :display-list (or (:display-list parent) (create-display-list (draw*)))
            :base-context? (nil? parent))))))
 
 (defn destroy
@@ -75,10 +73,13 @@
 
 (defmacro with-slate [& body]
   `(let [slate# (create)]
-     (try
-      ~@body
-      (finally
-       (destroy slate#)))))
+     (binding [*slate* slate#
+               *frame-buffer-display-list* (delay (create-display-list (draw*)))]
+       (println "with-slate" *frame-buffer-display-list*)
+       (try
+        ~@body
+        (finally
+         (destroy slate#))))))
 
 ;;;
 
