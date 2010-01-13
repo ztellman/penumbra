@@ -15,6 +15,7 @@
 
   (app/title! "Brian's Brain")
   (app/display-mode! 1024 768)
+  (app/vsync! false)
 
   (defmap update-automata
     (let [cell (.a %)
@@ -31,12 +32,12 @@
   (enable :texture-rectangle)
 
   (defmap colorize
-    (.xyz %))
+    (color3 (.xyz %)))
 
   state)
 
 (defn reshape [[x y w h] state]
-  (let [tex (create-byte-texture :texture-rectangle 10 10)]
+  (let [tex (create-byte-texture :texture-rectangle w h)]
     (draw-to-texture!
      tex
      (fn [[x y] _]

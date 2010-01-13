@@ -184,51 +184,58 @@
       #(if (= :body %) body))
      radius-convolution-expr)))
 
+;;signature
+
+(defmulti signature (fn [& args] (->> args group-elements (map param-dispatch) vec)))
+
+(defmethod signature [:dim] [dim]
+  (signature {} dim))
+
+(defmethod signature [:elements] [& elements]
+  (apply signature (list* {} elements)))
+
+(defmethod signature [:params :dim] [params dims]
+  (signature params dims []))
+
+(defmethod signature [:params :elements] [params & elements]
+  (let [elements* (process-elements elements)]
+    (apply signature (list* params (*dim-element* (first elements*)) elements*))))
+
+(defmethod signature [:params :dim :elements] [params dim & elements]
+  {:signature [(map *typeof-param* params) (map *typeof-element* elements)]
+   :params params
+   :elements elements
+   :dim dim})
+
 ;;defmap
 
-(defmulti process-map (fn [& args] (->> args rest group-elements (map param-dispatch) vec)))
-
-(defmethod process-map [:dim] [program dim]
-  (process-map program {} dim))
-
-(defmethod process-map [:elements] [program & elements]
-  (let [elements* (process-elements elements)]
-    (apply process-map (list* program {} (*dim-element* (first elements*)) elements*))))
-
-(defmethod process-map [:params :dim] [program params dim]
-  (process-map program params dim))
-
-(defmethod process-map [:params :elements] [program params & elements]
-  (let [elements* (process-elements elements)]
-    (apply process-map (list* program params (*dim-element* (first elements*)) elements*))))
-
-(defmethod process-map [:params :dim :elements] [program params dim & elements]
-  (let [num-elements (->> program
-                          (tree-filter element?)
-                          (map #(if (symbol? %) % (first %)))
-                          distinct
-                          count)]
-    (doseq [[idx e] (indexed elements)]
-      (if (nil? e)
-        (throw (Exception. (str "Element at position " idx " is nil")))))
+(defn process-map [program params dim elements]
+  (let [num-elements
+        (->> program
+             (tree-filter element?)
+             (map #(if (symbol? %) % (first %)))
+             distinct
+             count)]
     (if (not= num-elements (count elements))
       (throw (Exception. (str "Expected " num-elements ", received " (count elements))))))
-  (let [dim (if (number? dim) (rectangle dim) dim)
-        yield-program (memoize
-                       (fn []
-                         (let [program (apply-transforms
-                                        (list
-                                         #(when (first= % 'convolve) (transform-convolution %))
-                                         #(when (first= % 'dim) (add-meta % :tag (*typeof-dim* (-> % last element-index)))))
-                                        program)]
-                           (process-operator program params elements))))
-        yield-results (memoize #(map typeof (results (yield-program))))]
-    {:yield-program yield-program
-     :yield-results yield-results
-     :signature [(map *typeof-param* (vals params)) (map *typeof-element* elements)]
-     :elements elements
-     :params params
-     :dim dim}))
+  ;;verify elements are not nil
+  (doseq [[idx e] (indexed elements)]
+    (if (nil? e)
+      (throw (Exception. (str "Element at position " idx " is nil")))))
+  (let [dim
+        (if (number? dim) (rectangle dim) dim)
+        program*
+        (let [program
+              (apply-transforms
+               (list
+                #(when (first= % 'convolve) (transform-convolution %))
+                #(when (first= % 'dim) (add-meta % :tag (*typeof-dim* (-> % last element-index)))))
+               program)]
+          (process-operator program params elements))
+        program-results
+        (map typeof (results program*))]
+    {:program program*
+     :results program-results}))
 
 ;;defreduce
 
@@ -251,37 +258,23 @@
          :expr))
      -a))
 
-(defmulti process-reduce (fn [& args] (->> args rest group-elements (map param-dispatch) vec)))
-
-(defmethod process-reduce [:elements] [program & elements]
-  (apply process-reduce (list* program {} elements)))
-
-(defmethod process-reduce [:params :elements] [program params & elements]
-  (let [elements (process-elements elements)
-        dim (*dim-element* (first elements))]
-    (apply process-reduce (list* program params dim elements))))
-
-(defmethod process-reduce [:params :dim :elements] [program params dim & elements]
-  (let [yield-program (memoize
-                       (fn []
-                         (let [expr (apply-transforms
-                                     (list
-                                      (replace-with '%1 '-b)
-                                      (replace-with '%  '-b)
-                                      (replace-with '%2 '-c))
-                                     program)]
-                           (process-operator
-                            (tree-map
-                             (fn [x]
-                               (when (= :expr x)
-                                 (transform-results #(list '<- '-a %) expr)))
-                             reduce-program)
-                            params
-                            elements))))
-        yield-result  (memoize #(typeof (results program)))]
-    {:yield-program yield-program
-     :yield-result yield-result
-     :signature [(map *typeof-param* params) (map *typeof-element* elements)]
-     :params params
-     :elements elements
-     :dim dim}))
+(defn process-reduce [program params dim elements]
+  (let [program*
+        (let [expr (apply-transforms
+                    (list
+                     (replace-with '%1 '-b)
+                     (replace-with '%  '-b)
+                     (replace-with '%2 '-c))
+                    program)]
+          (process-operator
+           (tree-map
+            (fn [x]
+              (when (= :expr x)
+                (transform-results #(list '<- '-a %) expr)))
+            reduce-program)
+           params
+           elements))
+        result*
+        (typeof (results program))]
+    {:program program*
+     :result result*}))

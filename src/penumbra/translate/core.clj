@@ -265,7 +265,6 @@
 (defn infer-types
   "Repeatedly applies inspect-exprs and tag-var until everything is typed"
   [x]
-  (println "infer-types")
   (loop [x x, tagged (tagged-vars x), iterations 0]
     (let [vars          (declared-vars x)
           types         (zipmap vars (map #(typeof-var % x) vars))

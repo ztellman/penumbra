@@ -7,17 +7,18 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.glsl.operators
-  (:use [penumbra opengl slate])
-  (:use [penumbra.opengl
+  (:use [penumbra opengl slate]
+        [penumbra.opengl
          (texture :only (create-texture release! texture?))
-         (framebuffer :only (pixel-format write-format))])
-  (:use [penumbra.glsl core data])
-  (:use [penumbra.translate core operators])
-  (:use [clojure.contrib
+         (framebuffer :only (pixel-format write-format))
+         (core :only (*inside-frame-buffer*))]
+        [penumbra.glsl core data]
+        [penumbra.translate core operators]
+        [clojure.contrib
          (seq-utils :only (separate indexed flatten))
          (def :only (defvar- defn-memo))])
-  (:require [clojure.zip :as zip])
-  (:require [penumbra.translate.c :as c]))
+  (:require [clojure.zip :as zip]
+            [penumbra.translate.c :as c]))
 
 ;;;
 
@@ -207,16 +208,22 @@
 
 (defn- operator-cache
   "Returns or creates the appropriate shader program for the types"
-  []
+  [f]
   (let [programs (atom {})]
-    (fn [processed-operator]
-      (let [sig (:signature processed-operator)]
-        (if-let [value (@programs sig)]
-          value
-          (let [program ((:yield-program processed-operator))
-                program (->> program post-process create-operator)]
-            (swap! programs #(assoc % sig program))
-            program))))))
+    (fn [program args]
+      (let [info (apply signature args)
+            hash (if-let [p (@programs {:signature info})]
+                   p
+                   (let [processed-info (f program (:params info) (:dim info) (:elements info))
+                         processed-program (->> processed-info :program post-process create-operator)
+                         hash {:program processed-program
+                               :results (:results processed-info)}]
+                     (swap! programs #(assoc % {:signature info} hash))
+                     hash))]
+        (assoc hash
+          :elements (:elements info)
+          :params (:params info)
+          :dim (:dim info))))))
 
 (defn-memo param-lookup [n]
   (keyword (name n)))
@@ -244,73 +251,71 @@
 
 (defn- run-map
   "Executes the map"
-  [program info]
-  (let [dim (:dim info)
-        elements (:elements info)
-        params (:params info)
-        results ((:yield-results info))
-        targets (map #(create-write-texture % dim) results)]
-    (set-params params)
-    (apply uniform (list* :_dim (map float dim)))
-    (doseq [[idx d] (indexed (map :dim elements))]
-      (apply uniform (list* (symbol (str "-dim" idx)) (map float d))))
-    (attach-textures
-      (interleave (map rename-element (range (count elements))) elements)
-      targets)
-    (apply draw dim)
-    (doseq [e (distinct elements)]
-      (if (not (:persist (meta e)))
-        (release! e)))
-    (if (= 1 (count targets)) (first targets) (vec targets))))
+  [info]
+  (with-frame-buffer
+    (let [dim (:dim info)
+          elements (:elements info)
+          params (:params info)
+          results (force (:results info))
+          targets (map #(create-write-texture % dim) results)]
+      (set-params params)
+      (apply uniform (list* :_dim (map float dim)))
+      (doseq [[idx d] (indexed (map :dim elements))]
+        (apply uniform (list* (symbol (str "-dim" idx)) (map float d))))
+      (attach-textures
+       (interleave (map rename-element (range (count elements))) elements)
+       targets)
+      (apply draw dim)
+      (doseq [e (distinct elements)]
+        (if (not (:persist (meta e)))
+          (release! e)))
+      (if (= 1 (count targets)) (first targets) targets))))
 
 (defn create-map-template
   "Creates a template for a map, which will lazily create a set of shader programs based on the types passed in."
   [x]
-  (let [cache (operator-cache)
-        to-symbol (memoize #(symbol (name %)))]
+  (let [cache (operator-cache process-map)]
     (fn [& args]
       (with-glsl
-        (let [processed-map (apply process-map (cons x args))
-              program (cache processed-map)]
-          (with-program program
-            (run-map program processed-map)))))))
+        (let [info (cache x args)]
+          (with-program (:program info)
+            (run-map info)))))))
 
 ;;;;;;;;;;;;;;;;;;
 
 (defn- run-reduce
   [info]
-  (let [params (:params info)
-        data (first (:elements info))]
-    (set-params params)
-    (attach-textures [] [data])
-    (loop [dim (:dim data), input data]
-      (if (= [1 1] dim)
-        (let [result (unwrap-first! input)]
-          (release! input)
-          (seq result))
-        (let [half-dim  (map #(Math/ceil (/ % 2.0)) dim)
-              target    (mimic-texture input half-dim)
-              [w h]     half-dim
-              bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
-          (apply uniform (list* :_bounds bounds))
-          (apply uniform (list* :_dim half-dim))
-          (attach-textures [:_tex0 input] [target])
-          (draw 0 0 w h)
-          (if (not (:persist (meta input)))
-            (release! input))
-          (recur half-dim target))))))
+  (with-frame-buffer
+    (let [params (:params info)
+          data (first (:elements info))]
+      (set-params params)
+      (attach-textures [] [data])
+      (loop [dim (:dim data), input data]
+        (if (= [1 1] dim)
+          (let [result (unwrap-first! input)]
+            (release! input)
+            (seq result))
+          (let [half-dim  (map #(Math/ceil (/ % 2.0)) dim)
+                target    (mimic-texture input half-dim)
+                [w h]     half-dim
+                bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
+            (apply uniform (list* :_bounds bounds))
+            (apply uniform (list* :_dim half-dim))
+            (attach-textures [:_tex0 input] [target])
+            (draw 0 0 w h)
+            (if (not (:persist (meta input)))
+              (release! input))
+            (recur half-dim target)))))))
 
 (defn create-reduce-template
   "Creates a template for a reduce, which will lazily create a set of shader programs based on the types passed in."
   [x]
-  (let [cache (operator-cache)
-        to-symbol (memoize #(symbol (name %)))]
+  (let [cache (operator-cache process-reduce)]
     (fn [& args]
       (with-glsl
-        (let [processed-reduce (apply process-reduce (cons x args))
-              program (cache processed-reduce)]
-          (with-program program
-            (run-reduce processed-reduce)))))))
+        (let [info (apply cache (list* x args))]
+          (with-program (:program info)
+            (run-reduce info)))))))
 
 ;;;
 
