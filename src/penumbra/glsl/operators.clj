@@ -212,7 +212,6 @@
   (let [programs (atom {})]
     (fn [program args]
       (let [info (apply signature args)
-            
             hash (if-let [p (@programs (:signature info))]
                    p
                    (let [processed-info (f program (:params info) (:dim info) (:elements info))
