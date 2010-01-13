@@ -30,7 +30,6 @@
   (with-projection (ortho-view 0 1 1 0 -1 1)
     (gl-active-texture :texture0)
     (push-matrix
-     (println "pushed")
      (load-identity)
      (draw-quads
       (texture 0 1) (vertex 0 0 0)
