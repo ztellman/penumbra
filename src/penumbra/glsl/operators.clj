@@ -212,13 +212,14 @@
   (let [programs (atom {})]
     (fn [program args]
       (let [info (apply signature args)
-            hash (if-let [p (@programs {:signature info})]
+            
+            hash (if-let [p (@programs (:signature info))]
                    p
                    (let [processed-info (f program (:params info) (:dim info) (:elements info))
                          processed-program (->> processed-info :program post-process create-operator)
                          hash {:program processed-program
                                :results (:results processed-info)}]
-                     (swap! programs #(assoc % {:signature info} hash))
+                     (swap! programs #(assoc % (:signature info) hash))
                      hash))]
         (assoc hash
           :elements (:elements info)

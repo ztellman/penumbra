@@ -10,7 +10,7 @@
   (:use [penumbra.app.core]
         [penumbra.opengl]
         [penumbra.opengl.texture :only (create-texture-pool)]
-        [penumbra.opengl.core :only (*texture-pool*)]
+        [penumbra.opengl.core :only (*texture-pool* *frame-buffer-display-list*)]
         [clojure.contrib.core :only (-?>)])
   (:require  [penumbra.slate :as slate]
              [penumbra.opengl.texture :as texture]
@@ -158,6 +158,7 @@
 (defmacro with-window [window & body]
   `(binding [*window* ~window
              *texture-pool* (:texture-pool ~window)
-             text/*font-cache* (:font-cache ~window)]
+             text/*font-cache* (:font-cache ~window)
+             *frame-buffer-display-list* (delay (create-display-list (slate/draw*)))]
      ~@body))
 

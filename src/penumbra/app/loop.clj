@@ -46,11 +46,8 @@
    #(with-app app
       (outer-fn
        (fn []
-         (let [s (slate/create ((-> app :window :drawable)))]
-           (try
-            (inner-fn)
-            (finally
-             (slate/destroy s)))))))))
+         (slate/with-slate
+           (inner-fn)))))))
 
 (defn secondary-loop
   [app outer-fn inner-fn]

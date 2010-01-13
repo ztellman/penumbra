@@ -50,6 +50,9 @@
 (defvar *view* (atom [0 0 0 0])
   "Pixel boundaries of render window.  Parameters represent [x y width height].")
 
+(defvar *frame-buffer-display-list* nil
+  "Display list for framebuffer rendering.")
+
 (defvar *inside-frame-buffer* false)
 
 ;;;
