@@ -97,6 +97,18 @@
 
 ;;;
 
+(defn texture-pool-stats
+  ([]
+     (texture-pool-stats @*texture-pool*))
+  ([texture-pool]
+     (let [{size :texture-size textures :textures} texture-pool
+           active-size (->> textures (remove available?) (map sizeof) (apply +))
+           active-percent (float (if (zero? size) 1 (/ active-size size)))]
+       {:count (count textures)
+        :size size
+        :active-size active-size
+        :active-percent active-percent})))
+
 (defn- gen-texture []
   (let [a (int-array 1)]
     (gl-gen-textures (IntBuffer/wrap a))

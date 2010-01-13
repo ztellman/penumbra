@@ -9,13 +9,11 @@
 (ns example.gpgpu.brians-brain
   (:use [penumbra opengl compute])
   (:require [penumbra.app :as app]
-            [penumbra.text :as text]))
+            [penumbra.text :as text]
+            [penumbra.opengl.texture :as texture]
+            [penumbra.slate :as slate]))
 
-(defn init [state]
-
-  (app/title! "Brian's Brain")
-  (app/display-mode! 1024 768)
-  (app/vsync! false)
+(defn init-kernels []
 
   (defmap update-automata
     (let [cell (.a %)
@@ -28,15 +26,11 @@
        (= 1. cell)      (color4 0. 0. 1. 0.5)
        (= 2. neighbors) (color4 1. 1. 1. 1.)
        :else            (color4 0. 0. 0. 0.))))
-
-  (enable :texture-rectangle)
-
+  
   (defmap colorize
-    (color3 (.xyz %)))
+    (color3 (.xyz %))))
 
-  state)
-
-(defn reshape [[x y w h] state]
+(defn create-texture [w h]
   (let [tex (create-byte-texture :texture-rectangle w h)]
     (draw-to-texture!
      tex
@@ -44,8 +38,19 @@
        (if (zero? (rand-int 2))
          [1 1 1 1]
          [0 0 0 0])))
-    (assoc state
-     :tex tex)))
+    tex))
+
+(defn init [state]
+  (app/title! "Brian's Brain")
+  (app/display-mode! 1024 768)
+  (app/vsync! false)
+  (init-kernels)
+  (enable :texture-rectangle)
+  state)
+
+(defn reshape [[x y w h] state]
+  (assoc state
+    :tex (create-texture w h)))
 
 (defn key-press [key state]
   (cond
@@ -63,3 +68,10 @@
   (app/start
    {:init init, :reshape reshape, :display display, :update update, :key-press key-press}
    {}))
+
+(defn benchmark []
+  (slate/with-slate
+    (init-kernels)
+    (loop [tex (create-texture 2000 2000), i 0]
+      (when (< i 100)
+        (recur (time (update-automata tex)) (inc i))))))
