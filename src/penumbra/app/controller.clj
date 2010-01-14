@@ -26,7 +26,7 @@
       :paused? (atom false)
       :stopped? (atom true)
       :invalidated? (atom false)
-      :latch (atom nil))
+      :latch (atom (CountDownLatch. 1)))
     {:type ::controller}))
 
 (defn stopped?
