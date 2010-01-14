@@ -138,18 +138,27 @@
 
 ;;Input
 
-(defn key-pressed? [key]
-  ((-> @(:keys *input*) vals set) key))
+(defn key-pressed?
+  ([key]
+     (key-pressed? *app* key))
+  ([app key]
+     ((-> app :input :keys deref vals set) key)))
 
-(defn key-repeat! [enabled]
-  (Keyboard/enableRepeatEvents enabled))
+(defn key-repeat!
+  ([enabled]
+     (key-repeat! *app* enabled))
+  ([app enabled]
+     (Keyboard/enableRepeatEvents enabled)))
 
 ;;Window
 
-(defn title! [title]
-  (when (-?> *window* :frame deref)
-    (.setTitle @(:frame *window*) title))
-  (Display/setTitle title))
+(defn title!
+  ([title]
+     (title! *app* title))
+  ([app title]
+     (when (-?> app :window :frame deref)
+       (.setTitle @(:frame *window*) title))
+     (Display/setTitle title)))
 
 (defn display-modes
   "Returns a list of available display modes."
@@ -171,11 +180,17 @@
   ([] (dimensions *window*))
   ([w] (window/dimensions w)))
 
-(defn vsync? []
-  (window/vsync?))
+(defn vsync?
+  ([]
+     (vsync? *app*))
+  ([app]
+     (window/vsync?)))
 
-(defn vsync! [enabled]
-  (window/vsync! enabled))
+(defn vsync!
+  ([enabled]
+     (vsync! *app* enabled))
+  ([app enabled]
+     (window/vsync! enabled)))
 
 (defn resizable!
   ([enabled]
@@ -185,8 +200,11 @@
        (window/enable-resizable! app)
        (window/disable-resizable! app))))
 
-(defn fullscreen! [enabled]
-  (Display/setFullscreen enabled))
+(defn fullscreen!
+  ([enabled]
+     (fullscreen! *app* enabled))
+  ([app enabled]
+     (Display/setFullscreen enabled)))
 
 ;;Updates
 
@@ -216,8 +234,10 @@
 
 (defn repaint!
   "Forces a new frame to be redrawn"
-  []
-  (controller/repaint!))
+  ([]
+     (repaint! *app*))
+  ([app]
+     (controller/repaint! (:controller app))))
 
 (defn stop!
   "Stops the application."
@@ -239,12 +259,12 @@
   ([app]
      (loop/with-app app
        (let [stopped? (controller/stopped?)]
-         (controller/resume!)
-         (input/resume!)
          (when stopped?
            (dosync (ref-set (:queue app) (queue/create)))
            (publish! :init)
            (publish! :reshape (concat [0 0] (dimensions))))
+         (controller/resume!)
+         (input/resume!)
          (speed! 1)))))
 
 (defn- destroy
@@ -252,6 +272,7 @@
      (destroy *app*))
   ([app]
      (publish! :close)
+     (Display/destroy)
      (-> app
           (update-in [:input] input/destroy)
           (update-in [:window] window/destroy))))
@@ -290,9 +311,9 @@
        (stop!)
        (Display/update))))
 
-(defn start-single-thread [app]
+(defn start-single-thread [f app]
   (let [app (init app)]
-    (loop/primary-loop
+    (f
      app
      (fn [inner-fn]
        (try
@@ -307,12 +328,26 @@
          app))
      single-thread-main-loop)))
 
+(defn- try-resume [app]
+  (when (and (:async app) (controller/paused? (:controller app)))
+    (resume! app)
+    true))
+
 (defn start
   "Starts a window from scratch, or from a closed state."
   ([callbacks state]
      (start (create callbacks state)))
   ([app]
-     (start-single-thread app)))
+     (when-not (try-resume app)
+       (start-single-thread loop/primary-loop app))))
 
-
-
+(defn start*
+  "Same as start, but doesn't block until complete"
+  ([callbacks state]
+     (start* (create callbacks state)))
+  ([app]
+     (when-not (try-resume app)
+       (.start (Thread. #(start-single-thread loop/secondary-loop app)))
+       (controller/try-latch! (-> app :controller :latch deref))
+       (assoc app
+         :async true))))

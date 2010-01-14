@@ -113,10 +113,7 @@
   (call-display-list (:gear state))
   (app/repaint!))
 
-(defn update [_ state]
-  state)
-
 (defn start []
   (app/start
-   {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag, :update update}
+   {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
    {:rot-x 0, :rot-y 0, :gear nil}))
