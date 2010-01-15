@@ -38,17 +38,15 @@
          (controller/repaint!)))))
 
 (defn- subscribe-callback [app callback f]
-  (dosync
-   (alter (:event app)
-          #(event/subscribe!
-            %
-            callback
-            (fn [& args]
-              (sync-update
-               app
-               (if (empty? args)
-                 f
-                 (apply partial (list* f args)))))))))
+  (event/unique-subscribe!
+   (:event app)
+   callback
+   (fn [& args]
+     (sync-update
+      app
+      (if (empty? args)
+        f
+        (apply partial (list* f args)))))))
 
 (defn- alter-callbacks [clock callbacks]
   (let [callbacks (if-not (:update callbacks)
@@ -61,13 +59,17 @@
 
 ;;;
 
-(defn publish! [hook & args]
-  (apply event/publish! (list* (:event *app*) hook args)))
+(defn publish!
+  ([hook & args]
+     (apply event/publish! (list* (:event *app*) hook args))))
 
-(defn subscribe! [hook f]
-  (apply event/subscribe! (list* (:event *app*) hook f)))
+(defn subscribe!
+  ([hook f]
+     (subscribe! *app* hook f))
+  ([app hook f]
+     (event/subscribe! (:event app) hook f)))
 
-(defn unsubscribe! [hook f]
+(defn unsubscribe! []
   (reset! *unsubscribe* true))
 
 ;;;
@@ -89,15 +91,13 @@
                 :input (input/create)
                 :controller (controller/create)
                 :queue (ref nil)
-                :event (ref (event/create))
+                :event (event/create)
                 :clock clock
                 :state (ref state))
               {:type ::app})]
     (doseq [[c f] (alter-callbacks clock callbacks)]
       (if (= :display c)
-        (dosync
-         (alter (:event app)
-                (fn [event] (event/subscribe! event c #(f @(:state app))))))
+        (event/unique-subscribe! (:event app) c #(f @(:state app)))
         (subscribe-callback app c f)))
     app))
 
@@ -251,6 +251,7 @@
   ([]
      (pause! *app*))
   ([app]
+     (speed! app 0)
      (controller/pause! (:controller app))))
 
 (defn- resume!

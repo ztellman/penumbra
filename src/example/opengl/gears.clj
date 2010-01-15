@@ -105,6 +105,10 @@
     :rot-x (+ (:rot-x state) dy)
     :rot-y (+ (:rot-y state) dx)))
 
+(defn key-press [key state]
+  (cond
+   (= :escape key) (app/pause!)))
+
 (defn display [[delta time] state]
   (text/write-to-screen (format "%d fps" (int (/ 1 delta))) 0 0)  
   (rotate (:rot-x state) 1 0 0)
@@ -113,7 +117,13 @@
   (call-display-list (:gear state))
   (app/repaint!))
 
+;;By using this instead of display, we can recompile display and see
+;;our changes immediately.  Try reversing the sign on rotate while the
+;;app is running and see for yourself.
+(defn display-proxy [& args]
+  (apply display args))
+
 (defn start []
   (app/start
-   {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
+   {:reshape reshape, :display display-proxy, :init init, :mouse-drag mouse-drag, :key-press key-press}
    {:rot-x 0, :rot-y 0, :gear nil}))
