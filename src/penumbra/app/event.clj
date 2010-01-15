@@ -10,13 +10,16 @@
   (:use [penumbra.app.core]))
 
 (defn create []
-  {})
+  (atom {}))
 
 (defn subscribe! [event hook f]
-  (update-in event [hook] #(if % (conj % f) #{f})))
+  (swap! event #(update-in % [hook] (fn [x] (if x (conj x f) #{f})))))
+
+(defn unique-subscribe! [event hook f]
+  (swap! event #(assoc % hook #{f})))
 
 (defn unsubscribe! [event hook f]
-  (update-in event [hook] #(disj % f)))
+  (swap! event #(update-in % [hook] (fn [x] (disj x f)))))
 
 (defn publish! [event hook & args]
   (let [wrapper-fn (fn [f]

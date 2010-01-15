@@ -35,9 +35,7 @@
     (fn [& args]
       (let [now @clock]
         (try
-         (if f
-           (apply f (list* [(- now @previous) now] args))
-           @(:state *app*))
+         (apply f (list* [(- now @previous) now] args))
          (finally
           (reset! previous now)))))))
 
