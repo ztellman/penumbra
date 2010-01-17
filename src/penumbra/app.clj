@@ -272,11 +272,13 @@
   ([]
      (destroy *app*))
   ([app]
-     (publish! :close)
-     (Display/destroy)
-     (-> app
+     (try
+      (publish! :close)
+      (-> app
           (update-in [:input] input/destroy)
-          (update-in [:window] window/destroy))))
+          (update-in [:window] window/destroy))
+      (finally
+       (Display/destroy)))))
 
 (defn- init
   [app]
