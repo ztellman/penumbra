@@ -31,32 +31,31 @@
 
   (app/title! "Convolution")
 
-  (defmap blur
-    (let [value (float4 0.0)
-          sum 0.0]
+  (defmap detect-edges
+    (let [a (float4 0.0)
+          b (float4 0.0)]
       (convolve %2
-       (+= sum %2)
-       (+= value (* %2 %1)))
-      (/ value sum)))
+        (+= a (* %2 %1)))
+      (convolve %3
+        (+= b (* %3 %1)))
+      (sqrt (+ (* a a) (* b b)))))
 
-  '(defmap blur
-    (let [value (float4 0.0)
-          sum 0.0]
-      (convolve 1
-       (+= sum 1.0)
-       (+= value %1))
-      (/ value sum)))
-
-  (def kernel
+  (def filter-1
     (wrap (map float
-               [1 1 1
-                1 1 1
-                1 1 1])))
+               [-1 0 1
+                -2 0 2
+                -1 0 1])))
+
+  (def filter-2
+    (wrap (map float
+               [1 2 1
+                0 0 0
+                -1 -2 -1])))
 
   (enable :texture-rectangle)
   (ortho-view 0 2 2 0 -1 1)
   (assoc state
-    :tex (reset-image (create-byte-texture :texture-rectangle 256 256))))
+    :tex (reset-image (create-byte-texture :texture-rectangle 512 512))))
 
 (defn key-press [key state]
   (let [tex (:tex state)]
@@ -66,8 +65,7 @@
        :tex (reset-image tex))
      (= key :return)
      (assoc state
-       :tex (with-frame-buffer
-              (blur tex [kernel])))
+       :tex (detect-edges tex [filter-1] [filter-2]))
      :else
      state)))
 

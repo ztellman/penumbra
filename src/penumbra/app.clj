@@ -11,16 +11,21 @@
   (:use [clojure.contrib.core :only (-?>)]
         [clojure.contrib.def :only [defmacro- defvar-]]
         [penumbra.opengl]
+        [penumbra.opengl.core]
         [penumbra.app.core])
-  (:require [penumbra.opengl.texture :as texture]
-            [penumbra.slate :as slate]
-            [penumbra.app.window :as window]
-            [penumbra.app.input :as input]
-            [penumbra.app.controller :as controller]
-            [penumbra.app.loop :as loop]
-            [penumbra.app.event :as event]
-            [penumbra.app.queue :as queue]
-            [penumbra.time :as time])
+  (:require [penumbra.opengl
+             [texture :as texture]
+             [context :as context]]
+            [penumbra
+             [slate :as slate]
+             [time :as time]]
+            [penumbra.app
+             [window :as window]
+             [input :as input]
+             [controller :as controller]
+             [loop :as loop]
+             [event :as event]
+             [queue :as queue]])
   (:import [org.lwjgl.opengl Display]
            [org.lwjgl.input Keyboard]))
 
@@ -102,7 +107,7 @@
     app))
 
 (defmethod print-method ::app [app writer]
-  (let [{size :size active-percent :active-percent} (texture/texture-pool-stats @(-> app :window :texture-pool))
+  (let [{size :size active-percent :active-percent} (when (:texture-pool app) (texture/texture-pool-stats @(:texture-pool app)))
         elapsed-time @(:clock app)
         state (cond
                (controller/stopped? (:controller app)) "STOPPED"
@@ -114,7 +119,7 @@
              state
              (Display/getTitle)
              elapsed-time
-             (/ size 1e6) (* 100 active-percent)))))
+             (/ (or size 0.) 1e6) (* 100 (or active-percent 0.))))))
 
 ;;Clock
 
@@ -278,7 +283,7 @@
           (update-in [:input] input/destroy)
           (update-in [:window] window/destroy))
       (finally
-       (Display/destroy)))))
+       (context/destroy)))))
 
 (defn- init
   [app]
@@ -328,7 +333,8 @@
        (speed! 0)
        (if (controller/stopped?)
          (destroy app)
-         app))
+         (assoc app
+           :texture-pool *texture-pool*)))
      single-thread-main-loop)))
 
 (defn- try-resume [app]
@@ -349,8 +355,15 @@
   ([callbacks state]
      (start* (create callbacks state)))
   ([app]
-     (when-not (try-resume app)
-       (.start (Thread. #(start-single-thread loop/secondary-loop app)))
-       (controller/try-latch! (-> app :controller :latch deref))
-       (assoc app
-         :async true))))
+     (let [texture-pool (promise)]
+       (when-not (try-resume app)
+         (.start
+          (Thread.
+           (fn []
+             (context/with-context nil
+               (deliver texture-pool *texture-pool*)
+               (start-single-thread loop/secondary-loop app)))))
+         (controller/try-latch! (-> app :controller :latch deref))
+         (assoc app
+           :texture-pool @texture-pool
+           :async true)))))

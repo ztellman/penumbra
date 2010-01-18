@@ -9,7 +9,8 @@
 (ns penumbra.app.loop
   (:use [penumbra.opengl]
         [penumbra.app.core])
-  (:require [penumbra.app.controller :as controller]
+  (:require [penumbra.opengl.context :as context]
+            [penumbra.app.controller :as controller]
             [penumbra.app.window :as window]
             [penumbra.app.input :as input]
             [penumbra.slate :as slate]
@@ -40,12 +41,14 @@
           (reset! previous now)))))))
 
 (defn create-thread [app outer-fn inner-fn]
-  (Thread.
-   #(with-app app
-      (outer-fn
-       (fn []
-         (slate/with-slate
-           (inner-fn)))))))
+  (let [context (context/current)]
+    (Thread.
+     #(context/with-context context
+        (with-app app
+          (outer-fn
+           (fn []
+             (slate/with-slate
+               (inner-fn)))))))))
 
 (defn secondary-loop
   [app outer-fn inner-fn]
@@ -65,15 +68,16 @@
   [app outer-fn inner-fn]
   (create-thread
    app
-   #(with-app (%))
+   #(%)
    #(secondary-loop app outer-fn inner-fn)))
 
 (defn primary-loop
   [app outer-fn inner-fn]
-  (with-app app
-    (outer-fn
-     (fn []
-       (loop []
-         (inner-fn)
-         (when-not (or (controller/paused?) (controller/stopped?))
-           (recur)))))))
+  (context/with-context nil
+    (with-app app
+     (outer-fn
+      (fn []
+        (loop []
+          (inner-fn)
+          (when-not (or (controller/paused?) (controller/stopped?))
+            (recur))))))))

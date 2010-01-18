@@ -154,7 +154,7 @@
   :index :float)
 
 (def-identity-inspectors
-  '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil 'abs 'log 'log2)
+  '+ '- 'normalize 'cos 'sin 'max 'min 'floor 'fract 'ceil 'abs 'log 'log2 'sqrt)
 
 (def-maximum-inspectors
   '* 'div 'mix 'pow)
