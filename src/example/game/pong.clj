@@ -11,8 +11,8 @@
         [clojure.contrib.def])
   (:require [penumbra [app :as app] [text :as text]]))
 
-(def ball-width 0.05)
-(def ball-height 0.05)
+(def ball-width 0.03)
+(def ball-height 0.03)
 (def paddle-width 0.02)
 (def paddle-height 0.15)
 
@@ -67,10 +67,11 @@
 
 (defn update-opponent-paddle [state]
   (let [[x y] (:p state)
-        [dx dy] (:v state)
-        dy (+ dy (* (- y (:right state)) (- 1 x) dx))]
+        [vx vy] (:v state)
+        dt (/ (- 1 x) vx)
+        dy (- (+ y (* vy dt)) (:right state))]
     (assoc state
-      :v-right dy)))
+      :v-right (if (neg? vx) 0 (/ dy dt)))))
 
 (defn update-player-paddle [state]
   (assoc state
@@ -104,7 +105,7 @@
 (defn init [state]
   (app/vsync! true)
   (app/title! "Pong")
-  (app/periodic-update 4 update-opponent-paddle)
+  (app/periodic-update 2 update-opponent-paddle)
   (reset-game state))
 
 (defn reshape [[x y w h] state]

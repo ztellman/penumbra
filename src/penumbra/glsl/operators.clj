@@ -7,11 +7,12 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.glsl.operators
-  (:use [penumbra opengl slate]
+  (:use [penumbra opengl]
         [penumbra.opengl
          (texture :only (create-texture release! texture?))
          (framebuffer :only (pixel-format write-format))
-         (core :only (*inside-frame-buffer*))]
+         (core :only (*inside-frame-buffer*))
+         (context :only (draw))]
         [penumbra.glsl core data]
         [penumbra.translate core operators]
         [clojure.contrib

@@ -14,36 +14,18 @@
         [penumbra opengl]
         [penumbra.opengl core]
         [penumbra.app core])
-  (:require [penumbra.opengl.texture :as texture])
+  (:require [penumbra.opengl
+             [texture :as texture]
+             [context :as context]])
   (:import [org.lwjgl.opengl Pbuffer PixelFormat]))
 
 ;;;
 
 (defstruct slate-struct
-  :pixel-buffer
-  :frame-buffer
-  :texture-pool
-  :base-context?)
+  :drawable
+  :pixel-buffer)
 
 (defvar- *slate* nil)
-
-(defn draw* []
-  (with-projection (ortho-view 0 1 1 0 -1 1)
-    (gl-active-texture :texture0)
-    (push-matrix
-     (load-identity)
-     (draw-quads
-      (texture 0 1) (vertex 0 0 0)
-      (texture 1 1) (vertex 1 0 0)
-      (texture 1 0) (vertex 1 1 0)
-      (texture 0 0) (vertex 0 1 0)))))
-
-(defn draw
-  ([w h]
-     (draw 0 0 w h))
-  ([x y w h]
-     (with-viewport [x y w h]
-       (call-display-list (force *frame-buffer-display-list*)))))
 
 (defn create
   ([]
@@ -57,10 +39,7 @@
          (bind-frame-buffer frame-buffer)
          (struct-map slate-struct
            :drawable (constantly pixel-buffer)
-           :pixel-buffer pixel-buffer
-           :frame-buffer frame-buffer
-           :texture-pool (or (:texture-pool parent) (atom (texture/create-texture-pool)))
-           :base-context? (nil? parent))))))
+           :pixel-buffer pixel-buffer)))))
 
 (defn destroy
   ([]
@@ -68,18 +47,20 @@
   ([slate]
      (when (:base-context? slate)
        (destroy-frame-buffer (:frame-buffer slate))
-       (texture/destroy-textures (-> slate :texture-pool deref :textures)))
+       (texture/destroy-textures (-> *texture-pool* deref :textures)))
      (.destroy (:pixel-buffer slate))))
 
 (defmacro with-slate [& body]
-  `(let [slate# (create)]
-     (binding [*slate* slate#
-               *frame-buffer-display-list* (delay (create-display-list (draw*)))
-               *texture-pool* (:texture-pool slate#)]
-       (try
-        ~@body
-        (finally
-         (destroy slate#))))))
+  `(let [context# (context/current)]
+     (context/with-context context#
+      (let [slate# (create)]
+        (binding [*slate* slate#]
+          (try
+           ~@body
+           (finally
+            (destroy slate#)
+            (when context#
+              (context/destroy context#)))))))))
 
 ;;;
 

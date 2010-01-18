@@ -10,10 +10,11 @@
   (:use [penumbra.app.core]
         [penumbra.opengl]
         [penumbra.opengl.texture :only (create-texture-pool)]
-        [penumbra.opengl.core :only (*texture-pool* *frame-buffer-display-list*)]
         [clojure.contrib.core :only (-?>)])
   (:require  [penumbra.slate :as slate]
-             [penumbra.opengl.texture :as texture]
+             [penumbra.opengl
+              [texture :as texture]
+              [context :as context]]
              [penumbra.text :as text]
              [penumbra.app.event :as event])
   (:import [org.lwjgl.opengl Display PixelFormat AWTGLCanvas]
@@ -24,7 +25,6 @@
 ;;
 
 (defstruct window-struct
-  :texture-pool
   :frame
   :size)
 
@@ -126,8 +126,6 @@
 (defn create []
   (struct-map window-struct
     :drawable #(Display/getDrawable)
-    :texture-pool (atom (create-texture-pool))
-    :font-cache (atom {})
     :frame (atom nil)
     :size (atom [800 600])
     :vsync? (atom false)))
@@ -149,16 +147,14 @@
      (destroy *window*))
   ([window]
      (-> (InternalTextureLoader/get) .clear)
-     (texture/destroy-textures (:textures @*texture-pool*))
+     (context/destroy)
      (when-let [f @(:frame window)]
        (.dispose f))
      (Display/destroy)
      window))
 
 (defmacro with-window [window & body]
-  `(binding [*window* ~window
-             *texture-pool* (:texture-pool ~window)
-             text/*font-cache* (:font-cache ~window)
-             *frame-buffer-display-list* (delay (create-display-list (slate/draw*)))]
-     ~@body))
+  `(context/with-context nil
+     (binding [*window* ~window]
+       ~@body)))
 

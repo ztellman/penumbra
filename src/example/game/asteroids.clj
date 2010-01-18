@@ -8,7 +8,8 @@
 
 (ns example.game.asteroids
   (:use [penumbra opengl geometry])
-  (:require [penumbra.app :as app])
+  (:require [penumbra.app :as app]
+            [penumbra.text :as text])
   (:use [clojure.contrib.seq-utils :only (separate)]))
 
 ;;;
@@ -296,7 +297,7 @@
   (init-spaceship)
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
-  (app/periodic-update 20 update-collisions)
+  (app/periodic-update 15 update-collisions)
   (app/periodic-update 50 emit-flame)
   (reset state))
 
@@ -323,15 +324,17 @@
       :spaceship (update-spaceship dt (:spaceship state)))))
 
 (defn display [[dt time] state]
+  (text/write-to-screen (str (int (/ 1 dt)) " fps") 0 0)
   (binding [*dim* (:dim state)]
     (with-enabled :texture-2d
       (with-texture particle-tex
         (doseq [p (concat (:particles state) (:bullets state))]
           (render p))))
-    (with-render-mode :wireframe
-      (doseq [a (:asteroids state)]
-        (render a)))
-    (draw-spaceship (:spaceship state))
+    (with-disabled :texture-2d
+      (with-render-mode :wireframe
+       (doseq [a (:asteroids state)]
+         (render a)))
+      (draw-spaceship (:spaceship state)))
     (app/repaint!)))
 
 (defn start []
