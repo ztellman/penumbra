@@ -39,10 +39,10 @@
     (let [val %
           z (.xy val)
           n (.z val)
-          escape (/ n (float max-iterations))]
+          escape (-> n (- (-> z length log2 log2)) (/ (float max-iterations)))]
       (if (< 4.0 (dot z z))
-         (color3 escape escape (mix 0.2 1. escape))
-         (color3 0. 0. 0.))))
+         (mix (float3 1. 0. 0.) (float3 1. 1. 0.) escape)
+         (color3 1. 1. 1.))))
 
   (enable :texture-rectangle)
     
@@ -93,7 +93,7 @@
 (def iterations-per-frame 60)
 
 (defn update [_ state]
-  (let [max-iterations (* 100 (Math/sqrt (:zoom state)))]
+  (let [max-iterations (* 10 (Math/pow (:zoom state) 0.4))]
     (if (< (:iterations state) max-iterations)
       (with-frame-buffer
         (let [ul      (:upper-left state)
