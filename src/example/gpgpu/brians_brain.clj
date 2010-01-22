@@ -42,7 +42,6 @@
 
 (defn init [state]
   (app/title! "Brian's Brain")
-  (app/display-mode! 1024 768)
   (app/vsync! false)
   (init-kernels)
   (enable :texture-rectangle)
