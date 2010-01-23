@@ -51,8 +51,8 @@
   "Expand if on one side of a plane, contract if on the other"
   [v vertex]
   (if (neg? (dot v (normalize vertex)))
-    (map + vertex (repeat 0.05))
-    (map - vertex (repeat 0.05))))
+    (map * vertex (repeat 1.02))
+    (map * vertex (repeat 0.98))))
 
 (defn offset-sphere [v vertices]
   (map (fn [arc] (map #(offset-vertex v %) arc)) vertices))
@@ -63,15 +63,17 @@
   (let [s (iterate #(offset-sphere (rand-vector) %) (sphere-vertices lod))]
     (nth s iterations)))
 
-(defn gen-asteroid-geometry [lod iterations]
-  (create-display-list
-   (doseq [arcs (partition 2 1 (gen-asteroid-vertices lod iterations))]
+(defn draw-asteroid [vertices]
+  (doseq [arcs (partition 2 1 vertices)]
     (draw-quad-strip
      (doseq [[a b] (map list (first arcs) (second arcs))]
-       (apply vertex a) (apply vertex b))))))
+       (apply vertex a) (apply vertex b)))))
+
+(defn gen-asteroid-geometry [lod iterations]
+  (create-display-list (draw-asteroid (gen-asteroid-vertices lod iterations))))
 
 (defn init-asteroids []
-  (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 12 12))))))
+  (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 12 100))))))
 
 (defn gen-asteroid [initial radius theta speed]
   (let [birth (app/now)
@@ -324,7 +326,7 @@
       :spaceship (update-spaceship dt (:spaceship state)))))
 
 (defn display [[dt time] state]
-  (text/write-to-screen (str (int (/ 1 dt)) " fps") 0 0)
+  ;;(text/write-to-screen (str (int (/ 1 dt)) " fps") 0 0)
   (binding [*dim* (:dim state)]
     (with-enabled :texture-2d
       (with-texture particle-tex
@@ -341,3 +343,24 @@
   (app/start
    {:reshape reshape, :init init, :key-press key-press, :update update, :display display} 
    {}))
+
+;;;
+
+(defn asteroid-init [state]
+  (render-mode :wireframe)
+  (line-width 2)
+  (app/periodic-update 2 (fn [s] (update-in s [:vertices] #(offset-sphere (rand-vector) %))))
+  state)
+
+(defn asteroid-reshape [[x y w h] state]
+  (frustum-view 60. (/ (float w) h) 1. 10.)
+  state)
+
+(defn asteroid-display [[dt time] state]
+  (translate 0 0 -3)
+  (rotate (rem (* 20 time) 360) 0 1 0)
+  (draw-asteroid (:vertices state))
+  (app/repaint!))
+
+(defn asteroid-start []
+  (app/start {:reshape asteroid-reshape, :init asteroid-init, :display asteroid-display} {:vertices (sphere-vertices 20)}))
