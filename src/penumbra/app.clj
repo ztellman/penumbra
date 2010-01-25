@@ -337,7 +337,7 @@
            :texture-pool *texture-pool*)))
      single-thread-main-loop)))
 
-(defn- try-resume [app]
+(defn- try-async-resume [app]
   (when (and (:async app) (controller/paused? (:controller app)))
     (resume! app)
     true))
@@ -347,7 +347,7 @@
   ([callbacks state]
      (start (create callbacks state)))
   ([app]
-     (when-not (try-resume app)
+     (when-not (try-async-resume app)
        (start-single-thread loop/primary-loop app))))
 
 (defn start*
@@ -356,7 +356,7 @@
      (start* (create callbacks state)))
   ([app]
      (let [texture-pool (promise)]
-       (when-not (try-resume app)
+       (when-not (try-async-resume app)
          (.start
           (Thread.
            (fn []
