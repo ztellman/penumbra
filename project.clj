@@ -1,6 +1,6 @@
 (defproject penumbra "0.5.0-SNAPSHOT"
   :description "Penumbra is an idiomatic wrapper for OpenGL in Clojure, by way of LWJGL."
-  :dependencies [[org.clojure/clojure "1.1.0-new-SNAPSHOT"]
+  :dependencies [[org.clojure/clojure "1.2.0-master-SNAPSHOT"]
                  [org.clojure/clojure-contrib "1.0-SNAPSHOT"]]
   ;; TODO: native dependencies flag is needed here to support
   ;; downloading and extracting lwjgl with lein deps.
