@@ -51,8 +51,8 @@
   "Expand if on one side of a plane, contract if on the other"
   [v vertex]
   (if (neg? (dot v (normalize vertex)))
-    (map * vertex (repeat 1.02))
-    (map * vertex (repeat 0.98))))
+    (map * vertex (repeat 1.01))
+    (map * vertex (repeat 0.99))))
 
 (defn offset-sphere [v vertices]
   (map (fn [arc] (map #(offset-vertex v %) arc)) vertices))
@@ -348,8 +348,24 @@
 
 (defn asteroid-init [state]
   (render-mode :wireframe)
-  (line-width 2)
-  (app/periodic-update 2 (fn [s] (update-in s [:vertices] #(offset-sphere (rand-vector) %))))
+  (line-width 3)
+  (enable :fog)
+  (enable :depth-test)
+  (fog
+    :fog-mode :exp
+    :fog-density 0.2
+    :fog-start 5
+    :fog-end 10
+    :fog-color [0 0 0 0])
+  (app/periodic-update
+   8
+   (fn [s] (let [rot-y (rand 360)
+                 rot-x (rand 360)
+                 v (cartesian [rot-x rot-y 1])]
+             (assoc s
+               :vertices (offset-sphere v (:vertices s))
+               :rot-y rot-y
+               :rot-x rot-x))))
   state)
 
 (defn asteroid-reshape [[x y w h] state]
@@ -358,9 +374,19 @@
 
 (defn asteroid-display [[dt time] state]
   (translate 0 0 -3)
-  (rotate (rem (* 20 time) 360) 0 1 0)
-  (draw-asteroid (:vertices state))
-  (app/repaint!))
+  (push-matrix
+   (rotate (:rot-x state) 1 0 0)
+   (rotate (:rot-y state) 0 1 0)
+   (color 1 0 0)
+   (draw-quads
+    (vertex 1 0 1) (vertex 1 0 -1)
+    (vertex -1 0 -1) (vertex -1 0 1)))
+  ;;(rotate (rem (* 20 time) 360) 0 1 0)
+  (color 1 1 1)
+  (draw-asteroid (:vertices state)))
 
 (defn asteroid-start []
-  (app/start {:reshape asteroid-reshape, :init asteroid-init, :display asteroid-display} {:vertices (sphere-vertices 20)}))
+  (app/start {:reshape asteroid-reshape, :init asteroid-init, :display asteroid-display}
+             {:vertices (sphere-vertices 30)
+              :rot-x 0
+              :rot-y 0}))
