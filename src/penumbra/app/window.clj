@@ -136,7 +136,7 @@
   ([window]
      (when-not (Display/isCreated)
        (Display/setParent nil)
-       (Display/create (-> (PixelFormat.) (.withSamples 4))))
+       (Display/create (PixelFormat.)))
      (apply display-mode! @(:size window))
      (blend-func :src-alpha :one-minus-src-alpha)
      (apply viewport @(:size window))
