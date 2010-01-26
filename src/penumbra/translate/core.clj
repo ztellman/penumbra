@@ -42,12 +42,12 @@
 
 (defn typeof [x]
   (cond
-    (integer? x) :int
-    (float? x) :float
-    (keyword? x) (when *inspector* (*inspector* x))
-    (not (meta? x)) nil
-    (:numeric-value (meta x)) (typeof (:numeric-value (meta x)))
-    :else (:tag (meta x))))
+   (integer? x) :int
+   (float? x) :float
+   (keyword? x) (*inspector* x)
+   (not (meta? x)) nil
+   (:numeric-value (meta x)) (typeof (:numeric-value (meta x)))
+   :else (:tag (meta x))))
                                        
 (defn add-meta [x & metadata]
   (if (meta? x)
@@ -179,7 +179,7 @@
 (defn-try try-inspect
   #(realize
     (if (meta? %)
-      (add-meta % :tag (or (:tag ^%) (*inspector* %)))
+      (add-meta % :tag (or (:tag (meta %)) (*inspector* %)))
       %))
   "Error while inferring type")
 
@@ -232,7 +232,7 @@
 ;;;
 
 (defn declared-vars [x]
-  (distinct (tree-filter #(:assignment ^%) x)))
+  (distinct (tree-filter #(:assignment (meta %)) x)))
 
 (defn typeof-var
   "Determine type, if possible, of var within x"
@@ -251,7 +251,7 @@
   (let [vars (atom [])]
     (tree-map
       (fn [x]
-        (if (:tag ^x)
+        (if (:tag (meta x))
           (swap! vars #(conj % x)))
         x)
       x)
@@ -268,8 +268,8 @@
   (loop [x x, tagged (tagged-vars x), iterations 0]
     (let [vars          (declared-vars x)
           types         (zipmap vars (map #(typeof-var % x) vars))
-          known-types   (filter (fn [[k v]] v) types)
-          unknown-types (filter (fn [[k v]] (not v)) types)
+          known-types   (filter second types)
+          unknown-types (filter (comp not second) types)
           x*            (inspect-exprs (reduce (fn [x [k v]] (tag-var k v x)) x known-types))
           tagged*       (tagged-vars x*)]
       (cond
