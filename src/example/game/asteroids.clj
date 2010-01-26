@@ -75,12 +75,17 @@
 (defn init-asteroids []
   (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 12 100))))))
 
-(defn gen-asteroid [initial radius theta speed]
-  (let [birth (app/now)
+(defn gen-asteroid [& args]
+  (let [hash (apply hash-map args)
+        initial-position (or (:position hash) [0 0])
+        radius (or (:radius hash) 1)
+        theta (or (:theta hash) (rand 360))
+        speed (or (:speed hash) 1)
+        birth (app/now)
         elapsed #(- (app/now) birth)
         asteroid (nth asteroid-meshes (rand-int 20))
         [x y] (map (partial * speed) (cartesian theta))
-        position #(wrap (map + initial (map * [x y] (repeat (elapsed)))))]
+        position #(wrap (map + initial-position (map * [x y] (repeat (elapsed)))))]
     {:expired? #(< radius 0.25)
      :position position
      :radius radius
@@ -119,11 +124,18 @@
     (scale radius radius)
     (call-display-list particle-quad)))
 
-(defn gen-particle [position theta speed radius [r g b] lifespan]
-  (let [birth (app/now)
+(defn gen-particle [& args]
+  (let [hash (apply hash-map args)
+        initial-position (or (:position hash) [0 0])
+        theta (or (:theta hash) (rand 360))
+        speed (or (:speed hash) 1)
+        radius (or (:radius hash) (+ 0.25 (rand 0.5)))
+        [r g b] (or (:color hash) [1 1 1])
+        lifespan (or (:lifespan hash) 1)
+        birth (app/now)
         [x y] (map (partial * speed) (cartesian theta))
         elapsed #(- (app/now) birth)
-        position #(wrap (map + position (map * [x y] (repeat (elapsed)))))]
+        position #(wrap (map + initial-position (map * [x y] (repeat (elapsed)))))]
     {:expired? #(> (- (app/now) birth) lifespan)
      :position position
      :radius radius
@@ -150,9 +162,12 @@
       (conj
        (:bullets state)
        (gen-particle
-        (:position ship)
-        (:theta ship)
-        15 0.25 [0 0 1] 2)))))
+        :position (:position ship)
+        :theta (:theta ship)
+        :speed 15
+        :radius 0.25
+        :color [0 0 1]
+        :lifespan 2)))))
 
 (defn emit-flame [state]
   (when (app/key-pressed? :up)
@@ -165,12 +180,12 @@
       (assoc state
         :particles (conj particles
                          (gen-particle
-                          position
-                          theta
-                          speed
-                          0.25
-                          (rand-color [1 0.5 0.7] [1 1 1])
-                          (/ (Math/cos (radians (* 3 offset))) 2.5)))))))
+                          :position position
+                          :theta theta
+                          :speed speed
+                          :radius 0.25
+                          :color (rand-color [1 0.5 0.7] [1 1 1])
+                          :lifespan (/ (Math/cos (radians (* 3 offset))) 2.5)))))))
 
 (defn update-spaceship [dt ship]
   (let [p     (:position ship)
@@ -213,7 +228,7 @@
     :asteroids (take 4 (repeatedly
                         #(let [theta (rand 360)
                                pos (cartesian [theta 2])]
-                           (gen-asteroid pos 1 theta (rand)))))))
+                           (gen-asteroid :position pos :theta theta :speed (rand)))))))
 
 (defn split-asteroid
   "Turn asteroid into four sub-asteroids."
@@ -221,21 +236,21 @@
   (when (< 0.25 (radius asteroid))
     (take 4
       (repeatedly
-        #(gen-asteroid
-          (position asteroid)
-          (/ (radius asteroid) 2)
-          (rand 360) (/ 1.5 (radius asteroid)))))))
+       #(gen-asteroid
+         :position (position asteroid)
+         :radius (/ (radius asteroid) 2)
+         :speed (/ 1.5 (radius asteroid)))))))
 
 (defn gen-explosion
   "Create particles within a given color range."
   [num object [lo-color hi-color] speed]
   (take num
     (repeatedly
-      #(gen-particle
-        (position object)
-        (rand 360) (rand speed) (+ 0.15 (rand 0.65))
-        (rand-color lo-color hi-color)
-        2))))
+     #(gen-particle
+       :position (position object)
+       :speed (rand speed)
+       :color (rand-color lo-color hi-color)
+       :lifespan 2))))
 
 (defn explode-asteroids
   "Turn asteroid into sub-asteroids and explosion particles."
