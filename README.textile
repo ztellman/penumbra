@@ -28,4 +28,4 @@ Numerous sample programs can be found in @/src/example@.  They include clean, fu
 
 A long term goal for Penumbra is to simplify GPU programming as much as possible, allowing for both advanced graphical effects and general computation.  This is a work in progress, but this "n-body simulation":http://github.com/ztellman/penumbra/blob/master/src/example/gpgpu/n_body.clj is a good example of what's possible.
 
-Installation directions can be found "here":http://wiki.github.com/ztellman/penumbra/getting-started.
+Installation directions can be found "here":http://wiki.github.com/ztellman/penumbra/getting-started.  While @project.clj@ does exist, "Leiningen":http://github.com/technomancy/leiningen does not currently support libraries with binary dependencies, and therefore many features (@lein compile@, @lein deps@, @lein repl@ and others) do not work.  Work on this is ongoing.
