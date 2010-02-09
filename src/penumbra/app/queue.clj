@@ -9,12 +9,10 @@
 (ns penumbra.app.queue
   (:use [penumbra.app.core])
   (:require [penumbra.slate :as slate]
-            [penumbra.app.loop :as loop]))
+            [penumbra.app.loop :as loop]
+            [penumbra.time :as time]))
 
 ;;;
-
-(defprotocol Queue
-  (enqueue! [this delay f]))
 
 (defn create-thread [app clock heap]
   (Thread.
@@ -24,7 +22,7 @@
       (fn []
         (if-let [actions
                  (dosync
-                  (let [now @clock
+                  (let [now (time/now clock)
                         top (take-while #(>= now (first %)) @heap)]
                     (when-not (empty? top)
                       (alter heap #(apply disj (list* % top)))
@@ -37,13 +35,12 @@
   ([]
      (create *app*))
   ([app]
-     (let [clock  (:clock app)
-           heap   (ref (sorted-set-by #(- (compare (first %2) (first %1)))))]
+     (create app (:clock app)))
+  ([app clock]
+     (let [heap (ref (sorted-set-by #(- (compare (first %2) (first %1)))))]
        (dotimes [_ 1]
          (.start (create-thread app clock heap)))
-       (reify
-        Queue
-        (enqueue! [delay f] (dosync (alter heap #(conj % [(+ @clock delay) f]))))))))
+       (fn [delay f] (dosync (alter heap #(conj % [(+ (time/now clock) delay) f])))))))
 
 ;;;
 
@@ -53,8 +50,8 @@
   ([delay f]
      (update *queue* delay f))
   ([queue delay f]
-     (enqueue!
-      queue delay
+     (queue
+      delay
       #(try
         (f)
         (catch Exception e
@@ -67,10 +64,10 @@
      (let [queue @(:queue app)
            clock (:clock app)
            hz (atom hz)
-           target (atom (+ @clock (/ 1 @hz)))]
+           target (atom (+ (time/now clock) (/ 1 @hz)))]
        (letfn [(f*
                 []
-                (let [start @clock]
+                (let [start (time/now clock)]
                   (binding [*hz* hz]
                     (f))
                   (let [hz @hz]

@@ -12,65 +12,34 @@
 (defn wall-time []
   (/ (System/nanoTime) 1e9))
 
-(defprotocol Composition
-  (inner [this])
-  (outer [this])
-  (outer! [this o]))
-
-(defn composition
-  [inner outer]
-  (let [outer (atom outer)]
-    (reify
-     clojure.lang.IDeref
-     (deref [] (@outer (inner)))
-     Composition
-     (inner [] inner)
-     (outer [] @outer)
-     (outer! [o] (reset! outer o) nil))))
+(defn animation
+  ([start finish duration]
+     (animation start finish duration identity))
+  ([start finish duration modifier]
+     (let [t0 (wall-time)]
+       (fn []
+         (let [elapsed (modifier (- (wall-time) t0))]
+           (if (> elapsed duration)
+             finish
+             (lerp start finish (/ elapsed duration))))))))
 
 (defn clock
   ([]
-     (let [start (wall-time)]
-       (clock #(- (wall-time) start) identity)))
-  ([inner-clock]
-     (clock inner-clock identity))
-  ([inner-clock modifier]
-     (composition inner-clock modifier)))
+     (clock identity))
+  ([modifier]
+     (let [t0 (wall-time)]
+       (atom #(modifier (- (wall-time) t0))))))
 
-(defn update-clock! [c outer-fn]
-  (let [i-start ((inner c))
-        o-start ((outer c) i-start)]
-    (outer! c #(+ o-start (outer-fn (- % i-start))))))
+(defn update-clock [c mod]
+  (swap!
+   c
+   (fn [c]
+     (let [t0 (c)
+           c @(clock mod)]
+       (fn [] (+ t0 (c))))))
+  c)
 
-(defn clock-speed!
-  "Sets the speed of the clock, where 1 is real-time."
-  [c speed]
-  (update-clock! c #(* % speed)))
+(defn now [c]
+  (@c))
 
-(defprotocol Animation
-  (to! [this target time])
-  (dest [this]))
 
-(defn animation
-  ([value clock]
-     (animation value clock identity))
-  ([value clock curve]
-     (let [this {:origin (ref value)
-                 :target (ref value)
-                 :dest (ref (constantly 1))}
-           sample #(let [t (@(:interpolator this))]
-                     (if (= 1 t)
-                       @(:dest this)
-                       (lerp @(:origin this) @(:dest this) t)))]
-       (reify
-        clojure.lang.IDeref
-        (deref [] (sample))
-        Animation
-        (dest [] @(:dest this))
-        (to!
-         [target time]
-         (dosync
-          (ref-set (:origin this) (sample))
-          (ref-set (:target this) target)
-          (let [start @clock]
-            (ref-set (:interpolator this) #(max 0 (min 1 (/ (- @clock start) time)))))))))))
