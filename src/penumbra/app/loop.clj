@@ -32,9 +32,9 @@
 ;;;
 
 (defn timed-fn [clock f]
-  (let [previous (atom @clock)]
+  (let [previous (atom (time/now clock))]
     (fn [& args]
-      (let [now @clock]
+      (let [now (time/now clock)]
         (try
          (apply f (list* [(- now @previous) now] args))
          (finally
