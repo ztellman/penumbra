@@ -21,11 +21,21 @@
   [pos]
   (map - (map #(mod %1 %2) (map + pos *dim*) (map (partial * 2) *dim*)) *dim*))
 
-(defn expired? [x] ((:expired? x)))
-(defn render [x] ((:render x)))
+(defn expired? [x]
+  ((:expired? x)))
 
-(defn radius [x] (if (number? (:radius x)) (:radius x) ((:radius x))))
-(defn position [x] (if (sequential? (:position x)) (:position x) ((:position x))))
+(defn render [x]
+  ((:render x)))
+
+(defn radius [x]
+  (if (number? (:radius x))
+    (:radius x)
+    ((:radius x))))
+
+(defn position [x]
+  (if (sequential? (:position x))
+    (:position x)
+    ((:position x))))
 
 (defn intersects? [a b]
   (let [min-dist (+ (radius a) (radius b))
