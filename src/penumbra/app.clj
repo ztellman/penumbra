@@ -266,11 +266,11 @@
   ([app]
      (loop/with-app app
        (let [stopped? (controller/stopped?)]
+         (controller/resume!)
          (when stopped?
            (dosync (ref-set (:queue app) (queue/create)))
            (publish! :init)
            (publish! :reshape (concat [0 0] (dimensions))))
-         (controller/resume!)
          (input/resume!)
          (speed! 1)))))
 
