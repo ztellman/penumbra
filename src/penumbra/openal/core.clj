@@ -8,10 +8,17 @@
 
 (ns penumbra.openal.core
   (:use [clojure.contrib.def])
-  (:import [org.lwjgl.openal AL AL10 AL11 ALC10 ALC11]
+  (:import [org.lwjgl.openal AL AL10 AL11]
            [java.lang.reflect Field Method]))
 
-(defvar- containers [AL10 AL11 ALC10 ALC11])
+;;;
+
+(defvar *check-errors* true
+  "Check errors after every OpenAL call.")
+
+;;;
+
+(defvar- containers [AL10 AL11])
 
 (defn- get-fields [#^Class static-class]
   (. static-class getFields))
@@ -60,6 +67,14 @@
         (throw (Exception. (str "Cannot locate enumeration " k))))
       (eval `(. ~(field-container sym) ~sym)))))
 
+(defn check-error
+  ([]
+     (check-error ""))
+  ([name]
+     (let [error (AL10/alGetError)]
+       (if (not (zero? error))
+         (throw (Exception. (str "OpenAL error: " name " " (enum-name error))))))))
+
 (defn- get-doc-string [method]
   (str "Wrapper for " method ".  "
        "Type signature: ["
@@ -81,7 +96,11 @@
       `(defmacro ~import-as
          ~doc-string
          [& args#]
-         `(. ~'~container ~'~import-from ~@(map (fn [x#] (or (enum x#) x#)) args#))))))
+         `(do
+            (let [~'value# (. ~'~container ~'~import-from ~@(map (fn [x#] (or (enum x#) x#)) args#))]
+              (when *check-errors* 
+                (check-error ~'~method-name))
+              ~'value#))))))
 
 (defmacro al-import-
   "Private version of al-import"
