@@ -1,10 +1,10 @@
-;   Copyright (c) Zachary Tellman. All rights reserved.
-;   The use and distribution terms for this software are covered by the
-;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-;   which can be found in the file epl-v10.html at the root of this distribution.
-;   By using this software in any fashion, you are agreeing to be bound by
-;   the terms of this license.
-;   You must not remove this notice, or any other, from this software.
+;;   Copyright (c) Zachary Tellman. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
+;;   which can be found in the file epl-v10.html at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.core
   (:use [clojure.contrib.def :only (defn-memo defmacro- defvar defvar-)])
@@ -22,6 +22,11 @@
 
 (defvar *inside-begin-end* false
   "Are we within a glBegin/glEnd scope")
+
+(defvar *check-errors* true
+  "Causes errors in glGetError to throw an exception.  This creates minimal CPU overhead (~3%), and is almost always worth having enabled.")
+
+;;;
 
 (defvar *intra-primitive-transform* (atom false)
   "Have we encountered an intra-primitive (i.e. *inside-begin-end* is true) transformation")
@@ -43,9 +48,6 @@
 
 (defvar *tex-count-threshold* 100
   "The threshold for number of allocated textures which will trigger collection of any which are unused")
-
-(defvar *check-errors* true
-  "Causes errors in glGetError to throw an exception.  This creates minimal CPU overhead (~3%), and is almost always worth having enabled.")
 
 (defvar *view* (atom [0 0 0 0])
   "Pixel boundaries of render window.  Parameters represent [x y width height].")

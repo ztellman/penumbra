@@ -7,10 +7,12 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.context
-  (:use [penumbra.opengl core]
-        [penumbra opengl text])
+  (:use [penumbra.opengl core])
+  (:use [penumbra opengl text])
   (:require [penumbra.opengl [texture :as texture]])
   (:import [org.lwjgl.opengl Display]))
+
+;;;
 
 (defn draw* []
   (with-projection (ortho-view 0 1 1 0 -1 1)
