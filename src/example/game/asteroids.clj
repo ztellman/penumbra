@@ -86,23 +86,25 @@
   (def asteroid-meshes (doall (take 20 (repeatedly #(gen-asteroid-geometry 12 100))))))
 
 (defn gen-asteroid [& args]
-  (let [hash (apply hash-map args)
-        initial-position (or (:position hash) [0 0])
-        radius (or (:radius hash) 1)
-        theta (or (:theta hash) (rand 360))
-        speed (or (:speed hash) 1)
+  (let [params (merge
+                {:position [0 0]
+                 :radius 1
+                 :theta (rand 360)
+                 :speed 1}
+                (apply hash-map args))
         birth (app/now)
         elapsed #(- (app/now) birth)
         asteroid (nth asteroid-meshes (rand-int 20))
-        [x y] (map (partial * speed) (cartesian theta))
-        position #(wrap (map + initial-position (map * [x y] (repeat (elapsed)))))]
-    {:expired? #(< radius 0.25)
+        [x y] (map (partial * (:speed params)) (cartesian (:theta params)))
+        position #(wrap (map + (:position params) (map * [x y] (repeat (elapsed)))))]
+    {:expired? #(< (:radius params) 0.25)
      :position position
-     :radius radius
+     :radius (:radius params)
      :render #(push-matrix
                 (apply translate (position))
-                (rotate (* speed (elapsed) -50) 1 0 0) (rotate theta 0 1 0)
-                (scale radius radius radius)
+                (rotate (* (:speed params) (elapsed) -50) 1 0 0)
+                (rotate (:theta params) 0 1 0)
+                (apply scale (->> params :radius repeat (take 3)))
                 (color 0.6 0.6 0.6)
                 (call-display-list asteroid))}))
 
@@ -135,24 +137,25 @@
     (call-display-list particle-quad)))
 
 (defn gen-particle [& args]
-  (let [hash (apply hash-map args)
-        initial-position (or (:position hash) [0 0])
-        theta (or (:theta hash) (rand 360))
-        speed (or (:speed hash) 1)
-        radius (or (:radius hash) (+ 0.25 (rand 0.5)))
-        [r g b] (or (:color hash) [1 1 1])
-        lifespan (or (:lifespan hash) 1)
+  (let [params (merge
+                {:position [0 0]
+                 :theta (rand 360)
+                 :speed 1
+                 :radius (+ 0.25 (rand 0.5))
+                 :color [1 1 1]
+                 :lifespan 1}
+                (apply hash-map args))
         birth (app/now)
-        [x y] (map (partial * speed) (cartesian theta))
+        [x y] (map (partial * (:speed params)) (cartesian (:theta params)))
         elapsed #(- (app/now) birth)
-        position #(wrap (map + initial-position (map * [x y] (repeat (elapsed)))))]
-    {:expired? #(> (- (app/now) birth) lifespan)
+        position #(wrap (map + (:position params) (map * [x y] (repeat (elapsed)))))]
+    {:expired? #(> (- (app/now) birth) (:lifespan params))
      :position position
-     :radius radius
+     :radius (:radius params)
      :render #(draw-particle
                (position)
-               radius
-               [r g b (max 0 (- 1 (Math/pow (/ (elapsed) lifespan) 3)))])}))
+               (:radius params)
+               (concat (:color params) [(max 0 (- 1 (Math/pow (/ (elapsed) (:lifespan params)) 3)))]))}))
 
 ;;spaceship
 
