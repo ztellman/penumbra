@@ -21,6 +21,7 @@
 (al-import- alListener al-listener)
 (al-import- alSource source-array)
 (al-import- alSourcef source-f)
+(al-import- alSourcei source-i)
 (al-import- alGenSources gen-sources)
 (al-import- alGenBuffers gen-buffers)
 (al-import- alBufferData buffer-data)
@@ -35,9 +36,10 @@
   (al-listener (enum property) (FloatBuffer/wrap (float-array args))))
 
 (defn source [source property & args]
-  (if (< 1 (count args))
-    (source-array source (enum property) (FloatBuffer/wrap (float-array args)))
-    (source-f source (enum property) (first args))))
+  (cond
+   (< 1 (count args)) (source-array source (enum property) (FloatBuffer/wrap (float-array args)))
+   (integer? (first args)) (source-i source (enum property) (first args))
+   :else (source-f source (enum property) (first args))))
 
 (defn gen-source []
   (let [ary (int-array 1)]
@@ -50,7 +52,7 @@
     (first ary)))
 
 (defn bind-buffer [src buf]
-  (source src :buffer buf))
+  (source-i src :buffer buf))
 
 (defn load-wav-file [path]
   (let [wav (WaveData/create (java.io.FileInputStream. path))
@@ -58,6 +60,7 @@
         src (gen-source)]
     (try
      (buffer-data buf (.format wav) (.data wav) (.samplerate wav))
+     (source src :buffer buf)
      src
      (finally
       (.dispose wav)))))
