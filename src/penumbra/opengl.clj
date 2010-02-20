@@ -219,12 +219,15 @@
 (gl-import- glIsList gl-is-list)
 
 (defn display-list?
+  "Returns true if display-list is a valid display list within the render context."
   [display-list]
   (if (nil? display-list)
     false
     (gl-is-list display-list)))
 
-(defn delete-display-list [display-list]
+(defn delete-display-list
+  "Deletes display-list"
+  [display-list]
   (gl-delete-lists display-list 1))
 
 (defn call-display-list
@@ -268,7 +271,9 @@
 (gl-import- glHint hint)
 (gl-import- glBlendFunc blend-func)
 
-(defn enable-high-quality-rendering []
+(defn enable-high-quality-rendering
+  "Sets all flags and hints necessary for high quality rendering."
+  []
   (hint :point-smooth-hint :nicest)
   (hint :line-smooth-hint :nicest)
   (hint :polygon-smooth-hint :nicest)
@@ -329,7 +334,7 @@
     :point-cloud (gl-polygon-mode :front-and-back :point)))
 
 (defmacro with-render-mode
-  "Sets render-mode within inner scope."
+  "Sets render-mode within inner scope.  Valid modes are [:solid :wireframe :point-cloud]."
   [mode & body]
   `(let [mode# (get-integer :polygon-mode)]
      (render-mode ~mode)
@@ -413,15 +418,21 @@
 (gl-import- glRenderbufferStorageEXT gl-render-buffer-storage)
 (gl-import- glFramebufferRenderbufferEXT gl-frame-buffer-render-buffer)
 
-(defn gen-render-buffer []
+(defn gen-render-buffer
+  "Creates a render buffer."
+  []
   (let [a (int-array 1)]
     (gl-gen-render-buffers (IntBuffer/wrap a))
     (first a)))
 
-(defn bind-render-buffer [rb]
+(defn bind-render-buffer
+  "Binds a render buffer."
+  [rb]
   (gl-bind-render-buffer :renderbuffer rb))
 
-(defn attach-depth-buffer [dim]
+(defn attach-depth-buffer
+  "Attaches a depth buffer to the currently bound render buffer."
+  [dim]
   (let [depth-buffer (gen-render-buffer)
         dim (vec dim)]
     (bind-render-buffer depth-buffer)
@@ -538,14 +549,19 @@
 (gl-import glTexParameteri tex-parameter)
 
 (defn texture
+  "Calls glTexture*d."
   ([u] (gl-tex-coord-1 u))
   ([u v] (gl-tex-coord-2 u v))
   ([u v w] (gl-tex-coord-3 u v w)))
 
-(defn bind-texture [t]
+(defn bind-texture
+  "Binds a texture struct."
+  [t]
   (when t (gl-bind-texture (enum (:target t)) (:id t))))
 
-(defmacro with-texture [t & body]
+(defmacro with-texture
+  "Binds a texture struct within the inner scope."
+  [t & body]
   `(do
      (try
       (when (:transform ~t)
@@ -561,16 +577,23 @@
          (gl-pop-matrix)
          (gl-matrix-mode :modelview))))))
 
-(defn destroy-texture [tex]
+(defn destroy-texture
+  "Deletes a texture struct."
+  [tex]
   (gl-delete-textures (IntBuffer/wrap (int-array (:id tex)))))
 
 (defn create-byte-texture
+  "Creates a texture with pixel format :unsigned-byte.
+   Valid targets include [:texture-rectangle :texture-2d]."
   ([w h]
      (create-byte-texture :texture-2d w h))
   ([target w h]
      (create-texture target [w h] :rgba :rgba :unsigned-byte 4)))
 
-(defn convert-texture [target tex]
+(defn convert-texture
+  "Converts a texture from one target to another.
+   Can be used to convert a :texture-2d texture to :texture-rectangle, or vise-versa."
+  [target tex]
   (let [target (enum target)
         [w h] (:dim tex)
         tex* (create-texture
@@ -584,12 +607,17 @@
     (gl-copy-tex-sub-image-2d target 0 0 0 0 0 w h)
     tex*))
 
-(defn convert-texture! [target tex]
+(defn convert-texture!
+  "Convers a texture, and deletes source texture."
+  [target tex]
   (let [converted-texture (convert-texture target tex)]
     (release! tex)
     converted-texture))
 
 (defn load-texture-from-image
+  "Creates a texture from a BufferedImage.
+   If subsample is set to true, the texture will have mip-maps.
+   Possible filters include [:nearest :linear], default is :linear."
   ([image]
      (load-texture-from-image image false))
   ([image subsample]
@@ -608,14 +636,16 @@
           filter)))))
 
 (defn load-texture-from-file
-  ([filename]
-     (load-texture-from-file filename false))
-  ([filename subsample]
-     (load-texture-from-file filename subsample :linear))
-  ([filename subsample filter]
-     (load-texture-from-image (ImageIO/read (File. filename)) subsample filter)))
+  "Loads a texture from an image file."
+  ([path]
+     (load-texture-from-file path false))
+  ([path subsample]
+     (load-texture-from-file path subsample :linear))
+  ([path subsample filter]
+     (load-texture-from-image (ImageIO/read (File. path)) subsample filter)))
 
 (defn copy-to-texture
+  "Copies array to texture.  Assumes array is in correct format for target texture."
   [tex ary]
   (bind-texture tex)
   (let [target  (enum (:target tex))
@@ -628,7 +658,26 @@
       2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
       3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))))
 
+(defn draw-to-texture!
+  "Allows for contents of a 32-bit RGBA texture to be defined by a lookup function.
+   Signature of function is [[x y] [nx ny]] where [x y] is the absolute pixel coordinate,
+   and [nx ny] is the normalized pixel coordinate.  Must return seq of format [r g b a],
+   where all values are between 0 and 1."
+  [tex fun]
+  (bind-texture tex)
+  (let [target  (enum (:target tex))
+        p-f     (enum (:pixel-format tex))
+        i-t     (enum (:internal-type tex))
+        dim     (vec (:dim tex))
+        buf     (populate-buffer fun tex)]
+    (condp = (count (filter #(not= 1 %) dim))
+      1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
+      2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
+      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))
+    nil))
+
 (defn draw-to-subsampled-texture!
+  "Same as draw-to-texture!, but resulting texture is mip-mapped."
   [tex fun]
   (bind-texture tex)
   (tex-parameter (enum (:target tex)) :texture-min-filter :linear-mipmap-linear)
@@ -643,21 +692,9 @@
       buf)
     nil))
 
-(defn draw-to-texture!
-  [tex fun]
-  (bind-texture tex)
-  (let [target  (enum (:target tex))
-        p-f     (enum (:pixel-format tex))
-        i-t     (enum (:internal-type tex))
-        dim     (vec (:dim tex))
-        buf     (populate-buffer fun tex)]
-    (condp = (count (filter #(not= 1 %) dim))
-      1 (gl-tex-sub-image-1d target 0 0 (dim 0) p-f i-t buf)
-      2 (gl-tex-sub-image-2d target 0 0 0 (dim 0) (dim 1) p-f i-t buf)
-      3 (gl-tex-sub-image-3d target 0 0 0 0 (dim 0) (dim 1) (dim 2) p-f i-t buf))
-    nil))
-
-(defn blit [tex]
+(defn blit
+  "Blits texture to full screen.  Ignores current projection matrix, but honors current transform matrix."
+  [tex]
   (when tex
     (let [[w h]
           (if (= :texture-rectangle (:target tex))
@@ -674,7 +711,9 @@
                (texture w h) (vertex 1 1)
                (texture 0 h) (vertex 0 1)))))))))
 
-(defn blit! [tex]
+(defn blit!
+  "Same as blit, but releases texture after rendering."
+  [tex]
   (blit tex)
   (release! tex))
 
