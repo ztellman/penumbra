@@ -1,4 +1,4 @@
-(defproject penumbra "0.5.0-SNAPSHOT"
+(defproject penumbra "0.5.0"
   :description "An idiomatic wrapper for OpenGL"
   :dependencies [[org.clojure/clojure "1.1.0"]
                  [org.clojure/clojure-contrib "1.1.0"]

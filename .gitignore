@@ -3,3 +3,5 @@ penumbra.iws
 penumbra.ipr
 *.DS_Store
 /scratch/*
+/lib/*
+/native/*
