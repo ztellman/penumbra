@@ -98,7 +98,7 @@
     0 :left
     1 :right
     2 :center
-    (keyword (str "button" (inc button-idx)))))
+    (keyword (str "mouse-" (inc button-idx)))))
 
 (defn handle-mouse! []
   (let [[w h] (dimensions *window*)]

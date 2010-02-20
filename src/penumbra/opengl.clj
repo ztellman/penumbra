@@ -15,7 +15,8 @@
   (:import (java.lang.reflect Field)
            (java.awt Font)
            (java.nio ByteBuffer IntBuffer FloatBuffer)
-           (java.io File)
+           (java.io File ByteArrayOutputStream ByteArrayInputStream)
+           (javax.imageio ImageIO)
            (org.newdawn.slick.opengl InternalTextureLoader Texture)))
 
 ;;;
@@ -588,26 +589,31 @@
     (release! tex)
     converted-texture))
 
-(defn load-texture-from-file
-  ([filename subsample]
-     (load-texture-from-file filename subsample :linear))
-  ([filename subsample filter]
-     (texture-from-texture-object
-      (-> (InternalTextureLoader/get)
-          (.getTexture
-           (File. filename)
-           false
-           (enum filter)))
-      filter)))
-
-'(defn load-texture-from-image
+(defn load-texture-from-image
+  ([image]
+     (load-texture-from-image image false))
   ([image subsample]
      (load-texture-from-image image subsample :linear))
   ([image subsample filter]
-     (let [rgba (enum :rgba)
-           data (TextureIO/newTextureData image rgba rgba subsample "")
-           tex  (TextureIO/newTexture data)]
-       (texture-from-texture-io tex filter))))
+     (let [output-stream (ByteArrayOutputStream.)]
+       (ImageIO/write image "bmp" output-stream)
+       (let [input-stream (ByteArrayInputStream. (.toByteArray output-stream))]
+         (texture-from-texture-object
+          (-> (InternalTextureLoader/get)
+              (.getTexture
+               input-stream
+               "bmp"
+               false
+               (enum filter)))
+          filter)))))
+
+(defn load-texture-from-file
+  ([filename]
+     (load-texture-from-file filename false))
+  ([filename subsample]
+     (load-texture-from-file filename subsample :linear))
+  ([filename subsample filter]
+     (load-texture-from-image (ImageIO/read (File. filename)) subsample filter)))
 
 (defn copy-to-texture
   [tex ary]

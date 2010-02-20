@@ -344,7 +344,21 @@
     true))
 
 (defn start
-  "Starts a window from scratch, or from a closed state."
+  "Starts a window from scratch, or from a closed state.
+   Supported callbacks are: 
+   :update         [[delta time] state]
+   :display        [[delta time] state]
+   :reshape        [[x y width height] state]
+   :init           [state]
+   :close          [state]
+   :mouse-drag     [[[dx dy] [x y]] button state]
+   :mouse-move     [[[dx dy] [x y]] state]
+   :mouse-up       [[x y] button state]
+   :mouse-click    [[x y] button state]
+   :mouse-down     [[x y] button state]
+   :key-type       [key state]
+   :key-press      [key state]
+   :key-release    [key state]"
   ([callbacks state]
      (start (create callbacks state)))
   ([app]
