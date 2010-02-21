@@ -580,7 +580,7 @@
 (defn destroy-texture
   "Deletes a texture struct."
   [tex]
-  (gl-delete-textures (IntBuffer/wrap (int-array (:id tex)))))
+  (destroy-textures [tex]))
 
 (defn create-byte-texture
   "Creates a texture with pixel format :unsigned-byte.
@@ -703,7 +703,7 @@
       (push-matrix
         (with-texture tex
           (color 1 1 1)
-          (with-projection (ortho-view 0 1 1 0 -1 1)
+          (with-projection (ortho-view 0 1 0 1 -1 1)
             (with-program nil
               (draw-quads
                (texture 0 0) (vertex 0 0)
@@ -725,6 +725,5 @@
        (with-viewport [0 0 w# h#]
          (attach-depth-buffer [w# h#])
          (attach-textures [] [~tex])
-         (clear)
          (push-matrix
            ~@body)))))
