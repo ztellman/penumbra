@@ -20,6 +20,7 @@
 
 (defn reset-image [tex]
   (render-to-texture tex
+    (clear)                 
     (with-projection (ortho-view 0 2 0 2 -1 1)
       (dotimes [_ 100]
         (apply color (take 3 (repeatedly rand)))
