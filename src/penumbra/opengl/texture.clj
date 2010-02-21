@@ -241,7 +241,11 @@
 
 ;;;
 
-(defmacro to-byte [num] `(byte (* 255 (double ~num)))) ;;this is a macro for performance reasons
+(defmacro to-byte [num] ;;this is a macro for performance reasons
+  `(let [n# (int (* 255 (double ~num)))]
+     (if (> n# 127)
+       (byte (- n# 256))
+       (byte n#)))) 
 
 (defn put [#^ByteBuffer buf [r g b a]]
   (doto buf
