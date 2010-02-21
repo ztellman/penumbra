@@ -12,7 +12,8 @@
 
 (defn display [_ _]
   (text/with-font (text/font "Inconsolata" :size 50)
-    (text/write-to-screen "hello world" 0 0)))
+    (text/write-to-screen "hello world" 0 0)
+    (text/write-to-screen "hello world" 0 100)))
 
 (defn start []
   (app/start* {:display display} {}))
