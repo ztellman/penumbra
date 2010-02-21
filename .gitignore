@@ -5,3 +5,5 @@ penumbra.ipr
 /scratch/*
 /lib/*
 /native/*
+penumbra.jar
+pom.xml
