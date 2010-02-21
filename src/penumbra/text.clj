@@ -46,8 +46,8 @@
   (with-font (or *font* (font "Tahoma" :size 20))
     (with-disabled [:texture-rectangle :lighting]
       (with-enabled [:texture-2d :blend]
-        (let [[x y w h] @*view*]
-          (with-projection (ortho-view x (+ x w) (+ y h) y -1 1)
+        (let [[x-origin y-origin w h] @*view*]
+          (with-projection (ortho-view x-origin (+ x-origin w) (+ y-origin h) y-origin -1 1)
             (push-matrix
              (load-identity)
              (TextureImpl/bindNone)
