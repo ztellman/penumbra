@@ -11,6 +11,7 @@
   (:require [penumbra.app :as app]))
 
 (defn init [state]
+  (app/title! "Accumulate")
   (enable :texture-2d)
   (point-size 5)
   state)
