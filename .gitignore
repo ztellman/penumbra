@@ -3,3 +3,7 @@ penumbra.iws
 penumbra.ipr
 *.DS_Store
 /scratch/*
+/lib/*
+/native/*
+penumbra.jar
+pom.xml
