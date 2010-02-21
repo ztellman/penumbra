@@ -19,8 +19,10 @@
   (ortho-view 0 w h 0 -1 1)
   (when-let [t (:tex state)]
     (destroy-texture t))
-  (assoc state
-    :tex (create-byte-texture w h)))
+  (let [t (create-byte-texture w h)]
+    (render-to-texture t (clear))
+    (assoc state
+      :tex t)))
 
 (defn mouse-drag [_ [x y] button state]
   (assoc state
@@ -28,8 +30,7 @@
 
 (defn display [_ state]
   (render-to-texture (:tex state)
-    (blit (:tex state))
-    (when-let [p (:point state)]
+     (when-let [p (:point state)]
       (with-disabled :texture-2d
         (draw-points (apply vertex p)))))
   (blit (:tex state)))
