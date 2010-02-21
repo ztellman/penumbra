@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns test.examples
+(ns examples
   (:use [clojure.test])
   (:require [example.opengl.gears :as gears]
             [example.opengl.sierpinski :as sierpinski]
