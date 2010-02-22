@@ -17,7 +17,7 @@
            (java.nio ByteBuffer IntBuffer FloatBuffer)
            (java.io File ByteArrayOutputStream ByteArrayInputStream)
            (javax.imageio ImageIO)
-           (org.newdawn.slick.opengl InternalTextureLoader Texture)))
+           (org.newdawn.slick.opengl InternalTextureLoader Texture TextureImpl)))
 
 ;;;
 
@@ -625,15 +625,17 @@
   ([image subsample filter]
      (let [output-stream (ByteArrayOutputStream.)]
        (ImageIO/write image "bmp" output-stream)
-       (let [input-stream (ByteArrayInputStream. (.toByteArray output-stream))]
-         (texture-from-texture-object
-          (-> (InternalTextureLoader/get)
-              (.getTexture
-               input-stream
-               "bmp"
-               false
-               (enum filter)))
-          filter)))))
+       (.clear (InternalTextureLoader/get))
+       (let [input-stream (ByteArrayInputStream. (.toByteArray output-stream))
+             texture (-> (InternalTextureLoader/get)
+                         (.getTexture
+                          input-stream
+                          "bmp"
+                          false
+                          (enum filter)))]
+         (if subsample
+           (subsampled-texture-from-texture-object texture filter)
+           (texture-from-texture-object texture filter))))))
 
 (defn load-texture-from-file
   "Loads a texture from an image file."

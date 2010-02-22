@@ -204,33 +204,46 @@
 
 (defn texture-from-texture-object
   ([#^Texture tex]
+     (texture-from-texture-object tex :linear))
+  ([#^Texture tex filter]
      (let [alpha? (.hasAlpha tex)
            dim [(.getImageWidth tex) (.getImageHeight tex)]
            tex-dim [(.getTextureWidth tex) (.getTextureHeight tex)]
            [sx sy] (map / dim tex-dim)
-           texture (with-meta
-                     (struct-map texture-struct
-                       :dim dim
-                       :id (.getTextureID tex)
-                       :target :texture-2d
-                       :transform #(gl-scale-texture sx sy 1)
-                       :pixel-format (if alpha? :rgba :rgb)
-                       :internal-format (if alpha? :rgba :rgb)
-                       :internal-type :unsigned-byte
-                       :permanent (ref false)
-                       :tuple (if alpha? 4 3)
-                       :ref-count (ref 1))
-                     {:type ::texture})]
-       (add-texture texture)
-       texture))
-  ([tex filter]
-     (let [tex (texture-from-texture-object tex)
+           tex (with-meta
+                 (struct-map texture-struct
+                   :dim dim
+                   :id (.getTextureID tex)
+                   :target :texture-2d
+                   :transform #(gl-scale-texture sx sy 1)
+                   :pixel-format (if alpha? :rgba :rgb)
+                   :internal-format (if alpha? :rgba :rgb)
+                   :internal-type :unsigned-byte
+                   :permanent (ref false)
+                   :tuple (if alpha? 4 3)
+                   :ref-count (ref 1))
+                 {:type ::texture})
            target (enum (:target tex))
            filter (enum filter)]
-       (gl-bind-texture :texture-2d (:id tex))
-       (gl-tex-parameter target :texture-min-filter filter)
-       (gl-tex-parameter target :texture-mag-filter filter)
-       tex)))
+     (add-texture tex)
+     (gl-bind-texture target (:id tex))
+     (gl-tex-parameter target :texture-min-filter filter)
+     (gl-tex-parameter target :texture-mag-filter filter)
+     tex)))
+
+(defn subsampled-texture-from-texture-object
+  [#^Texture tex filter]
+  (let [texture (texture-from-texture-object tex filter)]
+    (glu-build-2d-mipmaps
+     :texture-2d
+     (enum (:internal-format texture))
+     (.getTextureWidth tex)
+     (.getTextureHeight tex)
+     (enum (:pixel-format texture))
+     (enum (:internal-type texture))
+     (ByteBuffer/wrap (.getTextureData tex)))
+    (gl-tex-parameter :texture-2d :texture-min-filter :linear-mipmap-nearest)
+    texture))
 
 ;;;
 
