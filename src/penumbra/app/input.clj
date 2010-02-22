@@ -84,11 +84,15 @@
      (if (Keyboard/getEventKeyState)
        (do
          (dosync (alter (:keys *input*) #(assoc % name key)))
-         (publish! :key-press key))
+         (if (Keyboard/isRepeatEvent)
+           (publish! :key-type key)
+           (publish! :key-press key)))
        (dosync
          (let [pressed-key (@(:keys *input*) name)]
-           (alter (:keys *input*) #(dissoc % name key))
-           (publish! :key-release pressed-key))))
+           (alter (:keys *input*) #(dissoc % name))
+           (publish! :key-type pressed-key)
+           (when-not (Keyboard/isRepeatEvent)
+             (publish! :key-release pressed-key)))))
      nil)))
 
 ;;Mouse
@@ -116,7 +120,14 @@
           (cond
            ;;mouse down/up 
            (and (zero? dx) (zero? dy) button?)
-           (publish! (if button-state :mouse-down :mouse-up) [x y] (mouse-button-name button))
+           (do
+             (publish! (if button-state :mouse-down :mouse-up) [x y] (mouse-button-name button))
+             (dosync
+              (if button-state
+                (alter (:mouse-buttons *input*) #(assoc % button [x y]))
+                (let [loc (@(:mouse-buttons *input*) button)]
+                  (publish! :mouse-click loc (mouse-button-name button))
+                  (alter (:mouse-buttons *input*) #(dissoc % button))))))
            ;;mouse-move
            (and (not-any? identity buttons) (or (not (zero? dx)) (not (zero? dy))))
            (publish! :mouse-move [dx dy] [x y])
