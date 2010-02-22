@@ -40,7 +40,7 @@
 (defn intersects? [a b]
   (let [min-dist (+ (radius a) (radius b))
         dist (map - (position a) (position b))]
-    (> min-dist (length-squared dist))))
+    (>= (* min-dist min-dist) (length-squared dist))))
 
 (defn rand-color [a b]
   (map #(+ %1 (rand (- %2 %1))) a b))
