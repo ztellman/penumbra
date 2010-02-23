@@ -9,13 +9,17 @@
   <scm>
     <connection>scm:git:git://github.com/ztellman/penumbra.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/ztellman/penumbra.git</developerConnection>
-    <tag>139cfd7805a62ce04e9a89f1139e65cd16edcd23</tag>
+    <tag>2041e762504ec7e966903bfd0e1ccc5b05267dd8</tag>
     <url>http://github.com/ztellman/penumbra</url>
   </scm>
   <repositories>
     <repository>
       <id>central</id>
       <url>http://repo1.maven.org/maven2</url>
+    </repository>
+    <repository>
+      <id>clojure</id>
+      <url>http://build.clojure.org/releases</url>
     </repository>
     <repository>
       <id>clojure-snapshots</id>
