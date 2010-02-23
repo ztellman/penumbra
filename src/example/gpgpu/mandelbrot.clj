@@ -71,13 +71,13 @@
 (defn mouse-down [[x y] button state]
   (let [ul    (:upper-left state)
         lr    (:lower-right state)
-        coord (map / [x y] (:dim state))]
+        [nx ny] (map / [x y] (:dim state))]
     (update-bounds
       (assoc state
         :zoom (max 1
                    (* (:zoom state)
                       (if (= button :left) 2 0.5)))
-        :offset (map + ul (map * coord (map - lr ul)))))))
+        :offset (map + ul (map * [nx (- 1 ny)] (map - lr ul)))))))
 
 (defn reshape [[x y w h] state]
   (ortho-view 0 1 1 0 -1 1)
