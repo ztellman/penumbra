@@ -12,6 +12,35 @@
 (defn wall-time []
   (/ (System/nanoTime) 1e9))
 
+(defprotocol composition
+  (inner [this])
+  (outer [this])
+  (update! [this inner outer]))
+
+(defn clock
+  ([]
+     (let [t0 (wall-time)]
+       (clock #(- (wall-time) t0) identity)))
+  ([inner outer]
+     (let [o (ref outer)
+           i (ref inner)]
+       (reify
+        composition
+        (inner [] @i)
+        (outer [] @o)
+        (update! [inner outer]
+                (let [i0 (inner)
+                      o0 (outer i0)]
+                  (dosync
+                   (ref-set i #(- (inner) i0))
+                   (ref-set o #(+ (outer %) o0))
+                   nil)))
+        clojure.lang.IDeref
+        (deref [] (@o (@i)))))))
+
+(defn clock-speed! [clock speed]
+  (update! clock (inner clock) #(* % speed)))
+
 (defn animation
   ([start finish duration]
      (animation start finish duration identity))
@@ -23,12 +52,9 @@
              finish
              (lerp start finish (/ elapsed duration))))))))
 
-(defn clock
-  ([]
-     (clock identity))
-  ([modifier]
-     (let [t0 (wall-time)]
-       (atom #(modifier (- (wall-time) t0))))))
+
+
+
 
 (defn update-clock [c mod]
   (swap!

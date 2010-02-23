@@ -108,7 +108,7 @@
 
 (defmethod print-method ::app [app writer]
   (let [{size :size active-percent :active-percent} (when (:texture-pool app) (texture/texture-pool-stats @(:texture-pool app)))
-        elapsed-time (time/now (:clock app))
+        elapsed-time @(:clock app)
         state (cond
                (controller/stopped? (:controller app)) "STOPPED"
                (controller/paused? (:controller app)) "PAUSED"
@@ -133,14 +133,13 @@
   ([]
      (now *app*))
   ([app]
-     (time/now (clock app))))
+     @(clock app)))
 
 (defn speed!
   ([clock-speed]
      (speed! *app* clock-speed))
   ([app clock-speed]
-     (time/update-clock (:clock app) #(* % clock-speed))
-     nil))
+     (time/clock-speed! (clock app) clock-speed)))
 
 ;;Input
 

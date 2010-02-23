@@ -22,7 +22,7 @@
       (fn []
         (if-let [actions
                  (dosync
-                  (let [now (time/now clock)
+                  (let [now @clock
                         top (take-while #(>= now (first %)) @heap)]
                     (when-not (empty? top)
                       (alter heap #(apply disj (list* % top)))
@@ -40,7 +40,7 @@
      (let [heap (ref (sorted-set-by #(- (compare (first %2) (first %1)))))]
        (dotimes [_ 1]
          (.start (create-thread app clock heap)))
-       (fn [delay f] (dosync (alter heap #(conj % [(+ (time/now clock) delay) f])))))))
+       (fn [delay f] (dosync (alter heap #(conj % [(+ @clock delay) f])))))))
 
 ;;;
 
@@ -64,10 +64,10 @@
      (let [queue @(:queue app)
            clock (:clock app)
            hz (atom hz)
-           target (atom (+ (time/now clock) (/ 1 @hz)))]
+           target (atom (+ @clock (/ 1 @hz)))]
        (letfn [(f*
                 []
-                (let [start (time/now clock)]
+                (let [start @clock]
                   (binding [*hz* hz]
                     (f))
                   (let [hz @hz]
