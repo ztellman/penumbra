@@ -9,7 +9,7 @@
   <scm>
     <connection>scm:git:git://github.com/ztellman/penumbra.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/ztellman/penumbra.git</developerConnection>
-    <tag>2041e762504ec7e966903bfd0e1ccc5b05267dd8</tag>
+    <tag>f78f2e6b866414ac59e0fa69aa100e397905a827</tag>
     <url>http://github.com/ztellman/penumbra</url>
   </scm>
   <repositories>
