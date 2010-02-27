@@ -231,6 +231,10 @@
   ([app hz f]
      (queue/periodic-update app hz #(sync-update app f))))
 
+(defn state
+  ([] (state *app*))
+  ([app] (:state app)))
+
 ;;App state
 
 (defn cleanup!
