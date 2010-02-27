@@ -25,7 +25,7 @@
     (struct-map controller-struct
       :paused? (atom false)
       :stopped? (atom true)
-      :invalidated? (atom false)
+      :invalidated? (atom true)
       :latch (atom (CountDownLatch. 1)))
     {:type ::controller}))
 

@@ -92,6 +92,7 @@
   (let [clock (time/clock)
         app (with-meta
               (struct-map app-struct
+                :nested *app*
                 :window (window/create)
                 :input (input/create)
                 :controller (controller/create)
@@ -277,13 +278,16 @@
   ([]
      (destroy *app*))
   ([app]
-     (try
-      (publish! :close)
-      (-> app
-          (update-in [:input] input/destroy)
-          (update-in [:window] window/destroy))
-      (finally
-       (context/destroy)))))
+     (let [nested? (:nested app)]
+       (try
+        (publish! :close)
+        (when-not nested?
+          (-> app
+              (update-in [:input] input/destroy)
+              (update-in [:window] window/destroy)))
+        (finally
+         (when-not nested?
+           (context/destroy)))))))
 
 (defn- init
   [app]

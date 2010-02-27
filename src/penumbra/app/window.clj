@@ -124,11 +124,14 @@
 ;;;
 
 (defn create []
-  (struct-map window-struct
-    :drawable #(Display/getDrawable)
-    :frame (atom nil)
-    :size (atom [800 600])
-    :vsync? (atom false)))
+  (if *window*
+    (assoc *window*
+      :nested true)
+    (struct-map window-struct
+      :drawable #(Display/getDrawable)
+      :frame (atom nil)
+      :size (atom [800 600])
+      :vsync? (atom false))))
 
 (defn init
   ([]
@@ -136,8 +139,8 @@
   ([window]
      (when-not (Display/isCreated)
        (Display/setParent nil)
-       (Display/create (PixelFormat.)))
-     (apply display-mode! @(:size window))
+       (Display/create (PixelFormat.))
+       (apply display-mode! @(:size window)))
      (blend-func :src-alpha :one-minus-src-alpha)
      (apply viewport @(:size window))
      window))
@@ -146,12 +149,13 @@
   ([]
      (destroy *window*))
   ([window]
-     (-> (InternalTextureLoader/get) .clear)
-     (context/destroy)
-     (when-let [f @(:frame window)]
-       (.dispose f))
-     (Display/destroy)
-     window))
+     (when-not (:nested window)
+       (-> (InternalTextureLoader/get) .clear)
+       (context/destroy)
+       (when-let [f @(:frame window)]
+         (.dispose f))
+       (Display/destroy)
+       window)))
 
 (defmacro with-window [window & body]
   `(context/with-context nil
