@@ -24,7 +24,7 @@
   (with-meta
     (struct-map controller-struct
       :paused? (atom false)
-      :stopped? (atom true)
+      :stopped? (atom :initializing)
       :invalidated? (atom true)
       :latch (atom (CountDownLatch. 1)))
     {:type ::controller}))
@@ -35,9 +35,11 @@
 
 (defn stop!
   ([]
-     (stop! *controller*))
-  ([controller]
-     (reset! (:stopped? controller) true)
+     (stop! *controller* true))
+  ([reason]
+     (stop! *controller* reason))
+  ([controller reason]
+     (reset! (:stopped? controller) reason)
      nil))
 
 (defn paused?

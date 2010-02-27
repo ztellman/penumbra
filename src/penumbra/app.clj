@@ -324,7 +324,7 @@
           (publish! :display)))
        (Thread/sleep 1))
      (if (Display/isCloseRequested)
-       (stop!)
+       (controller/stop! :requested-by-user)
        (Display/update))))
 
 (defn start-single-thread [f app]
@@ -337,7 +337,7 @@
         (inner-fn)
         (catch Exception e
           (.printStackTrace e)
-          (controller/stop!)))
+          (controller/stop! :exception)))
        (speed! 0)
        (if (controller/stopped?)
          (destroy app)
@@ -370,7 +370,10 @@
      (start (create callbacks state)))
   ([app]
      (when-not (try-async-resume app)
-       (start-single-thread loop/primary-loop app))))
+       (start-single-thread loop/primary-loop app)
+       (let [reason (-> app :controller :stopped? deref)]
+         (when (and *controller* (keyword? reason))
+           (controller/stop! reason))))))
 
 (defn start*
   "Same as start, but doesn't block until complete"
