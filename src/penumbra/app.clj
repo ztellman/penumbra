@@ -234,7 +234,7 @@
 
 (defn state
   ([] (state *app*))
-  ([app] (:state app)))
+  ([app] @(:state app)))
 
 ;;App state
 
@@ -255,7 +255,7 @@
   ([]
      (stop! *app*))
   ([app]
-     (controller/stop! (:controller app))))
+     (controller/stop! (:controller app) true)))
 
 (defn pause!
   "Halts main loop, and yields control back to the REPL. Returns nil."
@@ -300,6 +300,7 @@
     (do
       (title! "Penumbra")
       (assoc app
+        :nested *app*
         :window (window/init (:window app))
         :input (input/init (:input app))))
     app)) 
@@ -344,7 +345,8 @@
          (destroy app)
          (assoc app
            :texture-pool *texture-pool*)))
-     single-thread-main-loop)))
+     single-thread-main-loop)
+    app))
 
 (defn- try-async-resume [app]
   (when (and (:async app) (controller/paused? (:controller app)))
@@ -370,11 +372,13 @@
   ([callbacks state]
      (start (create callbacks state)))
   ([app]
-     (when-not (try-async-resume app)
-       (start-single-thread loop/primary-loop app)
-       (let [reason (-> app :controller :stopped? deref)]
-         (when (and *controller* (keyword? reason))
-           (controller/stop! reason))))))
+     (if-not (try-async-resume app)
+       (let [app (start-single-thread loop/primary-loop app)]
+         (let [reason (-> app :controller :stopped? deref)]
+           (when (and *controller* (keyword? reason))
+             (controller/stop! reason)))
+         app)
+       app)))
 
 (defn start*
   "Same as start, but doesn't block until complete"
