@@ -31,7 +31,8 @@
 
 (defn stopped?
   ([] (stopped? *controller*))
-  ([controller] @(:stopped? controller)))
+  ([controller]
+     @(:stopped? controller)))
 
 (defn stop!
   ([]
