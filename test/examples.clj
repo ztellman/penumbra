@@ -8,7 +8,10 @@
 
 (ns examples
   (:use [clojure.test])
-  (:require [example.opengl.gears :as gears]
+  (:require [example.app.async :as async]
+            [example.app.switch :as switch]
+            [example.app.nested :as nested]
+            [example.opengl.gears :as gears]
             [example.opengl.sierpinski :as sierpinski]
             [example.opengl.render-to-texture :as rtt]
             [example.opengl.marble :as marble]
@@ -20,6 +23,12 @@
             [example.gpgpu.brians-brain :as brian]))
 
 (deftest run
+  (testing "Async"
+    (async/start))
+  (testing "Switch"
+    (switch/start))
+  (testing "Nested"
+    (nested/start))
   (testing "Gears"
     (gears/start))
   (testing "Sierpinski"
