@@ -547,6 +547,10 @@
 
 (gl-import glTexEnvf tex-env)
 (gl-import glTexParameteri tex-parameter)
+(gl-import- glIsTexture gl-is-texture)
+
+(defn is-texture? [tex]
+  (gl-is-texture (:id tex)))
 
 (defn texture
   "Calls glTexture*d."
@@ -705,13 +709,13 @@
       (push-matrix
         (with-texture tex
           (color 1 1 1)
-          (with-projection (ortho-view 0 1 0 1 -1 1)
+          (with-projection (ortho-view -1 1 -1 1 -1 1)
             (with-program nil
               (draw-quads
-               (texture 0 0) (vertex 0 0)
-               (texture w 0) (vertex 1 0)
+               (texture 0 0) (vertex -1 -1)
+               (texture w 0) (vertex 1 -1)
                (texture w h) (vertex 1 1)
-               (texture 0 h) (vertex 0 1)))))))))
+               (texture 0 h) (vertex -1 1)))))))))
 
 (defn blit!
   "Same as blit, but releases texture after rendering."

@@ -15,15 +15,15 @@
 ;;;
 
 (defn draw* []
-  (with-projection (ortho-view 0 1 1 0 -1 1)
+  (with-projection (ortho-view -1 1 1 -1 -1 1)
     (gl-active-texture :texture0)
     (push-matrix
      (load-identity)
      (draw-quads
-      (texture 0 1) (vertex 0 0 0)
-      (texture 1 1) (vertex 1 0 0)
+      (texture 0 1) (vertex -1 -1 0)
+      (texture 1 1) (vertex 1 -1 0)
       (texture 1 0) (vertex 1 1 0)
-      (texture 0 0) (vertex 0 1 0)))))
+      (texture 0 0) (vertex -1 1 0)))))
 
 (defn draw
   ([w h]

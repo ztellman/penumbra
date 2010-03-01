@@ -14,11 +14,15 @@
 
 ;;;
 
+(defn- identity-outer [x]
+  (x))
+
 (defn create-thread [app clock heap]
-  (Thread.
+  (loop/create-thread
+   app identity-outer
    (fn []
      (loop/secondary-loop
-      app #(%)
+      app identity-outer
       (fn []
         (if-let [actions
                  (dosync
