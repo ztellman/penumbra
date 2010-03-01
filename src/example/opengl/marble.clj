@@ -63,13 +63,17 @@
   state)
 
 (defn init [state]
+  (app/vsync! true)
   (app/title! "Marble")
   (enable :depth-test)
   (enable :lighting)
   (enable :light0)
   (assoc state
     :sphere (sphere-geometry 100)
-    :program (create-program declarations vertex-shader fragment-shader)))
+    :program (create-program
+              :declarations declarations
+              :vertex vertex-shader
+              :fragment fragment-shader)))
 
 (defn mouse-drag [[dx dy] _ button state]
   (assoc state

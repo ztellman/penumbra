@@ -35,12 +35,10 @@
 (gl-import glUniform3i uniform-3i)
 (gl-import glUniform4i uniform-4i)
 
-(gl-import glUniform1f uniform-1f)0
+(gl-import glUniform1f uniform-1f)
 (gl-import glUniform2f uniform-2f)
 (gl-import glUniform3f uniform-3f)
 (gl-import glUniform4f uniform-4f)
-
-(defstruct program-struct :vertex :fragment :program :uniforms)
 
 ;;;;;;;;;;;;;;;;;;;;
 ;OpenGL shader functions
@@ -99,28 +97,41 @@
 (defn- get-program-log [program]
   (let [len (program-info-length program)
         buf (BufferUtils/createByteBuffer len)]
-    (gl-get-program-info-log program (IntBuffer/wrap (int-array [len])) (ByteBuffer/wrap buf))
+    (gl-get-program-info-log program (IntBuffer/wrap (int-array [len])) buf)
     (let [ary (byte-array len)]
       (.get buf ary)
       (.trim (String. ary)))))
 
-(defn create-program-from-source
-  "Takes translated source (in GLSL, not s-expressions) for two shaders, and combines them into a program"
-  [vertex-source fragment-source]
-  (let [vertex-shader     (gl-create-shader :vertex-shader)
-        fragment-shader   (gl-create-shader :fragment-shader)
-        program           (gl-create-program)]
-    (load-source vertex-shader vertex-source)
-    (load-source fragment-shader fragment-source)
-    (gl-attach-shader program vertex-shader)
-    (gl-attach-shader program fragment-shader)
+(defn compile-source
+  "Takes translated source (in GLSL, not s-expressions) for two shaders, and combines them into a program.
+   Usage:
+   (create-program-from-source
+     :vertex vertex-source
+     :fragment fragment-source
+     :geometry geometry-source)"
+  [& sources]
+  (let [src (apply hash-map sources)
+        program (gl-create-program)]
+    (when-let [source (:vertex src)]
+      (let [shader (gl-create-shader :vertex-shader)]
+        (load-source shader source)
+        (gl-attach-shader program shader)))
+    (when-let [source (:geometry src)]
+      (let [shader (gl-create-shader :geometry-shader)]
+        (load-source shader source)
+        (gl-attach-shader program shader)))
+    (when-let [source (:fragment src)]
+      (let [shader (gl-create-shader :fragment-shader)]
+        (load-source shader source)
+        (gl-attach-shader program shader)))
     (gl-link-program program)
-    (if (not (program-linked? program))
+    (when-not (program-linked? program)
       (throw (Exception. (str "*** Error linking program:\n" (get-program-log program)))))
     (gl-validate-program program)
-    (if (not (program-valid? program))
-      (throw (Exception. (str "*** Error validating program:\n"(get-program-log program)))))
+    (when-not (program-valid? program)
+      (throw (Exception. (str "*** Error validating program:\n" (get-program-log program)))))
     (if *verbose* (println "Linked.\n"))
-    (struct-map program-struct
-      :vertex vertex-shader :fragment fragment-shader :program program :uniforms (ref {}))))
+    {:program program
+     :uniforms (ref {})
+     :sources src}))
 

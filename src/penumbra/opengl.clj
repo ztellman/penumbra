@@ -345,25 +345,32 @@
 
 ;;Shader
 
-(defn create-literal-program
-  "Translate a program without wrapping it in (defn main [] ...)"
-  [extensions vertex fragment]
-  (let [vertex-source   (translate-shader vertex)
-        fragment-source (translate-shader fragment)]
-    (create-program-from-source
-     (str extensions "\n" vertex-source)
-     (str extensions "\n" fragment-source))))
+(defn- filter-translate [decl [type source]]
+  [type
+   (if (= :vertex type)
+     (translate-shader (remove #(= 'attribute (first %)) decl) source)
+     (translate-shader decl source))])
+
+(defn- literal-translate [[type source]]
+  [type (translate-shader source)])
 
 (defn create-program
-  "Creates a program from s-exprssions.  Declarations are specified first, and shared between both shaders."
-  ([declarations vertex fragment]
-     (create-program "" declarations vertex fragment))
-  ([extensions declarations vertex fragment]
-     (let [vertex-source   (translate-shader declarations vertex)
-           fragment-source (translate-shader (filter #(not= 'attribute (first %)) declarations) fragment)]
-       (create-program-from-source
-        (str extensions "\n" vertex-source)
-        (str extensions "\n" fragment-source)))))
+  "Creates a program.  Possible params are :extensions, :declarations, :fragment, :vertex, :geometry."
+  [& params]
+  (let [params (apply hash-map params)
+        decl (:declarations params)
+        tuple #(list % (% params))
+        extend (fn [[k v]] [k (concat (:extensions params) v)])
+        sources (->> [:vertex :fragment :geometry]
+                     (map tuple)
+                     (apply concat)
+                     (apply hash-map)
+                     (filter second)
+                     (map #(if (:literal params)
+                             (literal-translate %)
+                             (filter-translate decl %)))
+                     (apply concat))]
+    (apply compile-source sources)))
 
 (gl-import- glUseProgram gl-use-program)
 (gl-import- glGetUniformLocation gl-get-uniform-location)
