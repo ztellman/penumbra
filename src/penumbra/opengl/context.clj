@@ -40,8 +40,7 @@
      :font-cache *font-cache*}))
 
 (defn destroy []
-  (texture/destroy-textures (:textures @*texture-pool*))
-  (Display/destroy))
+  (texture/destroy-textures (:textures @*texture-pool*)))
 
 (defmacro with-context [context & body]
   `(binding [*display-list* (or *display-list* (:display-list ~context) (delay (create-display-list (draw*))))
