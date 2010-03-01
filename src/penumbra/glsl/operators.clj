@@ -176,10 +176,11 @@
 
 (defn- create-operator
   ([body]
-     (create-literal-program
-      "#extension GL_ARB_texture_rectangle : enable"
-      (wrap-and-prepend fixed-transform)
-      body)))
+     (create-program
+      :literal true
+      :extensions "#extension GL_ARB_texture_rectangle : enable"
+      :vertex (wrap-and-prepend fixed-transform)
+      :fragment body)))
 
 (defn- post-process
   "Transforms the body, and pulls out all the relevant information."
