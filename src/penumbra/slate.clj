@@ -48,7 +48,7 @@
      (when (:base-context? slate)
        (destroy-frame-buffer (:frame-buffer slate))
        (texture/destroy-textures (-> *texture-pool* deref :textures)))
-     (.destroy (:pixel-buffer slate))))
+     '(.destroy (:pixel-buffer slate))))
 
 (defmacro with-slate [& body]
   `(let [context# (context/current)]
@@ -60,7 +60,7 @@
            (finally
             (destroy slate#)
             (when context#
-              (context/destroy context#)))))))))
+              (context/destroy)))))))))
 
 ;;;
 

@@ -322,11 +322,11 @@
          (controller/repainted!)
          (push-matrix
           (clear 0 0 0)
-          (publish! :display)))
+          (publish! :display))
+         (Display/update))
        (Thread/sleep 1))
      (if (Display/isCloseRequested)
-       (controller/stop! :requested-by-user)
-       (Display/update))))
+       (controller/stop! :requested-by-user))))
 
 (defn start-single-thread [f app]
   (let [app (init app)]
