@@ -42,7 +42,6 @@
   ([controller reason]
      (reset! (:stopped? controller) reason)
      nil))
-
 (defn paused?
   ([] (paused? *controller*))
   ([controller] @(:paused? controller)))

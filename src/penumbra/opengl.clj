@@ -172,6 +172,7 @@
   "Calls glVertex3d.
    [x y] -> [x y 0].
    [x y z w] -> [x y z]."
+  ([v] (apply vertex v))
   ([x y] (gl-vertex x y 0))
   ([x y z] (gl-vertex x y z))
   ([x y z w] (gl-vertex x y z)))
@@ -179,19 +180,21 @@
 (defn translate
   "Calls glTranslated.
    [x y] -> [x y 0]."
+  ([v] (apply translate v))
   ([x y] (gl-translate x y 0))
   ([x y z] (gl-translate x y z)))
 
 (defn scale
   "Calls glScaled.
    [x y] -> [x y 1]."
+  ([v] (apply scale v))
   ([x y] (gl-scale x y 1))
   ([x y z] (gl-scale x y z)))
 
 (defn normal
   "Calls glNormal3d."
-  [x y z]
-  (gl-normal x y z))
+  ([v] (apply normal v))
+  ([x y z] (gl-normal x y z)))
 
 (defn rotate
   "Calls glRotated.  Rotates by 'angle' degrees, about the axis defined by [x y z]"
@@ -286,6 +289,7 @@
 
 (defn color
   "Calls glColor.  Values are normalized between 0 and 1."
+  ([v] (apply color v))
   ([r g b] (color-3 r g b))
   ([r g b a] (color-4 r g b a)))
 
@@ -561,9 +565,14 @@
 
 (defn texture
   "Calls glTexture*d."
-  ([u] (gl-tex-coord-1 u))
-  ([u v] (gl-tex-coord-2 u v))
-  ([u v w] (gl-tex-coord-3 u v w)))
+  ([u]
+     (if (sequential? u)
+       (apply texture u)
+       (gl-tex-coord-1 u)))
+  ([u v]
+     (gl-tex-coord-2 u v))
+  ([u v w]
+     (gl-tex-coord-3 u v w)))
 
 (defn bind-texture
   "Binds a texture struct."

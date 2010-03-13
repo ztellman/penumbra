@@ -7,7 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.time
-  (:use [penumbra.geometry :only [lerp]]))
+  (:use [penumbra.geometry :only [lerp]])
+  (:use [clojure.contrib.def :only [defn-memo]]))
 
 (defn wall-time []
   (/ (System/nanoTime) 1e9))
@@ -38,34 +39,13 @@
         clojure.lang.IDeref
         (deref [] (@o (@i)))))))
 
+(defn-memo wall-clock []
+  (clock wall-time identity))
+
 (defn clock-speed! [clock speed]
   (update! clock (inner clock) #(* % speed)))
 
-(defn animation
-  ([start finish duration]
-     (animation start finish duration identity))
-  ([start finish duration modifier]
-     (let [t0 (wall-time)]
-       (fn []
-         (let [elapsed (modifier (- (wall-time) t0))]
-           (if (> elapsed duration)
-             finish
-             (lerp start finish (/ elapsed duration))))))))
-
-
-
-
-
-(defn update-clock [c mod]
-  (swap!
-   c
-   (fn [c]
-     (let [t0 (c)
-           c @(clock mod)]
-       (fn [] (+ t0 (c))))))
-  c)
-
 (defn now [c]
-  (@c))
+  @c)
 
 

@@ -17,7 +17,7 @@
 (defn- identity-outer [x]
   (x))
 
-(defn create-thread [app clock heap]
+(defn- create-thread [app clock heap]
   (loop/create-thread
    app identity-outer
    (fn []
@@ -35,7 +35,7 @@
             (a))
           (Thread/sleep 1)))))))
 
-(defn create
+(defn- create
   ([]
      (create *app*))
   ([app]
@@ -44,17 +44,28 @@
      (let [heap (ref (sorted-set-by #(- (compare (first %2) (first %1)))))]
        (dotimes [_ 1]
          (.start (create-thread app clock heap)))
-       (fn [delay f] (dosync (alter heap #(conj % [(+ @clock delay) f])))))))
+       (fn [delay f]
+         (dosync
+          (alter heap #(conj % [(+ @clock delay) f])))))))
 
 ;;;
+
+(defn- find-or-create [app clock]
+  (let [queues (:queues app)]
+    (when-not (get @queues clock)
+      (dosync
+       (alter queues #(assoc % clock (create app clock)))))
+    (get @queues clock)))
 
 (defn update
   ([f]
      (update 0 f))
   ([delay f]
-     (update *queue* delay f))
-  ([queue delay f]
-     (queue
+     (update *clock* delay f))
+  ([clock delay f]
+     (update *app* clock delay f))
+  ([app clock delay f]
+     ((find-or-create app clock)
       delay
       #(try
         (f)
@@ -63,22 +74,21 @@
 
 (defn periodic-update
   ([hz f]
-     (periodic-update *app* hz f))
-  ([app hz f]
-     (let [queue @(:queue app)
-           clock (:clock app)
-           hz (atom hz)
+     (periodic-update *clock* hz f))
+  ([clock hz f]
+     (periodic-update *app* clock hz f))
+  ([app clock hz f]
+     (let [hz (atom hz)
            target (atom (+ @clock (/ 1 @hz)))]
-       (letfn [(f*
-                []
+       (letfn [(f* []
                 (let [start @clock]
                   (binding [*hz* hz]
                     (f))
                   (let [hz @hz]
                     (when (pos? hz)
-                      (update queue (+ (/ 1 hz) (- @target start)) f*)
+                      (update app clock (+ (/ 1 hz) (- @target start)) f*)
                       (swap! target #(+ % (/ 1 hz)))))))]
-         (update queue (/ 1 @hz) f*)))))
+         (update app clock (/ 1 @hz) f*)))))
 
 
 

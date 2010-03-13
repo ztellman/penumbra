@@ -21,17 +21,17 @@
 (defvar *input* nil
   "Holds current input state.")
 
+(defvar *unsubscribe* nil
+  "Delete me once windowlets are implemented")
+
 (defvar *event* nil
   "Holds current publish/subscribe callbacks.")
-
-(defvar *unsubscribe* nil
-  "Hook for unsubscribing.")
 
 (defvar *clock* nil
   "Application clock.")
 
-(defvar *queue* nil
-  "Update queue.")
+(defvar *queues* nil
+  "Update queues.")
 
 (defvar *hz* nil
   "Refresh rate of update-loop")

@@ -50,12 +50,14 @@
   (let [app (app/start* {:init init, :reshape reshape, :display display} {:rot 0})]
     (Thread/sleep 5000)
     (app/pause! app)
-    (Thread/sleep 5000)
+    (Thread/sleep 1000)
     (app/start app)
-    (Thread/sleep 5000)
+    (Thread/sleep 2000)
     (app/stop! app)
-    (Thread/sleep 5000)
-    (app/start app)))
+    (Thread/sleep 1000)
+    (app/start app)
+    (Thread/sleep 1000)
+    (app/stop! app)))
 
 
 
