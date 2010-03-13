@@ -9,7 +9,8 @@
 (ns example.game.asteroids
   (:use [penumbra opengl geometry])
   (:require [penumbra.app :as app]
-            [penumbra.text :as text])
+            [penumbra.text :as text]
+            [penumbra.time :as time])
   (:use [clojure.contrib.seq-utils :only (separate)]))
 
 ;;;
@@ -329,6 +330,7 @@
   (blend-func :src-alpha :one-minus-src-alpha)
   (app/periodic-update 15 update-collisions)
   (app/periodic-update 50 emit-flame)
+  (app/periodic-update (time/wall-clock) 2 (fn [_] (println (app/now))))
   (reset state))
 
 (defn reshape [[x y w h] state]

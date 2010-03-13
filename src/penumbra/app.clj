@@ -1,3 +1,4 @@
+
 ;;   Copyright (c) Zachary Tellman. All rights reserved.
 ;;   The use and distribution terms for this software are covered by the
 ;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
@@ -83,7 +84,7 @@
   :window
   :input
   :controller
-  :queue
+  :queues
   :clock
   :callbacks
   :state)
@@ -96,7 +97,7 @@
                 :window (window/create)
                 :input (input/create)
                 :controller (controller/create)
-                :queue (ref nil)
+                :queues (ref {})
                 :event (event/create)
                 :clock clock
                 :state (ref state))
@@ -221,15 +222,21 @@
 
 (defn update
   ([f]
-     (update *app* f))
-  ([app f]
-     (queue/update app #(sync-update app f))))
+     (update 0 f))
+  ([delay f]
+     (update *clock* 0 f))
+  ([clock delay f]
+     (update *app* clock delay f))
+  ([app clock delay f]
+     (queue/update app clock delay #(sync-update app f))))
 
 (defn periodic-update
   ([hz f]
-     (periodic-update *app* hz f))
-  ([app hz f]
-     (queue/periodic-update app hz #(sync-update app f))))
+     (periodic-update *clock* hz f))
+  ([clock hz f]
+     (periodic-update *app* clock hz f))
+  ([app clock hz f]
+     (queue/periodic-update app clock hz #(sync-update app f))))
 
 (defn state
   ([] (state *app*))
@@ -272,7 +279,7 @@
        (let [stopped? (controller/stopped?)]
          (controller/resume!)
          (when stopped?
-           (dosync (ref-set (:queue app) (queue/create)))
+           (dosync (ref-set (:queues app) {}))
            (publish! :init)
            (publish! :reshape (concat [0 0] (dimensions))))
          (input/resume!)

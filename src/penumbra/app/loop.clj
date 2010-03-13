@@ -22,7 +22,7 @@
   `(let [app# ~app]
      (binding [*app* app#
                *clock* (:clock app#)
-               *queue* (deref (:queue app#))
+               *queues* (deref (:queues app#))
                *controller* (:controller app#)
                *event* (:event app#)]
       (input/with-input (:input app#)
