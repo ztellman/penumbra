@@ -628,13 +628,13 @@
      (load-texture-from-image image subsample :linear))
   ([image subsample filter]
      (let [output-stream (ByteArrayOutputStream.)]
-       (ImageIO/write image "bmp" output-stream)
+       (ImageIO/write image "png" output-stream)
        (.clear (InternalTextureLoader/get))
        (let [input-stream (ByteArrayInputStream. (.toByteArray output-stream))
              texture (-> (InternalTextureLoader/get)
                          (.getTexture
                           input-stream
-                          "bmp"
+                          "png"
                           false
                           (enum filter)))]
          (if subsample
