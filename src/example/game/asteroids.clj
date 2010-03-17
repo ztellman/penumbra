@@ -330,7 +330,7 @@
   (blend-func :src-alpha :one-minus-src-alpha)
   (app/periodic-update 15 update-collisions)
   (app/periodic-update 50 emit-flame)
-  (app/periodic-update (time/wall-clock) 2 (fn [_] (println (app/now))))
+  ;;(app/periodic-update (time/wall-clock) 2 (fn [_] (println (app/now))))
   (reset state))
 
 (defn reshape [[x y w h] state]
