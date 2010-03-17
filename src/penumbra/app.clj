@@ -1,4 +1,3 @@
-
 ;;   Copyright (c) Zachary Tellman. All rights reserved.
 ;;   The use and distribution terms for this software are covered by the
 ;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
@@ -198,14 +197,6 @@
      (vsync! *app* enabled))
   ([app enabled]
      (window/vsync! enabled)))
-
-(defn resizable!
-  ([enabled]
-     (resizable! *app* enabled))
-  ([app enabled]
-     (if enabled
-       (window/enable-resizable! app)
-       (window/disable-resizable! app))))
 
 (defn fullscreen!
   ([enabled]
