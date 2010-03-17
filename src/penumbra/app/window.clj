@@ -17,7 +17,7 @@
               [context :as context]]
              [penumbra.text :as text]
              [penumbra.app.event :as event])
-  (:import [org.lwjgl.opengl Display PixelFormat AWTGLCanvas]
+  (:import [org.lwjgl.opengl Display PixelFormat]
            [org.newdawn.slick.opengl InternalTextureLoader]
            [java.awt Frame Canvas GridLayout Color]
            [java.awt.event WindowAdapter]))
@@ -25,7 +25,6 @@
 ;;
 
 (defstruct window-struct
-  :frame
   :size)
 
 ;;;
@@ -60,9 +59,7 @@
      (apply viewport (concat [0 0] (:resolution mode)))))
 
 (defn dimensions [w]
-  (if-let [canvas (-?> w :frame deref (.getComponent 0))]
-    [(.getWidth canvas) (.getHeight canvas)]
-    (:resolution (transform-display-mode (Display/getDisplayMode)))))
+  (:resolution (transform-display-mode (Display/getDisplayMode))))
 
 (defn check-for-resize
   ([]
@@ -85,43 +82,6 @@
   ([window enabled]
      (Display/setVSyncEnabled enabled)
      (reset! (:vsync? window) enabled)))
-
-;;Frame
-
-(defn enable-resizable! [app]
-  (when (nil? @(-> app :window :frame))
-    (let [window (:window app)
-          frame (Frame.)
-          canvas (AWTGLCanvas.)
-          [w h] @(:size window)]
-      (doto canvas
-        (.setFocusable true)
-        ;;(.setIgnoreRepaint true)
-        (.setSize w h))
-      (doto frame
-        (.addWindowListener
-         (proxy [WindowAdapter] []
-           (windowOpened [event] (.requestFocus canvas))
-           (windowClosing [event] (reset! (:stopped? app) true))))
-        (.setTitle (Display/getTitle))
-        ;;(.setIgnoreRepaint true)
-        ;;(.setResizable true)
-        (.setVisible true)
-        (.add canvas)
-        (.pack))
-      (Display/setParent canvas)
-      (reset! (:frame window) frame)
-      nil)))
-
-(defn disable-resizable! [app]
-  (let [window (:window app)]
-    (when-let [frame @(:frame window)]
-      (.dispose frame)
-      (Display/setParent nil)
-      (reset! (:frame window) nil)
-      nil)))
-
-;;;
 
 (defn create []
   (if *window*
@@ -152,8 +112,6 @@
      (when-not (:nested window)
        (-> (InternalTextureLoader/get) .clear)
        (context/destroy)
-       (when-let [f @(:frame window)]
-         (.dispose f))
        (Display/destroy)
        window)))
 

@@ -13,13 +13,23 @@
   (atom {}))
 
 (defn subscribe! [event hook f]
-  (swap! event #(update-in % [hook] (fn [x] (if x (conj x f) #{f})))))
+  (swap! event #(update-in % [hook] (fn [x] (if x (conj x f) #{f}))))
+  nil)
 
 (defn unique-subscribe! [event hook f]
-  (swap! event #(assoc % hook #{f})))
+  (swap! event #(assoc % hook #{f}))
+  nil)
 
 (defn unsubscribe! [event hook f]
-  (swap! event #(update-in % [hook] (fn [x] (disj x f)))))
+  (swap! event #(update-in % [hook] (fn [x] (disj x f))))
+  nil)
+
+(defn subscribe-once! [event hook f]
+  (subscribe!
+   event hook
+   #(do
+      (apply f %&)
+      (unsubscribe! event hook f))))
 
 (defn publish! [event hook & args]
   (let [wrapper-fn (fn [f]
