@@ -31,23 +31,24 @@
 
 ;;;
 
-(defn sync-update
+(defn sync-update!
   ([f]
-     (sync-update *app* f))
+     (sync-update! *app* f))
   ([app f]
      (let [state* (dosync
                    (when-let [value (f @(:state app))]
                      (ref-set (:state app) value)
                      value))]
        (when state*
-         (controller/repaint!)))))
+         (controller/repaint!))
+       nil)))
 
 (defn- subscribe-callback [app callback f]
   (event/unique-subscribe!
    (:event app)
    callback
    (fn [& args]
-     (sync-update
+     (sync-update!
       app
       (if (empty? args)
         f
@@ -211,27 +212,31 @@
   [hz]
   (reset! *hz* hz))
 
-(defn update
+(defn update!
   ([f]
-     (update 0 f))
+     (update! 0 f))
   ([delay f]
-     (update *clock* 0 f))
+     (update! *clock* 0 f))
   ([clock delay f]
-     (update *app* clock delay f))
+     (update! *app* clock delay f))
   ([app clock delay f]
-     (queue/update app clock delay #(sync-update app f))))
+     (queue/update app clock delay #(sync-update! app f))))
 
-(defn periodic-update
+(defn periodic-update!
   ([hz f]
-     (periodic-update *clock* hz f))
+     (periodic-update! *clock* hz f))
   ([clock hz f]
-     (periodic-update *app* clock hz f))
+     (periodic-update! *app* clock hz f))
   ([app clock hz f]
-     (queue/periodic-update app clock hz #(sync-update app f))))
+     (queue/periodic-update app clock hz #(sync-update! app f))
+     nil))
 
 (defn state
   ([] (state *app*))
   ([app] @(:state app)))
+
+(defn app []
+  *app*)
 
 ;;App state
 

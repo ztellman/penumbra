@@ -105,7 +105,7 @@
 (defn init [state]
   (app/vsync! true)
   (app/title! "Pong")
-  (app/periodic-update 2 update-opponent-paddle)
+  (app/periodic-update! 2 update-opponent-paddle)
   (reset-game state))
 
 (defn reshape [[x y w h] state]
