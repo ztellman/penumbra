@@ -178,7 +178,7 @@
         (draw-line-loop (rectangle))
         (color 1 1 1)))
   
-  (app/periodic-update
+  (app/periodic-update!
    2
    (fn [state]
      (if (app/key-pressed? :down)

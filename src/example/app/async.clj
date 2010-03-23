@@ -30,7 +30,7 @@
 
 (defn init [state]
   (render-mode :wireframe)
-  (app/periodic-update 60 #(update-in % [:rot] inc))
+  (app/periodic-update! 60 #(update-in % [:rot] inc))
   (app/vsync! true)
   (assoc state
     :cube (create-display-list (cube))))

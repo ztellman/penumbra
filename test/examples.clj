@@ -18,6 +18,7 @@
             [example.opengl.accumulate :as accumulate]
             [example.game.tetris :as tetris]
             [example.game.asteroids :as asteroids]
+            [example.game.pong :as pong]
             [example.gpgpu.mandelbrot :as mandelbrot]
             [example.gpgpu.convolution :as convolution]
             [example.gpgpu.brians-brain :as brian]))
@@ -43,6 +44,8 @@
     (tetris/start))
   (testing "Asteroids"
     (asteroids/start))
+  (testing "Pong"
+    (pong/start))
   (testing "Mandelbrot"
     (mandelbrot/start))
   (testing "Convolution"
