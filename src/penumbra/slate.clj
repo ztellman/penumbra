@@ -34,12 +34,9 @@
      (let [drawable (when-let [drawable-fn (-?> *app* :window :drawable)]
                       (drawable-fn))
            pixel-buffer (Pbuffer. 1 1 (-> (PixelFormat.)) drawable)]
-       (.makeCurrent pixel-buffer)
-       (let [frame-buffer (gen-frame-buffer)]
-         (bind-frame-buffer frame-buffer)
-         (struct-map slate-struct
-           :drawable (constantly pixel-buffer)
-           :pixel-buffer pixel-buffer)))))
+       (struct-map slate-struct
+         :drawable (constantly pixel-buffer)
+         :pixel-buffer pixel-buffer))))
 
 (defn destroy
   ([]
@@ -50,17 +47,18 @@
        (texture/destroy-textures (-> *texture-pool* deref :textures)))
      '(.destroy (:pixel-buffer slate))))
 
-(defmacro with-slate [& body]
+(defmacro with-slate [slate & body]
   `(let [context# (context/current)]
-     (context/with-context context#
-      (let [slate# (create)]
-        (binding [*slate* slate#]
-          (try
-           ~@body
-           (finally
-            (destroy slate#)
-            (when context#
-              (context/destroy)))))))))
+     (.makeCurrent (:pixel-buffer ~slate))
+     (with-frame-buffer
+       (context/with-context context#
+         (binding [*slate* ~slate]
+           (try
+            ~@body
+            (finally
+             (destroy ~slate)
+             (when context#
+               (context/destroy)))))))))
 
 ;;;
 
