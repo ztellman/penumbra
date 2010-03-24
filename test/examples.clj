@@ -16,6 +16,7 @@
             [example.opengl.render-to-texture :as rtt]
             [example.opengl.marble :as marble]
             [example.opengl.accumulate :as accumulate]
+            [example.opengl.async :as gl-async]
             [example.game.tetris :as tetris]
             [example.game.asteroids :as asteroids]
             [example.game.pong :as pong]
@@ -24,11 +25,11 @@
             [example.gpgpu.brians-brain :as brian]))
 
 (deftest run
-  (testing "Async"
+  '(testing "Async"
     (async/start))
-  (testing "Switch"
+  '(testing "Switch"
     (switch/start))
-  (testing "Nested"
+  '(testing "Nested"
     (nested/start))
   (testing "Gears"
     (gears/start))
@@ -40,6 +41,8 @@
     (marble/start))
   (testing "Accumulate"
     (accumulate/start))
+  (testing "Async"
+    (gl-async/start))
   (testing "Tetris"
     (tetris/start))
   (testing "Asteroids"
