@@ -21,13 +21,14 @@
     - a macro which directly calls the OpenGL function (glVertex3d -> gl-vertex)"
   [import-from import-as]
   (let [facade-fn (prepend "facade" import-as)
-        direct-fn (prepend "direct" import-as)]
+        direct-fn (prepend "direct" import-as)
+        ns (ns-name *ns*)]
     `(do
       (gl-import ~import-from ~direct-fn)
       (defmacro ~import-as [& a#]
         `(if *inside-begin-end*
-          (~'~facade-fn ~@a#)
-          (~'~direct-fn ~@a#))))))
+          (~'~(intern ns facade-fn) ~@a#)
+          (~'~(intern ns direct-fn) ~@a#))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
