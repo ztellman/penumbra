@@ -27,7 +27,7 @@
   (enable :texture-2d)
   (let [tex (create-byte-texture 128 128)]
     (draw tex)
-    (app/periodic-update! 2 #(draw (:tex %)))
+    (app/periodic-update 2 #(draw (:tex %)))
     (assoc state
       :tex tex)))
 
