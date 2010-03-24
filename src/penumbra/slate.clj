@@ -60,6 +60,10 @@
              (when context#
                (context/destroy)))))))))
 
+(defmacro with-blank-slate [& body]
+  `(with-slate (create)
+     ~@body))
+
 ;;;
 
 

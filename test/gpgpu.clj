@@ -11,7 +11,7 @@
   (:use [clojure test]))
 
 (deftest run
-  (with-slate
+  (with-blank-slate
    (let [s (map float (range 12))
          s2 (map #(* % 2) s)
          s3 (map #(* % 3) s)]
