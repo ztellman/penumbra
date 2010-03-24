@@ -13,20 +13,23 @@
 (defn xor [a b] (or (and a (not b)) (and (not a) b)))
 
 (defn draw [tex]
-  (draw-to-subsampled-texture!
-   tex
-   (fn [[x y] _]
-     (let [x (+ x (int (* 5 (app/now))))]
-       (if (xor (even? (bit-shift-right x 4)) (even? (bit-shift-right y 4)))
-         [1 0 0 1]
-         [0 0 0 1]))))
-  (app/repaint!))
+  (when tex
+    (draw-to-subsampled-texture!
+     tex
+     (fn [[x y] _]
+       (let [x (+ x (int (* 5 (app/now))))]
+         (if (xor (even? (bit-shift-right x 4)) (even? (bit-shift-right y 4)))
+           [1 0 0 1]
+           [0 0 0 1]))))
+    (app/repaint!)))
 
 (defn init [state]
   (enable :texture-2d)
-  (app/periodic-update 2 #(draw (:tex %)))
-  (assoc state
-    :tex (create-byte-texture 128 128)))
+  (let [tex (create-byte-texture 128 128)]
+    (draw tex)
+    (app/periodic-update! 2 #(draw (:tex %)))
+    (assoc state
+      :tex tex)))
 
 (defn display [_ state]
   (blit (:tex state)))

@@ -7,8 +7,9 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.framebuffer
-  (:use [penumbra opengl slate])
+  (:use [penumbra opengl])
   (:use [penumbra.opengl texture])
+  (:require [penumbra.slate :as slate])
   (:use [penumbra.opengl.core :only (enum enum-name)])
   (:use [clojure.contrib.def :only (defn-memo)])
   (:use [clojure.contrib.combinatorics :only (cartesian-product)]))
@@ -86,7 +87,7 @@
 
 (defn print-compatible-types []
   (let [permutations (cartesian-product [:float :int :unsigned-byte] (range 1 5))]
-    (with-slate
+    (slate/with-slate (slate/create)
       (doseq [[type tuple] permutations]
         (println
           (name type) tuple

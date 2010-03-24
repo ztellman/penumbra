@@ -41,13 +41,14 @@
           (reset! previous now)))))))
 
 (defn create-thread [app outer-fn inner-fn]
-  (let [context (context/current)]
+  (let [context (context/current)
+        slate (slate/create)]
     (Thread.
      #(context/with-context context
         (with-app app
           (outer-fn
            (fn []
-             (slate/with-slate
+             (slate/with-slate slate
                (inner-fn)))))))))
 
 (defn secondary-loop
