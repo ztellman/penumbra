@@ -42,13 +42,18 @@
 
 (defn create-thread [app outer-fn inner-fn]
   (let [context (context/current)
-        slate (slate/create)]
+        slate (try
+               (slate/create)
+               (catch Exception e
+                 nil))]
     (Thread.
      #(context/with-context context
         (with-app app
           (outer-fn
            (fn []
-             (slate/with-slate slate
+             (if slate
+               (slate/with-slate slate
+                 (inner-fn))
                (inner-fn)))))))))
 
 (defn secondary-loop
