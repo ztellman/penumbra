@@ -21,11 +21,11 @@
 
 ;;;
 
-(gl-import glEnable enable)
-(gl-import glDisable disable)
-(gl-import glIsEnabled enabled?)
+(gl-import+ glEnable enable)
+(gl-import+ glDisable disable)
+(gl-import+ glIsEnabled enabled?)
 (gl-import glGetInteger gl-get-integer)
-(gl-import glGetString get-string)
+(gl-import+ glGetString get-string)
 
 (gl-import glMatrixMode gl-matrix-mode)
 (gl-import glPushMatrix gl-push-matrix)
@@ -74,11 +74,22 @@
   []
   (set (.split (get-string :extensions) " ")))
 
+(defn-memo get-version
+  "Gets the version of OpenGL that's supported."
+  []
+  (-> (get-string :version) (.split " ") seq first Float/parseFloat))
+
+(defn-memo frame-buffer-supported? []
+  (contains? (get-extensions) "GL_EXT_framebuffer_object"))
+
+(defn shaders-supported? []
+  (>= (get-version) 2.0))
+
 ;;;
 
 (gl-import glClear gl-clear)
 (gl-import glClearColor clear-color)
-(gl-import glDepthFunc depth-test)
+(gl-import+ glDepthFunc depth-test)
 (gl-import glFlush gl-flush)
 (gl-import glFinish gl-finish)
 
@@ -215,9 +226,9 @@
 ;;Display Lists
 
 (gl-import- glCallList gl-call-list)
-(gl-import- glGenLists gl-gen-lists)
-(gl-import- glNewList gl-new-list)
-(gl-import- glEndList gl-end-list)
+(gl-import glGenLists gl-gen-lists)
+(gl-import glNewList gl-new-list)
+(gl-import glEndList gl-end-list)
 (gl-import- glDeleteLists gl-delete-lists)
 (gl-import- glIsList gl-is-list)
 
@@ -262,17 +273,17 @@
 (gl-import glLineWidth line-width)
 (gl-import glPointSize point-size)
 
-(gl-import- glPolygonMode gl-polygon-mode)
+(gl-import glPolygonMode gl-polygon-mode)
 (gl-import- glLight set-light-array)
 (gl-import- glLightf set-light)
 (gl-import- glMaterial set-material-array)
 (gl-import- glMaterialf set-material)
 (gl-import- glFog set-fog-array)
 (gl-import- glFogf set-fog)
-(gl-import- glShadeModel shade-model)
+(gl-import glShadeModel shade-model)
 
-(gl-import- glHint hint)
-(gl-import- glBlendFunc blend-func)
+(gl-import+ glHint hint)
+(gl-import glBlendFunc blend-func)
 
 (defn enable-high-quality-rendering
   "Sets all flags and hints necessary for high quality rendering."
@@ -396,11 +407,20 @@
          (if (and prev-program# (not= prev-program# ~program))
            (bind-program prev-program#))))))
 
+(defmacro try-with-program
+  "Calls with-program only if shaders are supported."
+  [program & body]
+  `(let [inner# (fn [] ~@body)]
+     (if (shaders-supported?)
+       (with-program ~program
+         (inner#))
+       (inner#))))
+
 (defn- int? [p]
   (let [cls (class p)]
     (if (or (= cls Integer) (= cls Integer/TYPE)) true false)))
 
-(defn get-uniform-location [variable]
+(defn uniform-location [variable]
   (if-let [location (@*uniforms* variable)]
     location
     (let [uniform-buf (ByteBuffer/wrap (.getBytes (str (.replace (name variable) \- \_) "\0")))
@@ -409,18 +429,20 @@
       loc)))
 
 (defn uniform [variable & args]
-  (let [loc     (get-uniform-location variable)
+  (let [loc     (uniform-location variable)
         is-int  (int? (first args))
         args    (vec (map (if is-int int float) args))]
-    (condp = (count args)
-      1 (if is-int  (uniform-1i loc (args 0))
-                    (uniform-1f loc (args 0)))
-      2 (if is-int  (uniform-2i loc (args 0) (args 1))
-                    (uniform-2f loc (args 0) (args 1)))
-      3 (if is-int  (uniform-3i loc (args 0) (args 1) (args 2))
-                    (uniform-3f loc (args 0) (args 1) (args 2)))
-      4 (if is-int  (uniform-4i loc (args 0) (args 1) (args 2) (args 3))
-                    (uniform-4f loc (args 0) (args 1) (args 2) (args 3))))))
+    (if is-int
+      (condp = (count args)
+        1 (uniform-1i loc (args 0))
+        2 (uniform-2i loc (args 0) (args 1))
+        3 (uniform-3i loc (args 0) (args 1) (args 2))
+        4 (uniform-4i loc (args 0) (args 1) (args 2) (args 3)))
+      (condp = (count args)
+        1 (uniform-1f loc (args 0))
+        2 (uniform-2f loc (args 0) (args 1))
+        3 (uniform-3f loc (args 0) (args 1) (args 2))
+        4 (uniform-4f loc (args 0) (args 1) (args 2) (args 3))))))
 
 ;;Render Buffers
 
@@ -515,7 +537,7 @@
 (defn bind-read
   "Binds a texture as a uniform Sampler2DRect to point n."
   [variable tex point]
-  (let [loc (get-uniform-location variable)]
+  (let [loc (uniform-location variable)]
     (gl-active-texture (texture-lookup point))
     (gl-bind-texture (enum (:target tex)) (:id tex))
     (uniform-1i loc point)))
@@ -556,8 +578,8 @@
 
 ;;Texture
 
-(gl-import glTexEnvf tex-env)
-(gl-import glTexParameteri tex-parameter)
+(gl-import+ glTexEnvf tex-env)
+(gl-import+ glTexParameteri tex-parameter)
 (gl-import- glIsTexture gl-is-texture)
 
 (defn is-texture? [tex]
@@ -722,16 +744,28 @@
           (if (= :texture-rectangle (:target tex))
             (:dim tex)
             [1 1])]
-      (push-matrix
+      '(push-matrix
         (with-texture tex
           (color 1 1 1)
           (with-projection (ortho-view -1 1 -1 1 -1 1)
-            (with-program nil
+            (try-with-program nil
               (draw-quads
                (texture 0 0) (vertex -1 -1)
                (texture w 0) (vertex 1 -1)
                (texture w h) (vertex 1 1)
-               (texture 0 h) (vertex -1 1)))))))))
+               (texture 0 h) (vertex -1 1))))))
+      (with-texture tex
+        (do
+          (gl-matrix-mode :texture)
+          (gl-push-matrix)
+          (scale w h)
+          (gl-matrix-mode :modelview))
+        (try-with-program nil
+          (call-display-list (force *display-list*)))
+        (do
+          (gl-matrix-mode :texture)
+          (gl-pop-matrix)
+          (gl-matrix-mode :modelview))))))
 
 (defn blit!
   "Same as blit, but releases texture after rendering."

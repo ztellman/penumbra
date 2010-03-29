@@ -82,14 +82,14 @@
 (gl-import- glTexImage1D gl-tex-image-1d)
 (gl-import- glTexImage2D gl-tex-image-2d)
 (gl-import- glTexImage3D gl-tex-image-3d)
-(gl-import- glTexSubImage1D gl-tex-sub-image-1d)
-(gl-import- glTexSubImage2D gl-tex-sub-image-2d)
-(gl-import- glTexSubImage3D gl-tex-sub-image-3d)
+(gl-import glTexSubImage1D gl-tex-sub-image-1d)
+(gl-import glTexSubImage2D gl-tex-sub-image-2d)
+(gl-import glTexSubImage3D gl-tex-sub-image-3d)
 (gl-import- glTexParameteri gl-tex-parameter)
 (gl-import glTexCoord1d gl-tex-coord-1)
 (gl-import glTexCoord2d gl-tex-coord-2)
 (gl-import glTexCoord3d gl-tex-coord-3)
-(gl-import- glCopyTexSubImage2D gl-copy-tex-sub-image-2d)
+(gl-import glCopyTexSubImage2D gl-copy-tex-sub-image-2d)
 (gl-import gluBuild2DMipmaps glu-build-2d-mipmaps)
 (gl-import- glDeleteTextures gl-delete-textures)
 (gl-import- glPixelStorei gl-pixel-store)
@@ -186,7 +186,7 @@
         (doseq [p [:texture-min-filter :texture-mag-filter]]
           (gl-tex-parameter typ (enum p) :nearest))
         (condp = (count dim)
-          1 (gl-tex-image-1d typ 0 i-f (dim 0) 0 p-f internal-type nil)
+          1 (gl-tex-image-1d typ 0 i-f (dim 0) 0 p-f i-t nil)
           2 (gl-tex-image-2d typ 0 i-f (dim 0) (dim 1) 0 p-f i-t nil)
           3 (gl-tex-image-3d typ 0 i-f (dim 0) (dim 1) (dim 2) 0 p-f i-t nil))
         (let [tex
@@ -269,16 +269,19 @@
 
 (defn populate-buffer [fun tex]
   (let [#^ByteBuffer buf (ByteBuffer/allocate (* 4 (apply * (:dim tex))))
-        dim (vec (:dim tex))]
+        dim (vec (:dim tex))
+        w (dim 0)
+        h (if (< 1 (count dim)) (dim 1) nil)
+        d (if (< 2 (count dim)) (dim 2) nil)]
     (condp = (num-dimensions tex)
-      1 (dotimes [x (dim 0)]
-          (put buf (fun [x] [(/ x (double (dim 0)))])))
-      2 (dotimes [x (dim 0)]
-          (dotimes [y (dim 1)]
-            (put buf (fun [x y] [(/ x (double (dim 0))) (/ y (double (dim 1)))]))))
-      3 (dotimes [x (dim 0)]
-          (dotimes [y (dim 1)]
-            (dotimes [z (dim 2)]
-              (put buf (fun [x y z] [(/ x (double (dim 0))) (/ y (double (dim 1))) (/ z (double (dim 2)))]))))))
+      1 (dotimes [x w]
+          (put buf (fun x (float (/ x w)))))
+      2 (dotimes [x w]
+          (dotimes [y h]
+            (put buf (fun [x y] [(float (/ x w)) (float (/ y h))]))))
+      3 (dotimes [x w]
+          (dotimes [y h]
+            (dotimes [z d]
+              (put buf (fun [x y z] [(float (/ x w)) (float (/ y h)) (float (/ z d))]))))))
     (.rewind buf)
     buf))

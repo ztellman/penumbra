@@ -17,7 +17,7 @@
 (defn- identity-outer [x]
   (x))
 
-(defn- create-thread [app clock heap]
+(defn- create-consumer-thread [app clock heap]
   (loop/create-thread
    app identity-outer
    (fn []
@@ -42,8 +42,7 @@
      (create app (:clock app)))
   ([app clock]
      (let [heap (ref (sorted-set-by #(- (compare (first %2) (first %1)))))]
-       (dotimes [_ 1]
-         (.start (create-thread app clock heap)))
+       (.start (create-consumer-thread app clock heap))
        (fn [delay f]
          (dosync
           (alter heap #(conj % [(+ @clock delay) f])))))))

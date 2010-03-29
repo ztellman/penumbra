@@ -12,7 +12,7 @@
          (texture :only (create-texture release! texture?))
          (framebuffer :only (pixel-format write-format))
          (core :only (*inside-frame-buffer*))
-         (context :only (draw))]
+         (context :only (draw-frame-buffer))]
         [penumbra.glsl core data]
         [penumbra.translate core operators]
         [clojure.contrib
@@ -267,7 +267,7 @@
       (attach-textures
        (interleave (map rename-element (range (count elements))) elements)
        targets)
-      (apply draw dim)
+      (apply draw-frame-buffer dim)
       (doseq [e (distinct elements)]
         (if (not (:persist (meta e)))
           (release! e)))
@@ -304,7 +304,7 @@
             (apply uniform (list* :_bounds bounds))
             (apply uniform (list* :_dim half-dim))
             (attach-textures [:_tex0 input] [target])
-            (draw 0 0 w h)
+            (draw-frame-buffer 0 0 w h)
             (if (not (:persist (meta input)))
               (release! input))
             (recur half-dim target)))))))
