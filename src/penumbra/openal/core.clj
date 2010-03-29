@@ -75,16 +75,13 @@
        (if (not (zero? error))
          (throw (Exception. (str "OpenAL error: " name " " (enum-name error))))))))
 
+(defn- get-parameters [method]
+  (map
+   #(keyword (.getCanonicalName #^Class %))
+   (.getParameterTypes #^Method (get-al-method method))))
+
 (defn- get-doc-string [method]
-  (str "Wrapper for " method ".  "
-       "Type signature: ["
-       (apply
-        str
-        (interpose
-         " "
-         (map
-          #(.getCanonicalName #^Class %)
-          (.getParameterTypes #^Method (get-al-method method))))) "]."))
+  (str "Wrapper for " method "."))
 
 (defmacro al-import
   [import-from import-as]
@@ -92,9 +89,15 @@
         container (method-container import-from)]
     (when (nil? container)
       (throw (Exception. (str "Cannot locate method " import-from))))
-    (let [doc-string (get-doc-string import-from)]
+    (let [doc-string (get-doc-string import-from)
+          arg-list (vec (get-parameters import-from))
+          doc-skip (if (contains? (meta import-as) :skip-wiki)
+                     (:skip-wiki (meta import-as))
+                     true)]
       `(defmacro ~import-as
          ~doc-string
+         {:skip-wiki ~doc-skip
+          :arglists (list ~arg-list)}
          [& args#]
          `(do
             (let [~'value# (. ~'~container ~'~import-from ~@(map (fn [x#] (or (enum x#) x#)) args#))]
@@ -104,7 +107,13 @@
 
 (defmacro al-import-
   "Private version of al-import"
-  [name & decls]
-  (list* `al-import (with-meta name (assoc (meta name) :private true)) decls))
+  [import-from import-as]
+  (list `al-import import-from (with-meta import-as (assoc (meta import-as) :private true))))
+
+(defmacro al-import+
+  "Documented version of al-import"
+  [import-from import-as]
+  (list `al-import import-from (with-meta import-as (assoc (meta import-as) :skip-wiki nil))))
+
 
 

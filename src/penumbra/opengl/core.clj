@@ -8,13 +8,17 @@
 
 (ns penumbra.opengl.core
   (:use [clojure.contrib.def :only (defn-memo defmacro- defvar defvar-)])
-  (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32
+  (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL30 GL31 GL32
                              ARBDrawBuffers
                              EXTFramebufferObject
                              ARBTextureFloat
                              ARBHalfFloatPixel
                              ATITextureFloat
-                             NVFloatBuffer))
+                             NVFloatBuffer
+                             EXTTransformFeedback
+                             ARBTextureRectangle
+                             EXTTextureRectangle
+                             EXTGeometryShader4))
   (:import (org.lwjgl.util.glu GLU))
   (:import (java.lang.reflect Field Method)))
 
@@ -26,6 +30,9 @@
 (defvar *check-errors* true
   "Causes errors in glGetError to throw an exception.  This creates minimal CPU overhead (~3%), and is almost always worth having enabled.")
 
+(defvar *view* (atom [0 0 0 0])
+  "Pixel boundaries of render window.  Parameters represent [x y width height].")
+
 ;;;
 
 (defvar *intra-primitive-transform* (atom false)
@@ -34,11 +41,15 @@
 (defvar *transform-matrix* (atom nil)
   "The transform matrix for intra-primtive transforms")
 
+;;;
+
 (defvar *program* nil
   "The current program bound by with-program")
 
 (defvar *uniforms* nil
   "Cached integer locations for uniforms (bound on a per-program basis)")
+
+;;;
 
 (defvar *texture-pool* nil
   "A list of all allocated textures.  Unused textures can be overwritten, thus avoiding allocation.")
@@ -49,13 +60,20 @@
 (defvar *tex-count-threshold* 100
   "The threshold for number of allocated textures which will trigger collection of any which are unused")
 
-(defvar *view* (atom [0 0 0 0])
-  "Pixel boundaries of render window.  Parameters represent [x y width height].")
+;;;
 
 (defvar *display-list* nil
-  "Display list for framebuffer rendering.")
+  "Display list for framebuffer/blit rendering.")
 
 (defvar *inside-frame-buffer* false)
+
+;;;
+
+(defvar *font-cache* nil
+  "Where all the fonts are kept")
+
+(defvar *font* nil
+  "Current font")
 
 ;;;
 
@@ -65,7 +83,11 @@
                      ARBHalfFloatPixel
                      NVFloatBuffer
                      ATITextureFloat
-                     GL11 GL12 GL13 GL14 GL15 GL20 GL21 GL30 GL31 GL32 GLU])
+                     EXTTextureRectangle
+                     ARBTextureRectangle
+                     EXTTransformFeedback
+                     EXTGeometryShader4
+                     GL11 GL12 GL13 GL14 GL15 GL20 GL30 GL31 GL32 GLU])
 
 (defn- get-fields [#^Class static-class]
   (. static-class getFields))
@@ -122,16 +144,13 @@
         (throw (Exception. (str "Cannot locate enumeration " k))))
       (eval `(. ~(field-container sym) ~sym)))))
 
+(defn- get-parameters [method]
+  (map
+   #(keyword (.getCanonicalName #^Class %))
+   (.getParameterTypes #^Method (get-gl-method method))))
+
 (defn- get-doc-string [method]
-  (str "Wrapper for " method ".  "
-       "Type signature: ["
-       (apply
-        str
-        (interpose
-         " "
-         (map
-          #(.getCanonicalName #^Class %)
-          (.getParameterTypes #^Method (get-gl-method method))))) "]."))
+  (str "Wrapper for " method "."))
 
 (defmacro gl-import
   [import-from import-as]
@@ -139,9 +158,15 @@
         container (method-container import-from)]
     (when (nil? container)
       (throw (Exception. (str "Cannot locate method " import-from))))
-    (let [doc-string (get-doc-string import-from)]
+    (let [doc-string (get-doc-string import-from)
+          arg-list (vec (get-parameters import-from))
+          doc-skip (if (contains? (meta import-as) :skip-wiki)
+                     (:skip-wiki (meta import-as))
+                     true)]
       `(defmacro ~import-as
          ~doc-string
+         {:skip-wiki ~doc-skip
+          :arglists (list ~arg-list)}
          [& args#]
          `(do
             (let [~'value# (. ~'~container ~'~import-from ~@(map (fn [x#] (or (enum x#) x#)) args#))]
@@ -151,5 +176,10 @@
 
 (defmacro gl-import-
   "Private version of gl-import"
-  [name & decls]
-  (list* `gl-import (with-meta name (assoc (meta name) :private true)) decls))
+  [import-from import-as]
+  (list `gl-import import-from (with-meta import-as (assoc (meta import-as) :private true))))
+
+(defmacro gl-import+
+  "Documented version of gl-import"
+  [import-from import-as]
+  (list `gl-import import-from (with-meta import-as (assoc (meta import-as) :skip-wiki nil))))

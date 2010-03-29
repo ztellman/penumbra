@@ -41,18 +41,14 @@
           (reset! previous now)))))))
 
 (defn create-thread [app outer-fn inner-fn]
-  (let [context (context/current)
-        slate (try
-               (slate/create)
-               (catch Exception e
-                 nil))]
+  (let [context (context/current)]
     (Thread.
      #(context/with-context context
         (with-app app
           (outer-fn
            (fn []
-             (if slate
-               (slate/with-slate slate
+             (if (slate/supported?)
+               (slate/with-slate
                  (inner-fn))
                (inner-fn)))))))))
 

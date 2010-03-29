@@ -61,8 +61,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(gl-import- glBegin gl-begin)
-(gl-import- glEnd gl-end)
+(gl-import glBegin gl-begin)
+(gl-import glEnd gl-end)
 
 (defmacro defn-draw
   "Creates a macro called draw-'type' which redirects vertex and transform calls through appropriate facades."

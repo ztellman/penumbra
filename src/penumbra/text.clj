@@ -8,18 +8,12 @@
 
 (ns penumbra.text
   (:use [penumbra.opengl]
-        [penumbra.opengl.core :only [*view*]]
+        [penumbra.opengl.core :only [*view* *font-cache* *font*]]
         [clojure.contrib.def :only (defvar defn-memo)])
   (:import [java.awt Font]
            [java.awt.font TextAttribute]
            [org.newdawn.slick TrueTypeFont]
            [org.newdawn.slick.opengl TextureImpl]))
-
-(defvar *font-cache* nil
-  "Where all the fonts are kept")
-
-(defvar *font* nil
-  "Current font")
 
 (defn-memo attribute
   "Takes :keyword and returns TextAttribute/KEYWORD"

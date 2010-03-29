@@ -13,39 +13,31 @@
 (defn wall-time []
   (/ (System/nanoTime) 1e9))
 
-(defprotocol composition
-  (inner [this])
-  (outer [this])
-  (update! [this inner outer]))
+(defprotocol Clock
+  (speed! [c speed]))
 
 (defn clock
   ([]
-     (let [t0 (wall-time)]
-       (clock #(- (wall-time) t0) identity)))
-  ([inner outer]
-     (let [o (ref outer)
-           i (ref inner)]
+     (clock 0 1))
+  ([offset speed]
+     (let [t0 (wall-time)
+           lookup (ref #(+ offset (* speed (- % t0))))]
        (reify
-        composition
-        (inner [] @i)
-        (outer [] @o)
-        (update! [inner outer]
-                (let [i0 (inner)
-                      o0 (outer i0)]
-                  (dosync
-                   (ref-set i #(- (inner) i0))
-                   (ref-set o #(+ (outer %) o0))
-                   nil)))
         clojure.lang.IDeref
-        (deref [] (@o (@i)))))))
+        (deref
+         []
+         (@lookup (wall-time)))
+        Clock
+        (speed!
+         [speed]
+         (let [t0 (wall-time)
+               offset (@lookup t0)]
+           (dosync
+            (ref-set lookup #(+ offset (* speed (- % t0))))))
+         nil)))))
 
-(defn-memo wall-clock []
-  (clock wall-time identity))
 
-(defn clock-speed! [clock speed]
-  (update! clock (inner clock) #(* % speed)))
 
-(defn now [c]
-  @c)
+
 
 

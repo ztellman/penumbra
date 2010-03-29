@@ -27,7 +27,13 @@
 
 (defvar- *slate* nil)
 
+(defn supported?
+  "Checks whether pixel buffers are supported."
+  []
+  (< 0 (bit-and Pbuffer/PBUFFER_SUPPORTED (Pbuffer/getCapabilities))))
+
 (defn create
+  "Creates a slate."
   ([]
      (create nil))
   ([parent]
@@ -39,30 +45,28 @@
          :pixel-buffer pixel-buffer))))
 
 (defn destroy
+  "Destroys a slate."
   ([]
      (destroy *slate*))
   ([slate]
      (when (:base-context? slate)
        (destroy-frame-buffer (:frame-buffer slate))
-       (texture/destroy-textures (-> *texture-pool* deref :textures)))
-     '(.destroy (:pixel-buffer slate))))
+       (texture/destroy-textures (-> *texture-pool* deref :textures)))))
 
-(defmacro with-slate [slate & body]
-  `(let [context# (context/current)]
-     (.makeCurrent (:pixel-buffer ~slate))
-     (with-frame-buffer
-       (context/with-context context#
-         (binding [*slate* ~slate]
-           (try
-            ~@body
-            (finally
-             (destroy ~slate)
-             (when context#
-               (context/destroy)))))))))
+(defmacro with-slate
+  [& body]
+  `(let [slate# (create)
+         context# (context/current)]
+     (.makeCurrent (:pixel-buffer slate#))
+     (context/with-context context#
+       (binding [*slate* slate#]
+         (try
+          ~@body
+          (finally
+           (destroy slate#)
+           (when context#
+             (context/destroy))))))))
 
-(defmacro with-blank-slate [& body]
-  `(with-slate (create)
-     ~@body))
 
 ;;;
 

@@ -141,7 +141,7 @@
   ([clock-speed]
      (speed! *app* clock-speed))
   ([app clock-speed]
-     (time/clock-speed! (clock app) clock-speed)))
+     (time/speed! (clock app) clock-speed)))
 
 ;;Input
 

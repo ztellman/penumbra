@@ -8,7 +8,7 @@
 
 (ns penumbra.opengl.context
   (:use [penumbra.opengl core])
-  (:use [penumbra opengl text])
+  (:use [penumbra opengl])
   (:require [penumbra.opengl [texture :as texture]])
   (:import [org.lwjgl.opengl Display]))
 
@@ -16,18 +16,19 @@
 
 (defn draw* []
   (with-projection (ortho-view -1 1 1 -1 -1 1)
-    (gl-active-texture :texture0)
     (push-matrix
      (load-identity)
+     (gl-active-texture :texture0)
+     (color 1 1 1)
      (draw-quads
       (texture 0 1) (vertex -1 -1 0)
       (texture 1 1) (vertex 1 -1 0)
       (texture 1 0) (vertex 1 1 0)
       (texture 0 0) (vertex -1 1 0)))))
 
-(defn draw
+(defn draw-frame-buffer
   ([w h]
-     (draw 0 0 w h))
+     (draw-frame-buffer 0 0 w h))
   ([x y w h]
      (with-viewport [x y w h]
        (call-display-list (force *display-list*)))))
