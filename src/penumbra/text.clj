@@ -15,7 +15,7 @@
            [org.newdawn.slick TrueTypeFont]
            [org.newdawn.slick.opengl TextureImpl]))
 
-(defn-memo attribute
+(defn-memo text-attribute
   "Takes :keyword and returns TextAttribute/KEYWORD"
   [k]
   (eval `(. TextAttribute ~(-> k name (.replace \- \_) .toUpperCase symbol))))
@@ -25,7 +25,7 @@
     font
     (let [hash (apply hash-map modifiers)
           hash (assoc hash :family name)
-          hash (zipmap (map attribute (keys hash)) (vals hash))
+          hash (zipmap (map text-attribute (keys hash)) (vals hash))
           font (TrueTypeFont. (Font. hash) true)]
       (swap! *font-cache* #(assoc % (list* name modifiers) font))
       font)))

@@ -25,11 +25,11 @@
        (reify
         clojure.lang.IDeref
         (deref
-         []
+         [_]
          (@lookup (wall-time)))
         Clock
         (speed!
-         [speed]
+         [_ speed]
          (let [t0 (wall-time)
                offset (@lookup t0)]
            (dosync

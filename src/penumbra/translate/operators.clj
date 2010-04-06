@@ -10,11 +10,11 @@
   (:use [clojure.walk]
         [penumbra.geometry]
         [penumbra.translate core]
-        [penumbra.opengl.texture :only (texture?)]
         [clojure.contrib.seq-utils :only (indexed group-by separate)]
         [clojure.contrib.def :only (defn-memo defvar-)]
         [penumbra.translate.core])
-  (:require [clojure.zip :as zip]))
+  (:require [clojure.zip :as zip]
+            [penumbra.data :as data]))
 
 ;;
 
@@ -104,7 +104,7 @@
   (cond
    (and (vector? t) (number? (first t))) :dim
    (number? t) :dim
-   (or (texture? t) (vector? t)) :elements
+   (or (instance? data/Data t) (vector? t)) :elements
    (map? t) :params
    (symbol? t) :symbol
    (keyword? t) :keyword
@@ -145,7 +145,7 @@
            :body)))))
 
 (defvar- radius-convolution-expr
-  '(let [-radius (float2 (float  :radius))
+  '(let [-radius (float2 (float :radius))
          -start  (max (float2 0.0) (float2 (- :coord -radius)))
          -end    (min :dim (+ :coord -radius (float2 1.0)))]
      (for [(<- i (.x -start)) (< i (.x -end)) (+= i 1.0)]

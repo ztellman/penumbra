@@ -7,16 +7,20 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.context
-  (:use [penumbra.opengl core])
-  (:use [penumbra opengl])
-  (:require [penumbra.opengl [texture :as texture]])
+  (:use [penumbra.opengl core]
+        [penumbra opengl]
+        [penumbra.opengl.geometry :only [basic-renderer]])
+  (:require [penumbra.data :as data]
+            [penumbra.opengl.capabilities :as cap])
   (:import [org.lwjgl.opengl Display]))
 
 ;;;
 
-(defn draw* []
+(gl-import- glActiveTexture gl-active-texture)
+
+(defn- draw []
   (with-projection (ortho-view -1 1 1 -1 -1 1)
-    (push-matrix
+    (push-matrix []
      (load-identity)
      (gl-active-texture :texture0)
      (color 1 1 1)
@@ -33,19 +37,33 @@
      (with-viewport [x y w h]
        (call-display-list (force *display-list*)))))
 
-(defn current []
-  (if-not *texture-pool*
-    nil
-    {:display-list *display-list*
-     :texture-pool *texture-pool*
-     :font-cache *font-cache*}))
+(defn create-context []
+  {:display-list (delay (create-display-list (draw)))
+   :texture-pool (data/create-cache)
+   :font-cache (atom {})})
 
-(defn destroy []
-  (texture/destroy-textures (:textures @*texture-pool*)))
+(defn current []
+  {:display-list *display-list*
+   :texture-pool *texture-pool*
+   :font-cache *font-cache*})
+
+(defn destroy
+  ([]
+     (destroy (current)))
+  ([context]
+     (data/clear! (:texture-pool context))))
 
 (defmacro with-context [context & body]
-  `(binding [*display-list* (or *display-list* (:display-list ~context) (delay (create-display-list (draw*))))
-             *texture-pool* (or *texture-pool* (:texture-pool ~context) (atom (texture/create-texture-pool)))
-             *font-cache* (or *font-cache* (:font-cache ~context) (atom {}))]
-     ~@body))
+  `(let [context-exists?# ~context
+         context# (or ~context (create-context))]
+     (binding [*display-list* (:display-list context#)
+               *texture-pool* (:texture-pool context#)
+               *font-cache* (:font-cache context#)
+               *read-format* cap/read-format
+               *renderer* basic-renderer]
+       (try
+        ~@body
+        (finally
+         (when-not context-exists?#
+           (destroy context#)))))))
 

@@ -6,21 +6,24 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.data)
+(ns penumbra.data
+  (:use [penumbra.geometry :only (rectangle)]))
 
 (defprotocol Data
-  (acquire! [d])
-  (release! [d])
-  (destroy! [d])
-  (refcount [d])
-  (permanent? [d])
-  (unwrap [d])
-  (overwrite! [d offset data])
-  (overwrite! [d data])
-  (sizeof [d])
-  (mimic [d])
-  (mimic [d dim])
-  (signature [d]))
+  (acquire! [d] "Increments the reference count.")
+  (release! [d] "Decrements the reference count")
+  (destroy! [d] "Destroys and releases all related resources.")
+  (refcount [d] "Returns the reference count.")
+  (refcount! [d count] "Sets the reference count.")
+  (permanent? [d] "Returns whether the data is permanent.")
+  (permanent! [d flag] "Sets whether data is permanent.")
+  (unwrap [d] "Returns the the contained data.")
+  (overwrite! [d bounds data] [d data] "Overwrites contained data.")
+  (sizeof [d] "Memory, in bytes, used by data.")
+  (mimic [d] [d dim] "Returns an equivalent data container.")
+  (signature [d] "Returns a data signature, where equivalent signatures implies equivalent containers.")
+  (matches? [a b] "Returns true if the signature of 'a' is compatible with 'b' (this is not necessarily bidirectional)")
+  (params [t] "The parameters used to create the data"))
 
 (defn unwrap! [d]
   (let [v (unwrap d)]
@@ -43,7 +46,10 @@
   (max-count! [c count])
   (max-size! [c size])
   (locate! [c sig])
-  (add! [c d]))
+  (add! [c d])
+  (stats [c])
+  (remove! [c d])
+  (clear! [c]))
 
 (defn create-cache
   ([]
@@ -52,35 +58,57 @@
      (let [max-count (ref max-count)
            max-size (ref max-size)
            cache (ref [])
-           total-size #(apply + (map sizeof @cache))
-           total-count #(count @cache)]
+           total-size (ref 0)
+           total-count (ref 0)]
        (reify
         DataCache
         (max-count!
-         [count]
+         [_ count]
          (dosync (ref-set max-count count)))
         (max-size!
-         [size]
+         [_ size]
          (dosync (ref-set max-size size)))
         (locate!
-         [sig]
+         [_ data]
          (dosync
-          (let [match (first #(= sig (signature %)) @cache)]
+          (let [match (->> @cache
+                           (filter available?)
+                           (filter #(matches? data %))
+                           first)]
             (when match
-              (acquire! match))
+              (refcount! match 1))
             match)))
         (add!
-         [data]
+         [_ data]
          (dosync
           (let [max-count @max-count
                 max-size @max-size]
             (when (or
-                   (and (pos? max-size) (>= (total-size) max-size))
-                   (and (pos? max-count) (>= (total-count) max-count)))
+                   (and (pos? max-size) (>= @total-size max-size))
+                   (and (pos? max-count) (>= @total-count max-count)))
               (let [[available not-available] (partition available? @cache)]
                 (doseq [d available]
                   (destroy! d))
-                (ref-set cache not-available)))
-            (alter cache #(conj % data)))))))))
+                (ref-set cache not-available)
+                (alter total-size #(- % (apply + (map sizeof available))))
+                (alter total-count #(- % (count available)))))
+            (alter cache #(conj % data))
+            (alter total-count inc)
+            (alter total-size #(+ % (sizeof data))))))
+        (stats
+         [_]
+         nil)
+        (remove!
+         [_ d]
+         (dosync
+          (alter cache #(remove (fn [x] (= x d)) %)))
+         (destroy! d))
+        (clear!
+         [_]
+         (dosync
+          (doseq [d @cache]
+            (destroy! d))
+          (ref-set cache [])))))))
 
+;;;
 

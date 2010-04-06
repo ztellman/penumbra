@@ -30,12 +30,12 @@
     (scale 0.5 0.5 0.5)
     (push-matrix
       (translate 0 1 0)
-      (call-display-list display-list))
+      (display-list))
     (dotimes [_ 4]
       (rotate 90 0 1 0)
       (push-matrix
         (translate 0.5 0 0.5)
-        (call-display-list display-list)))))
+        (display-list)))))
 
 (defn sierpinski []
   (iterate
@@ -77,7 +77,7 @@
 (defn display [[delta time] state]
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
-  (call-display-list (:pyramid state)))
+  ((:pyramid state)))
 
 (defn start []
   (app/start

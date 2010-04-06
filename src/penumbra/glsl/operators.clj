@@ -8,18 +8,18 @@
 
 (ns penumbra.glsl.operators
   (:use [penumbra opengl]
-        [penumbra.opengl
-         (texture :only (create-texture release! texture?))
-         (framebuffer :only (pixel-format write-format))
-         (core :only (*inside-frame-buffer*))
-         (context :only (draw-frame-buffer))]
-        [penumbra.glsl core data]
         [penumbra.translate core operators]
+        [penumbra.glsl core]
+        [penumbra.opengl.context :only (draw-frame-buffer)]
         [clojure.contrib
          (seq-utils :only (separate indexed flatten))
          (def :only (defvar- defn-memo))])
   (:require [clojure.zip :as zip]
-            [penumbra.translate.c :as c]))
+            [penumbra.translate.c :as c]
+            [penumbra.opengl.texture :as tex]
+            [penumbra.data :as data]
+            [penumbra.opengl.capabilities :as cap]
+            [penumbra.opengl.frame-buffer :as fb]))
 
 ;;;
 
@@ -245,8 +245,8 @@
   [typecast dim]
   (let [tuple  (type-tuple typecast)
         format (type-format typecast)
-        i-f    (write-format format tuple)
-        p-f    (pixel-format tuple)]
+        i-f    (cap/write-format format tuple)
+        p-f    (tex/tuple->pixel-format tuple)]
     (if (nil? i-f)
       (throw (Exception. (str "Your graphics hardware does not support writing to texture of type=" format ", tuple=" tuple))))
     (create-texture :texture-rectangle dim (first i-f) p-f format tuple)))
@@ -264,13 +264,13 @@
       (apply uniform (list* :_dim (map float dim)))
       (doseq [[idx d] (indexed (map :dim elements))]
         (apply uniform (list* (symbol (str "-dim" idx)) (map float d))))
-      (attach-textures
+      (fb/attach-textures
        (interleave (map rename-element (range (count elements))) elements)
        targets)
       (apply draw-frame-buffer dim)
       (doseq [e (distinct elements)]
         (if (not (:persist (meta e)))
-          (release! e)))
+          (data/release! e)))
       (if (= 1 (count targets)) (first targets) targets))))
 
 (defn create-map-template
@@ -291,22 +291,22 @@
     (let [params (:params info)
           data (first (:elements info))]
       (set-params params)
-      (attach-textures [] [data])
+      (fb/attach-textures [] [data])
       (loop [dim (:dim data), input data]
         (if (= [1 1] dim)
-          (let [result (unwrap-first! input)]
-            (release! input)
+          (let [result (data/unwrap! input)]
+            (data/release! input)
             (seq result))
           (let [half-dim  (map #(Math/ceil (/ % 2.0)) dim)
-                target    (mimic-texture input half-dim)
+                target    (data/mimic input half-dim)
                 [w h]     half-dim
                 bounds    (map #(* 2 (Math/floor (/ % 2.0))) dim)]
             (apply uniform (list* :_bounds bounds))
             (apply uniform (list* :_dim half-dim))
-            (attach-textures [:_tex0 input] [target])
+            (fb/attach-textures [:_tex0 input] [target])
             (draw-frame-buffer 0 0 w h)
             (if (not (:persist (meta input)))
-              (release! input))
+              (data/release! input))
             (recur half-dim target)))))))
 
 (defn create-reduce-template

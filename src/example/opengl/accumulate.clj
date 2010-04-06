@@ -8,7 +8,8 @@
 
 (ns example.opengl.accumulate
   (:use [penumbra.opengl])
-  (:require [penumbra.app :as app]))
+  (:require [penumbra.app :as app]
+            [penumbra.data :as data]))
 
 (defn init [state]
   (app/title! "Accumulate")
@@ -19,7 +20,7 @@
 (defn reshape [[x y w h] state]
   (ortho-view 0 w h 0 -1 1)
   (when-let [t (:tex state)]
-    (destroy-texture t))
+    (data/destroy! t))
   (let [t (create-byte-texture w h)]
     (render-to-texture t (clear))
     (assoc state

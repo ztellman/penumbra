@@ -8,8 +8,9 @@
 
 (ns example.gpgpu.mandelbrot
   (:use [penumbra opengl compute])
-  (:require [penumbra.app :as app])
-  (:require [penumbra.slate :as slate]))
+  (:require [penumbra.app :as app]
+            [penumbra.slate :as slate]
+            [penumbra.data :as data]))
 
 (defn init [state]
 
@@ -50,9 +51,9 @@
 
 (defn reset-fractal [state]
   (when (:data state)
-    (release! (:data state)))
+    (data/release! (:data state)))
   (when (:image state)
-    (release! (:image state)))
+    (data/release! (:image state)))
   (assoc state
     :iterations 0
     :image nil
