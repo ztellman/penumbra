@@ -6,17 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.compute
-  (:require [penumbra.glsl.operators :as glsl])
-  (:require [penumbra.opengl.texture :as tex])
-  (:require [clojure.contrib.def :only (defmacro-)]))
+(ns penumbra.node.core)
 
-(defmacro defmap [name & body]
-  `(def ~name (glsl/create-map-template (quote ~body))))
-
-(defmacro defreduce [name & body]
-  `(def ~name (glsl/create-reduce-template (quote ~body))))
-
-(defn wrap
-  ([s] (wrap s 4))
-  ([s tuple] (tex/wrap s tuple)))
+(defn create [callbacks state]
+  )

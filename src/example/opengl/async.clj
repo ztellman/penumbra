@@ -8,31 +8,44 @@
 
 (ns example.opengl.async
   (:use [penumbra.opengl])
-  (:require [penumbra.app :as app]))
+  (:require [penumbra.app :as app]
+            [penumbra.data :as data]
+            [penumbra.opengl.texture :as tex]))
+
+(def dim [64 64])
 
 (defn xor [a b] (or (and a (not b)) (and (not a) b)))
 
 (defn draw [tex]
-  (when tex
-    (draw-to-subsampled-texture!
-     tex
-     (fn [[x y] _]
-       (let [x (+ x (int (* 5 (app/now))))]
-         (if (xor (even? (bit-shift-right x 4)) (even? (bit-shift-right y 4)))
-           [1 0 0 1]
-           [0 0 0 1]))))
-    (app/repaint!)))
+  (data/overwrite!
+   tex
+   (apply concat
+          (for [x (range (first dim)) y (range (second dim))]
+            (let [x (+ x (int (* 5 (app/now))))]
+              (if (xor (even? (bit-shift-right x 3)) (even? (bit-shift-right y 3)))
+                [1 0 0 1]
+                [0 0 0 1]))))))
+
+(defn swap [_ state]
+  (let [[a b] (:textures state)]
+    (draw b)
+    (assoc state
+      :textures [b a])))
 
 (defn init [state]
   (enable :texture-2d)
-  (let [tex (create-byte-texture 128 128)]
-    (draw tex)
-    (app/periodic-update! 2 #(draw (:tex %)))
+  (let [a (apply create-byte-texture dim)
+        b (apply create-byte-texture dim)
+        ]
+    ;;(draw a)
+    ;;(draw b)
+    (app/periodic-update! 10 (fn [_] (app/defer! :update swap)))
     (assoc state
-      :tex tex)))
+      :textures [a b])))
 
 (defn display [_ state]
-  (blit (:tex state)))
+  (blit (first (:textures state)))
+  (app/repaint!))
 
 (defn start []
   (app/start {:display display, :init init} {}))

@@ -10,7 +10,8 @@
   (:use [penumbra opengl geometry])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
-            [penumbra.time :as time])
+            [penumbra.time :as time]
+            [penumbra.data :as data])
   (:use [clojure.contrib.seq-utils :only (separate)]))
 
 ;;;
@@ -121,10 +122,11 @@
 (defn init-particles []
   (def particle-tex
     (let [tex (create-byte-texture 128 128)]
-      (draw-to-texture!
+      (data/overwrite!
        tex
-       (fn [_ pos]
-         (let [i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
+       (for [x (range 128) y (range 128)]
+         (let [pos (map / [128 128])
+               i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
            [1 1 1 i])))
       tex))
   (def particle-quad
@@ -364,8 +366,8 @@
           (render p))))
     (with-disabled :texture-2d
       (with-render-mode :wireframe
-       (doseq [a (:asteroids state)]
-         (render a)))
+        (doseq [a (:asteroids state)]
+          (render a)))
       (draw-spaceship (:spaceship state)))
     (app/repaint!)))
 

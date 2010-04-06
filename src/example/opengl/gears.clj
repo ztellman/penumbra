@@ -62,7 +62,7 @@
 
 (defn draw-gear [num-teeth inner low high width]
   (material :front-and-back
-    :ambient-and-diffuse [1 0.25 0.25 1])
+            :ambient-and-diffuse [1 0.25 0.25 1])
   (push-matrix
     (scale 1 1 width)
     (translate 0 0 -0.5)
@@ -114,7 +114,7 @@
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   (rotate (* 20. (rem time 360)) 0 0 1)
-  (call-display-list (:gear state))
+  ((:gear state))
   (app/repaint!))
 
 ;;By using this instead of display, we can recompile display and see

@@ -40,8 +40,57 @@
 (gl-import glUniform3f uniform-3f)
 (gl-import glUniform4f uniform-4f)
 
-;;;;;;;;;;;;;;;;;;;;
-;OpenGL shader functions
+;;;
+
+(gl-import- glUseProgram gl-use-program)
+(gl-import- glGetUniformLocation gl-get-uniform-location)
+
+(defn bind-program
+  "Calls glUseProgram."
+  [program]
+  (gl-use-program (if (nil? program) 0 (:program program))))
+
+(defn with-program
+  "Binds program within inner-scope."
+  [program body]
+  (let [prev-program *program*]
+    (try
+     (binding [*program* (:program program), *uniforms* (:uniforms program)]
+       (bind-program program)
+       (body))
+     (finally
+      (if (and prev-program (not= prev-program program))
+        (bind-program prev-program))))))
+
+(defn- int? [p]
+  (let [cls (class p)]
+    (if (or (= cls Integer) (= cls Integer/TYPE)) true false)))
+
+(defn uniform-location [variable]
+  (if-let [location (@*uniforms* variable)]
+    location
+    (let [uniform-buf (ByteBuffer/wrap (.getBytes (str (.replace (name variable) \- \_) "\0")))
+          loc (gl-get-uniform-location *program* uniform-buf)]
+      (dosync (alter *uniforms* #(assoc % variable loc)))
+      loc)))
+
+(defn uniform [variable & args]
+  (let [loc     (uniform-location variable)
+        is-int  (int? (first args))
+        args    (vec (map (if is-int int float) args))]
+    (if is-int
+      (condp = (count args)
+        1 (uniform-1i loc (args 0))
+        2 (uniform-2i loc (args 0) (args 1))
+        3 (uniform-3i loc (args 0) (args 1) (args 2))
+        4 (uniform-4i loc (args 0) (args 1) (args 2) (args 3)))
+      (condp = (count args)
+        1 (uniform-1f loc (args 0))
+        2 (uniform-2f loc (args 0) (args 1))
+        3 (uniform-3f loc (args 0) (args 1) (args 2))
+        4 (uniform-4f loc (args 0) (args 1) (args 2) (args 3))))))
+
+;;;shader
 
 (defvar *verbose* true
   "Full feedback on shader compilation.")
@@ -117,7 +166,7 @@
         (load-source shader source)
         (gl-attach-shader program shader)))
     (when-let [source (:geometry src)]
-      (let [shader (gl-create-shader :geometry-shader)]
+      (let [shader (gl-create-shader :geometry-shader-ext)]
         (load-source shader source)
         (gl-attach-shader program shader)))
     (when-let [source (:fragment src)]
@@ -130,7 +179,8 @@
     (gl-validate-program program)
     (when-not (program-valid? program)
       (throw (Exception. (str "*** Error validating program:\n" (get-program-log program)))))
-    (if *verbose* (println "Linked.\n"))
+    (when *verbose*
+      (println "Linked.\n"))
     {:program program
      :uniforms (ref {})
      :sources src}))

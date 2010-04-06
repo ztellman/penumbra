@@ -8,7 +8,8 @@
 
 (ns example.opengl.render-to-texture
   (:use [penumbra opengl])
-  (:require [penumbra.app :as app]))
+  (:require [penumbra.app :as app]
+            [penumbra.data :as data]))
 
 (defn textured-quad []
   (push-matrix
@@ -31,18 +32,18 @@
 
 (defn xor [a b] (or (and a (not b)) (and (not a) b)))
 
-(defn init-textures []
-  (let [view (create-byte-texture 256 256)
-        checkers (create-byte-texture 128 128)]
-    (draw-to-subsampled-texture!
-      checkers
-      (fn [[x y] _]
-        (if (xor (even? (bit-shift-right x 4)) (even? (bit-shift-right y 4)))
-          [1 0 0 1]
-          [0 0 0 1])))
-    [checkers view]))
+(defn create-checkers []
+  (let [tex (create-byte-texture 128 128)]
+    (data/overwrite!
+     tex
+     (apply concat
+            (for [x (range 128) y (range 128)]
+              (if (xor (even? (bit-shift-right x 4)) (even? (bit-shift-right y 4)))
+                [1 0 0 1]
+                [0 0 0 1]))))
+    tex))
 
-;;;;;;;;;;;;;;;;;
+;;;
 
 (defn init [state]
   (app/title! "Render to Texture")
@@ -52,10 +53,9 @@
   (enable :light0)
   (enable :lighting)
   (line-width 3)
-  (let [[checkers view] (init-textures)]
-    (assoc state
-      :checkers checkers
-      :view view)))
+  (assoc state
+    :checkers (create-checkers)
+    :view (create-byte-texture 256 256)))
 
 (defn reshape [_ state]
   (load-identity)

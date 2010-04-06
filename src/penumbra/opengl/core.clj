@@ -24,22 +24,14 @@
 
 ;;;
 
-(defvar *inside-begin-end* false
-  "Are we within a glBegin/glEnd scope")
+(defvar *primitive-type* nil
+  "What type of primitive is being rendered?")
 
 (defvar *check-errors* true
   "Causes errors in glGetError to throw an exception.  This creates minimal CPU overhead (~3%), and is almost always worth having enabled.")
 
 (defvar *view* (atom [0 0 0 0])
   "Pixel boundaries of render window.  Parameters represent [x y width height].")
-
-;;;
-
-(defvar *intra-primitive-transform* (atom false)
-  "Have we encountered an intra-primitive (i.e. *inside-begin-end* is true) transformation")
-
-(defvar *transform-matrix* (atom nil)
-  "The transform matrix for intra-primtive transforms")
 
 ;;;
 
@@ -62,10 +54,25 @@
 
 ;;;
 
+(defvar *renderer* nil)
+
 (defvar *display-list* nil
   "Display list for framebuffer/blit rendering.")
 
-(defvar *inside-frame-buffer* false)
+(defvar *frame-buffer* nil
+  "The currently bound frame buffer")
+
+(defvar *read-format* nil
+  "A function which returns the proper read format for a sequence type and tuple.")
+
+(defvar *render-target* nil
+  "The texture which is the main render target (GL_COLOR_ATTACHMENT0)")
+
+(defvar *layered-target?* false
+  "Is the render target a layered texture?")
+
+(defvar *z-offset* nil
+  "2-D slice of 3-D texture to render into.")
 
 ;;;
 
@@ -170,7 +177,7 @@
          [& args#]
          `(do
             (let [~'value# (. ~'~container ~'~import-from ~@(map (fn [x#] (or (enum x#) x#)) args#))]
-              (when (and *check-errors* (not *inside-begin-end*))
+              (when (and *check-errors* (not *primitive-type*))
                 (check-error ~'~method-name))
               ~'value#))))))
 

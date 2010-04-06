@@ -11,12 +11,8 @@
         [clojure.contrib.pprint]
         [clojure.contrib.seq-utils :only [separate]]
         [clojure.contrib.core :only [-?>]]
-        [penumbra opengl]
         [penumbra.opengl core]
         [penumbra.app core])
-  (:require [penumbra.opengl
-             [texture :as texture]
-             [context :as context]])
   (:import [org.lwjgl.opengl Pbuffer PixelFormat]))
 
 ;;;
@@ -49,23 +45,25 @@
   ([]
      (destroy *slate*))
   ([slate]
-     (when (:base-context? slate)
-       (destroy-frame-buffer (:frame-buffer slate))
-       (texture/destroy-textures (-> *texture-pool* deref :textures)))))
+     nil))
+
+(defmacro with-slate-
+  [slate & body]
+  `(do
+     (.makeCurrent (:pixel-buffer ~slate))
+     (binding [*slate* ~slate]
+       (try
+        ~@body
+        (finally
+         (destroy ~slate))))))
 
 (defmacro with-slate
   [& body]
-  `(let [slate# (create)
-         context# (context/current)]
-     (.makeCurrent (:pixel-buffer slate#))
-     (context/with-context context#
-       (binding [*slate* slate#]
-         (try
-          ~@body
-          (finally
-           (destroy slate#)
-           (when context#
-             (context/destroy))))))))
+  `(let [slate# (create)]
+     (with-slate- slate#
+       ~@body)))
+
+
 
 
 ;;;

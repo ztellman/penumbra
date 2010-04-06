@@ -10,7 +10,7 @@
   (:use [penumbra opengl compute])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
-            [penumbra.opengl.texture :as texture]
+            [penumbra.data :as data]
             [penumbra.slate :as slate]))
 
 (defn init-kernels []
@@ -30,14 +30,16 @@
   (defmap colorize
     (color3 (.xyz %))))
 
-(defn create-texture [w h]
+(defn create-random-texture [w h]
   (let [tex (create-byte-texture :texture-rectangle w h)]
-    (draw-to-texture!
+    (data/overwrite!
      tex
-     (fn [[x y] _]
-       (if (zero? (rand-int 2))
-         [1 1 1 1]
-         [0 0 0 0])))
+     (apply concat
+            (take (* w h)
+                  (repeatedly
+                   #(if (zero? (rand-int 2))
+                      [1 1 1 1]
+                      [0 0 0 0])))))
     tex))
 
 (defn init [state]
@@ -71,6 +73,6 @@
 (defn benchmark []
   (slate/with-slate
     (init-kernels)
-    (loop [tex (create-texture 2000 2000), i 0]
+    (loop [tex (create-random-texture 2000 2000), i 0]
       (when (< i 100)
         (recur (time (update-automata tex)) (inc i))))))
