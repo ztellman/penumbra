@@ -12,7 +12,7 @@
         [clojure.contrib.def :only [defmacro- defvar-]]
         [penumbra.opengl]
         [penumbra.opengl.core]
-        [penumbra.app.core])
+        [clojure.walk :only (postwalk-replace)])
   (:require [penumbra.opengl
              [texture :as texture]
              [context :as context]]
@@ -20,340 +20,158 @@
              [slate :as slate]
              [time :as time]]
             [penumbra.app
+             [core :as app]
              [window :as window]
              [input :as input]
              [controller :as controller]
              [loop :as loop]
              [event :as event]
-             [queue :as queue]])
-  (:import [org.lwjgl.opengl Display]
-           [org.lwjgl.input Keyboard]))
+             [queue :as queue]]))
 
 ;;;
 
-(defn sync-update!
-  ([f]
-     (sync-update! *app* f))
-  ([app f]
-     (let [state* (dosync
-                   (when-let [value (f @(:state app))]
-                     (ref-set (:state app) value)
-                     value))]
-       (when state*
-         (controller/repaint!))
-       nil)))
+(defn- transform-arglist [protocol name arglists template]
+  (list*
+   `fn
+   (map
+    (fn [args]
+      (let [template (postwalk-replace {'this (first args)} template)]
+        (list
+         (vec args)
+         (list*
+          (intern (symbol (namespace protocol)) name)
+          template
+          (next args)))))
+    arglists)))
 
-(defn- subscribe-callback [app callback f]
-  (event/unique-subscribe!
-   (:event app)
-   callback
-   (fn [& args]
-     (sync-update!
-      app
-      (if (empty? args)
-        f
-        (apply partial (list* f args)))))))
+(defmacro auto-extend [type protocol template & explicit]
+  (let [sigs (eval `(vals (:sigs ~protocol)))]
+    (list
+     `extend
+     type
+     protocol
+     (merge
+      (->> (map
+            (fn [{name :name arglists :arglists}]
+              [(keyword name)
+               (transform-arglist protocol name arglists template)])
+            sigs)
+           (apply concat)
+           (apply hash-map))
+      (apply hash-map explicit)))))
+
+;;;
+
+(defn- update- [app state f args]
+  (let [state* (dosync
+                (when-let [value (if (empty? args)
+                                   (f @state)
+                                   (apply f (concat args [@state])))]
+                  (ref-set state value)
+                  value))]
+    (when state*
+      (controller/invalidated! app true))
+    nil))
 
 (defn- alter-callbacks [clock callbacks]
-  (let [callbacks (if-not (:update callbacks)
-                    callbacks
-                    (update-in callbacks [:update] #(loop/timed-fn clock %)))
-        callbacks (if-not (:display callbacks)
-                    callbacks
-                    (update-in callbacks [:display] #(loop/timed-fn clock %)))]
+  (let [wrap (partial loop/timed-fn clock)
+        callbacks (if (:update callbacks)
+                    (update-in callbacks [:update] wrap)
+                    callbacks)
+        callbacks (if (:display callbacks)
+                    (update-in callbacks [:display] wrap)
+                    callbacks)]
     callbacks))
 
-;;;
+(deftype App
+  [state
+   clock
+   event-handler
+   queue
+   window
+   input-handler
+   controller
+   parent])
 
-(defn publish!
-  ([hook & args]
-     (apply event/publish! (list* (:event *app*) hook args))))
+(auto-extend ::App penumbra.app.window/Window (deref (:window this)))
+(auto-extend ::App penumbra.app.input/InputHandler (deref (:input-handler this)))
+(auto-extend ::App penumbra.app.queue/QueueHash (deref (:queue this)))
+(auto-extend ::App penumbra.app.event/EventHandler (:event-handler this))
+(auto-extend ::App penumbra.app.controller/Controller (:controller this))
 
-(defn subscribe!
-  ([hook f]
-     (subscribe! *app* hook f))
-  ([app hook f]
-     (event/subscribe! (:event app) hook f)))
+(extend
+ ::App
+ app/App
+ {:speed! (fn [app speed] (time/speed! (:clock app) speed))
+  :now (fn [app] @(:clock app))
+  :callback- (fn [app event args] ((-> app :callbacks event) args))
+  :init! (fn [app]
+           (window/init! app)
+           (input/init! app)
+           (queue/init! app)
+           (controller/resume! app)
+           (event/publish! app :init))
+  :destroy! (fn [app]
+              (window/destroy! app)
+              (input/destroy! app)
+              (controller/stop! app))})
 
-(defn unsubscribe! []
-  (reset! *unsubscribe* true))
-
-;;;
-
-(defstruct app-struct
-  :window
-  :input
-  :controller
-  :queues
-  :clock
-  :callbacks
-  :state)
-
-(defn create [callbacks state]
-  (let [clock (time/clock)
-        app (with-meta
-              (struct-map app-struct
-                :nested *app*
-                :window (window/create)
-                :input (input/create)
-                :controller (controller/create)
-                :queues (ref {})
-                :event (event/create)
-                :clock clock
-                :state (ref state))
-              {:type ::app})]
-    (doseq [[c f] (alter-callbacks clock callbacks)]
-      (if (= :display c)
-        (event/unique-subscribe! (:event app) c #(f @(:state app)))
-        (subscribe-callback app c f)))
+(defn- create [callbacks state]
+  (let [window (atom nil)
+        input (atom nil)
+        queue (atom nil)
+        event (event/create)
+        clock (time/clock)
+        state (ref state)
+        controller (controller/create)
+        app (App state clock event queue window input controller app/*app*)]
+    (reset! window (window/create-fixed-window app))
+    (reset! input (input/create app))
+    (reset! queue (queue/create app))
+    (doseq [[event f] (alter-callbacks clock callbacks)]
+      (event/subscribe! app event (fn [& args] (update- app state f args))))
     app))
 
-(defmethod print-method ::app [app writer]
-  (let [{size :size active-percent :active-percent} (when (:texture-pool app) (texture/texture-pool-stats @(:texture-pool app)))
-        elapsed-time @(:clock app)
-        state (cond
-               (controller/stopped? (:controller app)) "STOPPED"
-               (controller/paused? (:controller app)) "PAUSED"
-               :else "RUNNING")]
-    (.write
-     writer
-     (format "<<%s: %s\n  %.2f seconds elapsed\n  Allocated texture memory: %.2fM (%.2f%% in use)>>"
-             state
-             (Display/getTitle)
-             elapsed-time
-             (/ (or size 0.) 1e6) (* 100 (or active-percent 0.))))))
-
-;;Clock
-
-(defn clock
-  ([]
-     (clock *app*))
-  ([app]
-     (:clock app)))
-
-(defn now
-  ([]
-     (now *app*))
-  ([app]
-     @(clock app)))
-
-(defn speed!
-  ([clock-speed]
-     (speed! *app* clock-speed))
-  ([app clock-speed]
-     (time/speed! (clock app) clock-speed)))
-
-;;Input
-
-(defn key-pressed?
-  ([key]
-     (key-pressed? *app* key))
-  ([app key]
-     ((-> app :input :keys deref vals set) key)))
-
-(defn key-repeat!
-  ([enabled]
-     (key-repeat! *app* enabled))
-  ([app enabled]
-     (Keyboard/enableRepeatEvents enabled)))
-
-;;Window
-
-(defn title!
-  ([title]
-     (title! *app* title))
-  ([app title]
-     (when (-?> app :window :frame deref)
-       (.setTitle @(:frame *window*) title))
-     (Display/setTitle title)))
-
-(defn display-modes
-  "Returns a list of available display modes."
-  []
-  (window/display-modes))
-
-(defn current-display-mode
-  "Returns the current display mode."
-  []
-  (window/current-display-mode))
-
-(defn display-mode!
-  "Sets the current display mode."
-  ([width height] (window/display-mode! width height))
-  ([mode] (window/display-mode! mode)))
-
-(defn dimensions
-  "Returns dimensions of window as [width height]."
-  ([] (dimensions *window*))
-  ([w] (window/dimensions w)))
-
-(defn vsync?
-  ([]
-     (vsync? *app*))
-  ([app]
-     (window/vsync?)))
-
-(defn vsync!
-  ([enabled]
-     (vsync! *app* enabled))
-  ([app enabled]
-     (window/vsync! enabled)))
-
-(defn fullscreen!
-  ([enabled]
-     (fullscreen! *app* enabled))
-  ([app enabled]
-     (Display/setFullscreen enabled)))
-
-;;Updates
-
-(defn frequency!
-  "Update frequency of recurring update.  Can only be called from inside recurring-update callback."
-  [hz]
-  (reset! *hz* hz))
-
-(defn update!
-  ([f]
-     (update! 0 f))
-  ([delay f]
-     (update! *clock* 0 f))
-  ([clock delay f]
-     (update! *app* clock delay f))
-  ([app clock delay f]
-     (queue/update app clock delay #(sync-update! app f))))
-
-(defn periodic-update!
-  ([hz f]
-     (periodic-update! *clock* hz f))
-  ([clock hz f]
-     (periodic-update! *app* clock hz f))
-  ([app clock hz f]
-     (queue/periodic-update app clock hz #(sync-update! app f))
-     nil))
-
-(defn state
-  ([] (state *app*))
-  ([app] @(:state app)))
+;;;
 
 (defn app []
-  *app*)
+  app/*app*)
 
 ;;App state
 
-(defn cleanup!
-  "Cleans up any active apps."
-  []
-  (Display/destroy))
-
-(defn repaint!
-  "Forces a new frame to be redrawn"
-  ([]
-     (repaint! *app*))
-  ([app]
-     (controller/repaint! (:controller app))))
-
-(defn stop!
-  "Stops the application."
-  ([]
-     (stop! *app*))
-  ([app]
-     (controller/stop! (:controller app) true)))
-
-(defn pause!
-  "Halts main loop, and yields control back to the REPL. Returns nil."
-  ([]
-     (pause! *app*))
-  ([app]
-     (speed! app 0)
-     (controller/pause! (:controller app))))
-
-(defn- resume!
-  ([]
-     (resume! *app*))
-  ([app]
-     (loop/with-app app
-       (let [stopped? (controller/stopped?)]
-         (controller/resume!)
-         (when stopped?
-           (dosync (ref-set (:queues app) {}))
-           (publish! :init)
-           (publish! :reshape (concat [0 0] (dimensions))))
-         (input/resume!)
-         (speed! 1)))))
-
-(defn- destroy
-  ([]
-     (destroy *app*))
-  ([app]
-     (let [nested? (:nested app)]
-       (try
-        (publish! :close)
-        (when-not nested?
-          (-> app
-              (update-in [:input] input/destroy)
-              (update-in [:window] window/destroy)))
-        (finally
-         (when-not nested?
-           (context/destroy)))))))
-
-(defn- init
-  [app]
-  (if (controller/stopped? (:controller app))
-    (do
-      (title! "Penumbra")
-      (assoc app
-        :nested *app*
-        :window (window/init (:window app))
-        :input (input/init (:input app))))
-    app)) 
-       
-;;;
-
 (defn single-thread-main-loop
   "Does everything in one pass."
-  ([]
-     (single-thread-main-loop *app*))
   ([app]
-     (Display/processMessages)
-     (input/handle-keyboard!)
-     (input/handle-mouse!)
-     (when (window/check-for-resize)
-       (repaint!))
-     (if (or (Display/isDirty) (controller/invalidated?))
+     (window/process! app)
+     (input/handle-keyboard! app)
+     (input/handle-mouse! app)
+     (window/handle-resize! app)
+     (if (or (window/invalidated? app) (controller/invalidated? app))
        (do
-         (publish! :update)
-         (controller/repainted!)
+         (event/publish! app :enqueued)
+         (event/publish! app :update)
+         (controller/invalidated! app false)
          (push-matrix
           (clear 0 0 0)
-          (publish! :display))
-         (Display/update))
+          (event/publish! app :display))
+         (window/update! app))
        (Thread/sleep 1))
-     (if (Display/isCloseRequested)
+     (if (window/close? app)
        (controller/stop! :requested-by-user))))
 
-(defn start-single-thread [f app]
-  (let [app (init app)]
-    (f
-     app
-     (fn [inner-fn]
-       (try
-        (resume!)
-        (inner-fn)
-        (catch Exception e
-          (.printStackTrace e)
-          (controller/stop! :exception)))
-       (speed! 0)
-       (if (controller/stopped?)
-         (destroy app)
-         (assoc app
-           :texture-pool *texture-pool*)))
-     single-thread-main-loop)
-    app))
-
-(defn- try-async-resume [app]
-  (when (and (:async app) (controller/paused? (:controller app)))
-    (resume! app)
-    true))
+(defn start-single-thread [app f]
+  (f
+   app
+   (fn [inner-fn]
+     (context/with-context nil
+       (app/init! app)
+       (inner-fn)
+       (app/speed! app 0)
+       (when (controller/stopped? app)
+         (println "stopped, destroying")
+         (app/destroy! app))))
+   (partial single-thread-main-loop app))
+  app)
 
 (defn start
   "Starts a window from scratch, or from a closed state.
@@ -372,30 +190,6 @@
    :key-press      [key state]
    :key-release    [key state]"
   ([callbacks state]
-     (start (create callbacks state)))
-  ([app]
-     (if-not (try-async-resume app)
-       (let [app (start-single-thread loop/primary-loop app)]
-         (let [reason (-> app :controller :stopped? deref)]
-           (when (and *controller* (keyword? reason))
-             (controller/stop! reason)))
-         app)
-       app)))
+     (start-single-thread (create callbacks state) loop/basic-loop)))
 
-(defn start*
-  "Same as start, but doesn't block until complete"
-  ([callbacks state]
-     (start* (create callbacks state)))
-  ([app]
-     (let [texture-pool (promise)]
-       (when-not (try-async-resume app)
-         (.start
-          (Thread.
-           (fn []
-             (context/with-context nil
-               (deliver texture-pool *texture-pool*)
-               (start-single-thread loop/secondary-loop app)))))
-         (controller/try-latch! (-> app :controller :latch deref))
-         (assoc app
-           :texture-pool @texture-pool
-           :async true)))))
+

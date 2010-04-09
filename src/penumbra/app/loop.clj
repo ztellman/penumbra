@@ -9,77 +9,66 @@
 (ns penumbra.app.loop
   (:use [penumbra.opengl]
         [penumbra.app.core])
-  (:require [penumbra.opengl.context :as context]
-            [penumbra.app.controller :as controller]
+  (:require [penumbra.app.controller :as controller]
             [penumbra.app.window :as window]
-            [penumbra.app.input :as input]
-            [penumbra.slate :as slate]
             [penumbra.time :as time]))
 
 ;;;
 
 (defmacro with-app [app & body]
-  `(let [app# ~app]
-     (binding [*app* app#
-               *clock* (:clock app#)
-               *queues* (deref (:queues app#))
-               *controller* (:controller app#)
-               *event* (:event app#)]
-      (input/with-input (:input app#)
-        (window/with-window (:window app#)
-          ~@body)))))
+  `(binding [*app* ~app]
+     ~@body))
 
 ;;;
 
 (defn timed-fn [clock f]
-  (let [previous (atom @clock)]
-    (fn [& args]
-      (let [now @clock]
-        (try
-         (apply f (list* [(- now @previous) now] args))
-         (finally
-          (reset! previous now)))))))
+  (when f
+    (let [previous (atom @clock)]
+      (fn [& args]
+        (let [now @clock]
+          (try
+           (apply f (list* [(- now @previous) now] args))
+           (finally
+            (reset! previous now))))))))
 
 (defn create-thread [app outer-fn inner-fn]
-  (let [context (context/current)]
-    (Thread.
-     #(context/with-context context
-        (with-app app
-          (outer-fn
-           (fn []
-             (if (slate/supported?)
-               (slate/with-slate
-                 (inner-fn))
-               (inner-fn)))))))))
+  (Thread.
+   #(with-app app
+      (outer-fn
+       (inner-fn)))))
 
-(defn secondary-loop
+(defn pauseable-loop
   [app outer-fn inner-fn]
   (with-app app
     (outer-fn
      (fn []
        (loop []
-         (controller/try-latch!)
+         (controller/wait! app)
          (try
           (inner-fn)
           (catch Exception e
-            (.printStackTrace e)))
-         (when-not (controller/stopped?)
+            (.printStackTrace e)
+            (controller/stop! app :exception)))
+         (when-not (controller/stopped? app)
            (recur)))))))
 
-(defn secondary-thread
+(defn pauseable-thread
   [app outer-fn inner-fn]
   (create-thread
    app
    #(%)
-   #(secondary-loop app outer-fn inner-fn)))
+   #(pauseable-loop app outer-fn inner-fn)))
 
-(defn primary-loop
+(defn basic-loop
   [app outer-fn inner-fn]
-  (context/with-context nil
-    (with-app app
-     (outer-fn
-      (fn []
-        (loop []
+  (with-app app
+    (outer-fn
+     (fn []
+       (loop []
+         (try
           (inner-fn)
-          (when-not (or (controller/paused?) (controller/stopped?))
-            (recur))))))))
+          (catch Exception e
+            (.printStackTrace e)
+            (controller/stop! app :exception)))
+         (when-not (or (controller/paused? app) (controller/stopped? app))
+           (recur)))))))
