@@ -39,7 +39,7 @@
         ]
     ;;(draw a)
     ;;(draw b)
-    (app/periodic-update! 10 (fn [_] (app/defer! :update swap)))
+    (app/periodic-update! 10 (fn [_] (app/enqueue! swap)))
     (assoc state
       :textures [a b])))
 

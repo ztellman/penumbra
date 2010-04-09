@@ -45,7 +45,7 @@
 ;;;;;;;;;;;;;;;;;
 
 (defn init [state]
-  ;;(app/title! "Sierpinski Pyramid")
+  (app/title! "Sierpinski Pyramid")
   (enable :normalize)
   (enable :depth-test)
   (enable :cull-face)
@@ -75,7 +75,6 @@
     :rot-y (+ (:rot-y state) dx)))
 
 (defn display [[delta time] state]
-  (println "state" state)
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   ((:pyramid state)))

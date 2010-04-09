@@ -46,7 +46,7 @@
   (rotate (:rot state) 0 1 0)
   (call-display-list (:cube state)))
 
-(defn start []
+'(defn start []
   (let [app (app/start* {:init init, :reshape reshape, :display display} {:rot 0})]
     (Thread/sleep 5000)
     (app/pause! app)

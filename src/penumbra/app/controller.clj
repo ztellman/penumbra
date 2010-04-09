@@ -33,7 +33,9 @@
      (paused? [_] @paused?)
      (stopped? [_] @stopped?)
      (invalidated? [_] @invalidated?)
-     (invalidated! [_ flag] (dosync (ref-set invalidated? flag)))
+     (invalidated! [_ flag]
+                   (dosync (ref-set invalidated? flag))
+                   nil)
      (stop! [this] (stop! this true))
      (stop! [_ reason]
             (dosync

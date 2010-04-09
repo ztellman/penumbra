@@ -51,7 +51,7 @@
               (event/publish! app :key-press key))
             (recur (assoc pressed-keys name key)))
           (let [pressed-key (pressed-keys name)]
-            (event/publish! :key-type pressed-key)
+            (event/publish! app :key-type pressed-key)
             (when-not (Keyboard/isRepeatEvent)
               (event/publish! app :key-release pressed-key))
             (recur (dissoc pressed-keys name)))))
