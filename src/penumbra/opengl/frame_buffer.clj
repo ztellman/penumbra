@@ -10,7 +10,7 @@
   (:use [penumbra.opengl core]
         [penumbra.opengl.shader :only [uniform-location]]
         [clojure.contrib.def :only [defn-memo]]
-        [clojure.contrib.seq-utils :only [indexed]])
+        [clojure.contrib.seq :only [indexed]])
   (require [penumbra.opengl.texture :as tex])
   (:import [java.nio IntBuffer]))
 

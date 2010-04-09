@@ -22,3 +22,7 @@
   (destroy! [app])
   (speed! [app speed])
   (now [app]))
+
+(defmacro with-app [app & body]
+  `(binding [*app* ~app]
+     ~@body))

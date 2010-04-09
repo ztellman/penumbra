@@ -27,7 +27,7 @@
 
 
 (defn- get-frame-buffer []
-  (get-integer :framebuffer))
+  (get-integer :framebuffer-binding))
 
 (defn- valid-read-format? [type tuple format]
   (try

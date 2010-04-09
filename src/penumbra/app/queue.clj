@@ -15,26 +15,19 @@
 
 (defprotocol Queue
   (init- [q])
-  (create-consumer-thread [q])
+  (start-consumer-thread [q])
   (enqueue- [q delay f])
   (periodic-enqueue- [q hz f]))
 
 (defn- create-queue [app clock]
   (let [heap (ref (sorted-set-by #(- (compare (first %2) (first %1)))))
-        threads (ref #{})
         queue (reify
                Queue
                (init- [this]
-                      (dosync
-                       (when (empty? @threads)
-                         (.start (create-consumer-thread this)))))
-               (create-consumer-thread [_]
-                                       (loop/create-thread
-                                        app
-                                        (fn [x]
-                                          (dosync (alter threads #(conj % (Thread/currentThread))))
-                                          (x)
-                                          (dosync (alter threads #(disj % (Thread/currentThread)))))
+                      (start-consumer-thread this))
+               (start-consumer-thread [_]
+                                      (.start
+                                       (Thread.
                                         (fn []
                                           (loop/basic-loop
                                            app
@@ -49,9 +42,9 @@
                                                            top)))]
                                                (doseq [a (map second actions)]
                                                  (a))
-                                               (Thread/sleep 1)))))))
+                                               (Thread/sleep 1))))
+                                          (println "exiting consumer thread")))))
                (enqueue- [this delay f]
-                         (init- this)
                          (dosync
                           (alter heap #(conj % [(+ @clock delay) f])))
                          nil)
@@ -90,8 +83,8 @@
     (reify
      QueueHash
      (init! [_]
-            (doseq [q (vals @hash)]
-              (init! q)))
+            '(doseq [q (vals @hash)]
+              (init- q)))
      (enqueue! [_ clock delay f]
                (enqueue- (find-or-create clock) delay f))
      (periodic-enqueue! [_ clock hz f]

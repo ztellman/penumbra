@@ -11,7 +11,7 @@
   (:use [clojure.contrib.def :only [defn-memo]]))
 
 (defn wall-time []
-  (/ (System/nanoTime) 1e9))
+  (/ (double (System/nanoTime)) (double 1e9)))
 
 (defprotocol Clock
   (speed! [c speed]))
@@ -21,7 +21,7 @@
      (clock 0 1))
   ([offset speed]
      (let [t0 (wall-time)
-           lookup (ref #(+ offset (* speed (- % t0))))]
+           lookup (atom #(+ offset (* speed (- % t0))))]
        (reify
         clojure.lang.IDeref
         (deref
@@ -32,8 +32,7 @@
          [_ speed]
          (let [t0 (wall-time)
                offset (@lookup t0)]
-           (dosync
-            (ref-set lookup #(+ offset (* speed (- % t0))))))
+           (reset! lookup #(+ offset (* speed (- % t0)))))
          nil)))))
 
 

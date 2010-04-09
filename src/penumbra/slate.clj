@@ -9,7 +9,7 @@
 (ns penumbra.slate
   (:use [clojure.contrib.def :only [defmacro- defn-memo defvar-]]
         [clojure.contrib.pprint]
-        [clojure.contrib.seq-utils :only [separate]]
+        [clojure.contrib.seq :only [separate]]
         [clojure.contrib.core :only [-?>]]
         [penumbra.opengl core]
         [penumbra.app core])

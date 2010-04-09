@@ -8,7 +8,7 @@
 
 (ns penumbra.opengl.shader
   (:use [clojure.contrib.def :only (defmacro- defvar)])
-  (:use [clojure.contrib.seq-utils :only (indexed)])
+  (:use [clojure.contrib.seq :only (indexed)])
   (:use [penumbra.opengl.core])
   (:use [penumbra.glsl.core])
   (:use [penumbra.translate.core])
