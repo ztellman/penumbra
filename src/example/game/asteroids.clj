@@ -12,7 +12,7 @@
             [penumbra.text :as text]
             [penumbra.time :as time]
             [penumbra.data :as data])
-  (:use [clojure.contrib.seq-utils :only (separate)]))
+  (:use [clojure.contrib.seq :only (separate)]))
 
 ;;;
 
@@ -124,10 +124,11 @@
     (let [tex (create-byte-texture 128 128)]
       (data/overwrite!
        tex
-       (for [x (range 128) y (range 128)]
-         (let [pos (map / [128 128])
-               i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
-           [1 1 1 i])))
+       (apply concat
+              (for [x (range 128) y (range 128)]
+                (let [pos (map / [x y] [128 128])
+                      i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
+                  [1 1 1 i]))))
       tex))
   (def particle-quad
     (create-display-list (textured-quad))))
@@ -330,9 +331,8 @@
   (init-spaceship)
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
-  (app/periodic-update! 15 update-collisions)
+  (app/periodic-update! 10 update-collisions)
   (app/periodic-update! 50 emit-flame)
-  ;;(app/periodic-update (time/wall-clock) 2 (fn [_] (println (app/now))))
   (reset state))
 
 (defn reshape [[x y w h] state]
@@ -358,7 +358,7 @@
       :spaceship (update-spaceship dt (:spaceship state)))))
 
 (defn display [[dt time] state]
-  ;;(text/write-to-screen (str (int (/ 1 dt)) " fps") 0 0)
+  (text/write-to-screen (str (int (/ 1 dt)) " fps") 0 0)
   (binding [*dim* (:dim state)]
     (with-enabled :texture-2d
       (with-texture particle-tex

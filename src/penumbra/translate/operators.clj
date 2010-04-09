@@ -10,7 +10,7 @@
   (:use [clojure.walk]
         [penumbra.geometry]
         [penumbra.translate core]
-        [clojure.contrib.seq-utils :only (indexed group-by separate)]
+        [clojure.contrib.seq :only (indexed group-by separate)]
         [clojure.contrib.def :only (defn-memo defvar-)]
         [penumbra.translate.core])
   (:require [clojure.zip :as zip]
@@ -104,7 +104,7 @@
   (cond
    (and (vector? t) (number? (first t))) :dim
    (number? t) :dim
-   (or (instance? data/Data t) (vector? t)) :elements
+   (or (satisfies? data/Data t) (vector? t)) :elements
    (map? t) :params
    (symbol? t) :symbol
    (keyword? t) :keyword

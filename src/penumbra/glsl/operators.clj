@@ -12,7 +12,7 @@
         [penumbra.glsl core]
         [penumbra.opengl.context :only (draw-frame-buffer)]
         [clojure.contrib
-         (seq-utils :only (separate indexed flatten))
+         (seq :only (separate indexed flatten))
          (def :only (defvar- defn-memo))])
   (:require [clojure.zip :as zip]
             [penumbra.translate.c :as c]

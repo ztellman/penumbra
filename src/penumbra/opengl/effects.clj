@@ -99,9 +99,9 @@
 (defn with-render-mode
   "Sets render-mode within inner scope.  Valid modes are [:solid :wireframe :point-cloud]."
   [mode body]
-  (let [mode (get-integer :polygon-mode)]
+  (let [prev-mode (get-integer :polygon-mode)]
      (render-mode mode)
      (try
       (body)
       (finally
-       (gl-polygon-mode :front-and-back mode)))))
+       (gl-polygon-mode :front-and-back prev-mode)))))

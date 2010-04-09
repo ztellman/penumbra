@@ -20,13 +20,13 @@
   (data/overwrite!
    tex
    (apply concat
-          (for [x (range (first dim)) y (range (second dim))]
-            (let [x (+ x (int (* 5 (app/now))))]
+          (let [offset (int (* 5 (app/now)))]
+            (for [x (range offset (+ offset (first dim))) y (range (second dim))]
               (if (xor (even? (bit-shift-right x 3)) (even? (bit-shift-right y 3)))
                 [1 0 0 1]
                 [0 0 0 1]))))))
 
-(defn swap [_ state]
+(defn swap [state]
   (let [[a b] (:textures state)]
     (draw b)
     (assoc state
@@ -37,9 +37,9 @@
   (let [a (apply create-byte-texture dim)
         b (apply create-byte-texture dim)
         ]
-    ;;(draw a)
-    ;;(draw b)
-    (app/periodic-update! 10 (fn [_] (app/enqueue! swap)))
+    (draw a)
+    (draw b)
+    (app/periodic-update! 2 (fn [_] (app/enqueue! swap)))
     (assoc state
       :textures [a b])))
 

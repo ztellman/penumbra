@@ -8,7 +8,7 @@
 
 (ns penumbra.opengl.texture
   (:use [clojure.contrib.def :only (defmacro- defn-memo)])
-  (:use [clojure.contrib.seq-utils :only (separate)])
+  (:use [clojure.contrib.seq :only (separate)])
   (:use [penumbra.geometry :only (rectangle)])
   (:use [penumbra.opengl core])
   (:use [penumbra data])
@@ -232,7 +232,7 @@
   (let [params (->> params
                     (apply hash-map)
                     (merge
-                     {:target :texture2d
+                     {:target :texture-2d
                       :texture-wrap-s :clamp
                       :texture-wrap-t :clamp
                       :texture-wrap-r :clamp

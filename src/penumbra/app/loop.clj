@@ -15,10 +15,6 @@
 
 ;;;
 
-(defmacro with-app [app & body]
-  `(binding [*app* ~app]
-     ~@body))
-
 ;;;
 
 (defn timed-fn [clock f]
@@ -40,17 +36,23 @@
 (defn pauseable-loop
   [app outer-fn inner-fn]
   (with-app app
-    (outer-fn
-     (fn []
-       (loop []
-         (controller/wait! app)
-         (try
-          (inner-fn)
-          (catch Exception e
-            (.printStackTrace e)
-            (controller/stop! app :exception)))
-         (when-not (controller/stopped? app)
-           (recur)))))))
+    (try
+     (outer-fn
+      (fn []
+        (loop []
+          (controller/wait! app)
+          (try
+           (inner-fn)
+           (catch Exception e
+             (.printStackTrace e)
+             (controller/stop! app :exception)))
+          (when-not (controller/stopped? app)
+            (recur)))))
+     (catch Exception e
+       (.printStackTrace e)
+       (controller/stop! app :exception))
+     (finally
+      (println "exiting pauseable loop" (Thread/currentThread))))))
 
 (defn pauseable-thread
   [app outer-fn inner-fn]
@@ -62,13 +64,19 @@
 (defn basic-loop
   [app outer-fn inner-fn]
   (with-app app
-    (outer-fn
-     (fn []
-       (loop []
-         (try
-          (inner-fn)
-          (catch Exception e
-            (.printStackTrace e)
-            (controller/stop! app :exception)))
-         (when-not (or (controller/paused? app) (controller/stopped? app))
-           (recur)))))))
+    (try
+     (outer-fn
+      (fn []
+        (loop []
+          (try
+           (inner-fn)
+           (catch Exception e
+             (.printStackTrace e)
+             (controller/stop! app :exception)))
+          (when-not (or (controller/paused? app) (controller/stopped? app))
+            (recur)))))
+     (catch Exception e
+       (.printStackTrace e)
+       (controller/stop! app :exception))
+     (finally
+      (println "exiting basic loop" (Thread/currentThread))))))

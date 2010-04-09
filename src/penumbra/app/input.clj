@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.app.input
-  (:use [clojure.contrib.seq-utils :only [indexed]]
+  (:use [clojure.contrib.seq :only [indexed]]
         [clojure.contrib.def :only [defvar]])
   (:require [penumbra.app.window :as window]
             [penumbra.app.event :as event])
@@ -128,7 +128,7 @@
                (Keyboard/destroy)
                (Mouse/destroy))
      (key-repeat! [_ flag] (Keyboard/enableRepeatEvents flag))
-     (key-pressed? [_ key] (@keys key))
+     (key-pressed? [_ key] ((-> @keys vals set) key))
      (button-pressed? [_ button] (@buttons button))
      (handle-mouse! [_] (dosync (alter buttons #(handle-mouse app %))))
      (handle-keyboard! [_] (dosync (alter keys #(handle-keyboard app %)))))))

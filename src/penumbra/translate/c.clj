@@ -10,7 +10,7 @@
   (:use [penumbra.translate core]
         [clojure.contrib
          (def :only (defmacro-))
-         (seq-utils :only (flatten))]))
+         (seq :only (flatten))]))
   
 ;;;;;;;;;;;;;;;;;;;
 

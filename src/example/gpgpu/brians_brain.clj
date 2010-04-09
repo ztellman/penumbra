@@ -51,7 +51,7 @@
 
 (defn reshape [[x y w h] state]
   (assoc state
-    :tex (create-texture w h)))
+    :tex (create-byte-texture w h)))
 
 (defn key-press [key state]
   (cond

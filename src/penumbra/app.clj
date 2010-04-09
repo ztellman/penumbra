@@ -63,15 +63,14 @@
 ;;;
 
 (defn- update- [app state f args]
-  (let [state* (dosync
-                (when-let [value (if (empty? args)
-                                   (f @state)
-                                   (apply f (concat args [@state])))]
-                  (ref-set state value)
-                  value))]
-    (when state*
-      (controller/invalidated! app true))
-    nil))
+  (swap! state
+        (fn [state]
+          (let [state* (if (empty? args)
+                         (f state)
+                         (apply f (concat args [state])))]
+            (when state*
+              (controller/invalidated! app true))
+            (or state* state)))))
 
 (defn- alter-callbacks [clock callbacks]
   (let [wrap (partial loop/timed-fn clock)
@@ -115,9 +114,10 @@
            (event/publish! app :init))
   :destroy! (fn [app]
               (event/publish! app :close)
-              (window/destroy! app)
-              (input/destroy! app)
-              (controller/stop! app))})
+              (controller/stop! app)
+              (when-not (:parent app)
+                (window/destroy! app)
+                (input/destroy! app)))})
 
 (defmethod print-method ::App [app writer]
   (.write writer "App"))
@@ -128,7 +128,7 @@
         queue (atom nil)
         event (event/create)
         clock (time/clock)
-        state (ref state)
+        state (atom state)
         controller (controller/create)
         app (App state clock event queue window input controller app/*app*)]
     (reset! window (window/create-fixed-window app))
@@ -185,7 +185,7 @@
 
 (defn now
   ([] (now app/*app*))
-  ([app] (@(clock app))))
+  ([app] @(clock app)))
 
 (defn speed!
   ([speed] (speed! app/*app* speed))
@@ -207,7 +207,7 @@
 
 (defn enqueue!
   ([f] (enqueue! app/*app* f))
-  ([app f] (event/subscribe-once! app :enqueue f)))
+  ([app f] (event/subscribe-once! app :enqueue #(update- app (:state app) f nil))))
 
 (defn repaint!
   ([] (repaint! app/*app*))
@@ -215,6 +215,13 @@
 
 (defn frequency! [hz]
   (reset! app/*hz* hz))
+
+;;
+
+(defmacro with-gl [& body]
+  `(slate/with-slate
+    (context/with-context nil
+      ~@body)))
 
 ;;App state
 
@@ -238,18 +245,18 @@
      (if (window/close? app)
        (controller/stop! app :requested-by-user))))
 
-(defn start-single-thread [app f]
-  (f
-   app
-   (fn [inner-fn]
-     (context/with-context nil
+(defn start-single-thread [app loop-fn]
+  (context/with-context nil
+    (loop-fn
+     app
+     (fn [inner-fn]
        (app/init! app)
        (inner-fn)
-       (app/speed! app 0)
-       (when (controller/stopped? app)
-         (println "stopped, destroying")
-         (app/destroy! app))))
-   (partial single-thread-main-loop app))
+       (app/speed! app 0))
+     (partial single-thread-main-loop app))
+    (when (controller/stopped? app)
+      (println "stopped, destroying")
+      (app/destroy! app)))
   app)
 
 (defn start
