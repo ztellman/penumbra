@@ -7,85 +7,49 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.app.controller
-  (:use [penumbra.opengl]
-        [penumbra.app.core])
-  (:require [penumbra.time :as time])
   (:import [java.util.concurrent CountDownLatch]))
 
 ;;;
 
-(defstruct controller-struct
-  :paused?
-  :stopped?
-  :invalidated?
-  :latch)
+(defprotocol Controller
+  (paused? [c])
+  (pause! [c])
+  (stopped? [c])
+  (stop! [c] [c flag])
+  (resume! [c])
+  (invalidated? [c])
+  (invalidated! [c flag])
+  (wait! [c]))
+
+;;;
 
 (defn create []
-  (with-meta
-    (struct-map controller-struct
-      :paused? (atom false)
-      :stopped? (atom :initializing)
-      :invalidated? (atom true)
-      :latch (atom (CountDownLatch. 1)))
-    {:type ::controller}))
-
-(defn stopped?
-  ([] (stopped? *controller*))
-  ([controller]
-     @(:stopped? controller)))
-
-(defn stop!
-  ([]
-     (stop! *controller* true))
-  ([reason]
-     (stop! *controller* reason))
-  ([controller reason]
-     (reset! (:stopped? controller) reason)
-     nil))
-(defn paused?
-  ([] (paused? *controller*))
-  ([controller] @(:paused? controller)))
-
-(defn pause!
-  ([]
-     (pause! *controller*))
-  ([controller]
-     (reset! (:paused? controller) true)
-     (reset! (:latch controller) (CountDownLatch. 1))
-     nil))
-
-(defn resume!
-  ([]
-     (resume! *controller*))
-  ([controller]
-     (reset! (:paused? controller) false)
-     (reset! (:stopped? controller) false)
-     (when-let [latch @(:latch controller)]
-       (.countDown #^CountDownLatch latch))
-     nil))
-
-(defn invalidated?
-  ([] (invalidated? *controller*))
-  ([controller] @(:invalidated? controller)))
-
-(defn try-latch!
-  ([] (try-latch! @(:latch *controller*)))
-  ([latch]
-     (when latch
-       (.await #^CountDownLatch latch))
-     nil))
-
-(defn repaint!
-  ([]
-     (repaint! *controller*))
-  ([controller]
-     (reset! (:invalidated? controller) true)
-     nil))
-
-(defn repainted!
-  ([]
-     (repainted! *controller*))
-  ([controller]
-     (reset! (:invalidated? controller) false)
-     nil))
-
+  (let [paused? (ref false)
+        stopped? (ref :initializing)
+        invalidated? (ref true)
+        latch (ref (CountDownLatch. 1))]
+    (reify
+     Controller
+     (paused? [_] @paused?)
+     (stopped? [_] @stopped?)
+     (invalidated? [_] @invalidated?)
+     (invalidated! [_ flag] (dosync (ref-set invalidated? flag)))
+     (stop! [this] (stop! this true))
+     (stop! [_ reason]
+            (dosync
+             (ref-set stopped? reason)))
+     (pause! [_]
+             (dosync
+              (ref-set paused? true)
+              (when-not @latch
+                (ref-set latch (CountDownLatch. 1)))))
+     (resume! [_]
+              (dosync
+               (ref-set paused? false)
+               (ref-set stopped? false)
+               (when @latch
+                 (.countDown @latch)
+                 (ref-set latch nil))))
+     (wait! [_]
+            (when-let [l @latch]
+              (.await l))))))

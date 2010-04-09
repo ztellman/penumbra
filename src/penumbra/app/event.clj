@@ -6,37 +6,42 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.app.event
-  (:use [penumbra.app.core]))
+(ns penumbra.app.event)
+
+(defprotocol EventHandler
+  (subscribe! [event hook f])
+  (unsubscribe! [event hook f])
+  (subscribe-once! [event hook f])
+  (publish- [event hook args]))
 
 (defn create []
-  (atom {}))
+  (let [event (ref {})]
+    (reify
+     EventHandler
+     (subscribe!
+      [_ hook f]
+      (dosync
+       (alter event (fn [e] (update-in e [hook] #(set (conj % f))))))
+      nil)
+     (unsubscribe!
+      [_ hook f]
+      (dosync
+       (alter event (fn [e] (update-in e [hook] #(disj % f)))))
+      nil)
+     (publish-
+      [_ hook args]
+      (doseq [f (->> @event hook)]
+        (apply f args))
+      nil)
+     (subscribe-once!
+      [this hook f]
+      (subscribe!
+       this hook
+       (letfn [(f* [& args]
+                   (apply f args)
+                   (unsubscribe! this hook f*))]
+         f*))
+      nil))))
 
-(defn subscribe! [event hook f]
-  (swap! event #(update-in % [hook] (fn [x] (if x (conj x f) #{f}))))
-  nil)
-
-(defn unique-subscribe! [event hook f]
-  (swap! event #(assoc % hook #{f}))
-  nil)
-
-(defn unsubscribe! [event hook f]
-  (swap! event #(update-in % [hook] (fn [x] (disj x f))))
-  nil)
-
-(defn subscribe-once! [event hook f]
-  (subscribe!
-   event hook
-   #(do
-      (apply f %&)
-      (unsubscribe! event hook f))))
-
-(defn publish! [event hook & args]
-  (let [wrapper-fn (fn [f]
-                     (fn [& args]
-                       (binding [*unsubscribe* (atom nil)]
-                         (apply f args)
-                         @*unsubscribe*)))]
-    (doseq [f (->> @event hook (map wrapper-fn) (map #(apply % args)) (remove nil?))]
-      (unsubscribe! event hook f))))
-
+(defn publish! [e hook & args]
+  (publish- e hook args))
