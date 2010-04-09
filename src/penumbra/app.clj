@@ -30,7 +30,7 @@
 
 ;;;
 
-(defn- transform-arglist [protocol name arglists template]
+(defn- transform-extend-arglists [protocol name arglists template]
   (list*
    `fn
    (map
@@ -44,7 +44,7 @@
           (next args)))))
     arglists)))
 
-(defmacro auto-extend [type protocol template & explicit]
+(defmacro- auto-extend [type protocol template & explicit]
   (let [sigs (eval `(vals (:sigs ~protocol)))]
     (list
      `extend
@@ -54,7 +54,7 @@
       (->> (map
             (fn [{name :name arglists :arglists}]
               [(keyword name)
-               (transform-arglist protocol name arglists template)])
+               (transform-extend-arglists protocol name arglists template)])
             sigs)
            (apply concat)
            (apply hash-map))
@@ -91,7 +91,9 @@
    window
    input-handler
    controller
-   parent])
+   parent]
+  clojure.lang.IDeref
+  (deref [app] @(:state app)))
 
 (auto-extend ::App penumbra.app.window/Window (deref (:window this)))
 (auto-extend ::App penumbra.app.input/InputHandler (deref (:input-handler this)))
@@ -112,11 +114,15 @@
            (controller/resume! app)
            (event/publish! app :init))
   :destroy! (fn [app]
+              (event/publish! app :close)
               (window/destroy! app)
               (input/destroy! app)
               (controller/stop! app))})
 
-(defn- create [callbacks state]
+(defmethod print-method ::App [app writer]
+  (.write writer "App"))
+
+(defn create [callbacks state]
   (let [window (atom nil)
         input (atom nil)
         queue (atom nil)
@@ -129,13 +135,86 @@
     (reset! input (input/create app))
     (reset! queue (queue/create app))
     (doseq [[event f] (alter-callbacks clock callbacks)]
-      (event/subscribe! app event (fn [& args] (update- app state f args))))
+      (if (= event :display)
+        (event/subscribe! app :display (fn [& args] (f @state)))
+        (event/subscribe! app event (fn [& args] (update- app state f args)))))
     app))
 
 ;;;
 
 (defn app []
   app/*app*)
+
+(defn- transform-import-arglists [protocol name arglists]
+  (list*
+   `defn name
+   (map
+    (fn [args]
+      (list
+       (vec (next args))
+       (list*
+        (intern (symbol (namespace protocol)) name)
+        'penumbra.app.core/*app*
+        (next args))))
+    arglists)))
+
+(defmacro- auto-import [protocol & imports]
+  (let [sigs (eval `(vals (:sigs ~protocol)))]
+    (list*
+     'do
+     (map
+      (fn [{name :name arglists :arglists}]
+        (transform-import-arglists protocol name arglists))
+      (let [imports (set imports)]
+        (filter #(imports (:name %)) sigs))))))
+
+(auto-import penumbra.app.window/Window
+             title! size fullscreen! vsync!)
+
+(auto-import penumbra.app.controller/Controller
+             stop! pause!)
+
+(auto-import penumbra.app.input/InputHandler
+             key-pressed? button-pressed? key-repeat!)
+
+;;
+
+(defn clock
+  ([] (clock app/*app*))
+  ([app] (:clock app)))
+
+(defn now
+  ([] (now app/*app*))
+  ([app] (@(clock app))))
+
+(defn speed!
+  ([speed] (speed! app/*app* speed))
+  ([app speed] (time/speed! (clock app) speed)))
+
+(defn periodic-update!
+  ([hz f] (periodic-update! (clock)  hz f))
+  ([clock hz f] (periodic-update! app/*app* clock hz f))
+  ([app clock hz f] (queue/periodic-enqueue! app clock hz #(update- app (:state app) f nil))))
+
+(defn delay!
+  ([delay f] (delay! (clock) delay f))
+  ([clock delay f] (delay! app/*app* clock delay f))
+  ([app clock delay f] (queue/enqueue! app clock delay #(update- app (:state app) f nil))))
+
+(defn update!
+  ([f] (update! app/*app* f))
+  ([app f] (delay! (clock app) 0 f)))
+
+(defn enqueue!
+  ([f] (enqueue! app/*app* f))
+  ([app f] (event/subscribe-once! app :enqueue f)))
+
+(defn repaint!
+  ([] (repaint! app/*app*))
+  ([app] (controller/invalidated! app true)))
+
+(defn frequency! [hz]
+  (reset! app/*hz* hz))
 
 ;;App state
 
@@ -148,7 +227,7 @@
      (window/handle-resize! app)
      (if (or (window/invalidated? app) (controller/invalidated? app))
        (do
-         (event/publish! app :enqueued)
+         (event/publish! app :enqueue)
          (event/publish! app :update)
          (controller/invalidated! app false)
          (push-matrix
@@ -157,7 +236,7 @@
          (window/update! app))
        (Thread/sleep 1))
      (if (window/close? app)
-       (controller/stop! :requested-by-user))))
+       (controller/stop! app :requested-by-user))))
 
 (defn start-single-thread [app f]
   (f

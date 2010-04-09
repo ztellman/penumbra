@@ -17,7 +17,7 @@
              [penumbra.app.event :as event]
              [penumbra.app.core :as app])
   (:import [org.lwjgl.opengl Display PixelFormat]
-           [org.newdawn.slick.opengl InternalTextureLoader]
+           [org.newdawn.slick.opengl InternalTextureLoader TextureImpl]
            [java.awt Frame Canvas GridLayout Color]
            [java.awt.event WindowAdapter]))
 
@@ -81,8 +81,13 @@
      (init! [this]
             (when-not (Display/isCreated)
               (Display/setParent nil)
-              (Display/create (PixelFormat.)))
+              (Display/create (PixelFormat.))
+              (display-mode! this 800 600))
+            (-> (InternalTextureLoader/get) .clear)
+            (TextureImpl/bindNone)
+            (blend-func :src-alpha :one-minus-src-alpha)
             (let [[w h] (size this)]
+              (viewport 0 0 w h)
               (event/publish! app :reshape [0 0 w h])))
      (destroy! [_]
                (-> (InternalTextureLoader/get) .clear)

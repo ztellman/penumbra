@@ -63,7 +63,7 @@
   (translate 0 0 2))
 
 (defn mouse-drag [[dx dy] [x y] button state]
-  (let [[w h] (app/dimensions)]
+  (let [[w h] (app/size)]
     (if (< x (int (/ w 2)))
       (let [[lx ly] (:left state)]
         (assoc state :left [(- lx dy) (- ly dx)]))
@@ -75,7 +75,7 @@
         [rx ry] (:right state)
         checkers (:checkers state)
         view (:view state)
-        [w h] (app/dimensions)]
+        [w h] (app/size)]
 
     (light 0
        :position [-1 -1 1 0])

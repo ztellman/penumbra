@@ -9,7 +9,7 @@
 (ns penumbra.app.event)
 
 (defprotocol EventHandler
-  (subscribe! [event hook f])
+  (subscribe! [event hook f] "Subscribe to an event.")
   (unsubscribe! [event hook f])
   (subscribe-once! [event hook f])
   (publish- [event hook args]))

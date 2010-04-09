@@ -15,7 +15,7 @@
 (defn switch [a]
   (loop [app (apps a)]
     (when app
-      (recur (-> app app/start app/state :goto apps)))))
+      (recur (-> app app/start deref :goto apps)))))
 
 ;; Controller
 
