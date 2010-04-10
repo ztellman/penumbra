@@ -13,13 +13,13 @@
 
 (defn prime-factors
   "Returns prime factors of a number"
-  ([n] (prime-factors primes [] n))
-  ([primes factors n]
-	 (let [p (first primes)]
-	   (cond
-		 (= n 1) factors
-		 (zero? (rem n p)) (recur primes (conj factors p) (/ n p))
-		 :else (recur (rest primes) factors n)))))
+  ([n]
+     (loop [n (int n), primes primes, factors []]
+       (let [factor (first primes)]
+         (cond
+          (= 1 n) factors
+          (zero? (rem n factor)) (recur (int (/ n factor)) primes (conj factors factor))
+          :else (recur n (next primes) factors))))))
 
 (defn rectangle
   "Returns two values [x y], where x*y == n.

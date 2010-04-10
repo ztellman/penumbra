@@ -54,7 +54,6 @@
                 -1 -2 -1])))
 
   (enable :texture-rectangle)
-  (ortho-view 0 2 2 0 -1 1)
   (assoc state
     :tex (reset-image (create-byte-texture :texture-rectangle 512 512))))
 

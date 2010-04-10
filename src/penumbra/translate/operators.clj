@@ -102,7 +102,7 @@
 
 (defn param-dispatch [t]
   (cond
-   (and (vector? t) (number? (first t))) :dim
+   (and (vector? t) (->> t first number?)) :dim
    (number? t) :dim
    (or (satisfies? data/Data t) (vector? t)) :elements
    (map? t) :params
@@ -199,7 +199,7 @@
     (apply signature (list* params (*dim-element* (first elements*)) elements*))))
 
 (defmethod signature [:params :dim :elements] [params dim & elements]
-  (let [elements (remove empty? elements)
+  (let [elements (remove #(and (vector? %) (empty? %)) elements)
         dim (if (number? dim) (rectangle dim) dim)]
     {:signature [(map *typeof-param* params) (map *typeof-element* elements)]
      :params params
