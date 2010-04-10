@@ -33,10 +33,10 @@
       :textures [b a])))
 
 (defn init [state]
+  (app/title! "Async")
   (enable :texture-2d)
   (let [a (apply create-byte-texture dim)
-        b (apply create-byte-texture dim)
-        ]
+        b (apply create-byte-texture dim)]
     (draw a)
     (draw b)
     (app/periodic-update! 2 (fn [_] (app/enqueue! swap)))

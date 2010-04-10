@@ -18,5 +18,5 @@
   `(def ~name (glsl/create-reduce-template (quote ~body))))
 
 (defn wrap
-  ([s] (wrap s 4))
+  ([s] (wrap s 1))
   ([s tuple] (tex/wrap s tuple)))
