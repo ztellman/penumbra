@@ -87,7 +87,7 @@
           (or (every? (set "rgba") swizzle)
               (every? (set "xyzw") swizzle)
               (every? (set "stqr") swizzle)))
-      (let [subtype (-> type name (.substring 0 (-> type name count dec)))]
+      (let [subtype (->> type name (re-find #"[a-z]*"))]
         (keyword (str subtype (if (= 1 tuple) "" tuple))))
       nil)))
 

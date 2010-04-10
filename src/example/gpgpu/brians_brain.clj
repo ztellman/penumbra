@@ -16,11 +16,11 @@
 (defn init-kernels []
 
   (defmap update-automata
-    (let [cell (.a %)
+    (let [cell (.a (float4 %))
           neighbors 0.]
       (when (= 0. cell)
         (convolve 1
-          (when (= 1. (.a %))
+          (when (= 1. (.a (float4 %)))
             (+= neighbors 1.))))
       (cond
        (= 1. cell)      (color4 0. 0. 1. 0.5)
@@ -31,16 +31,9 @@
     (color3 (.xyz %))))
 
 (defn create-random-texture [w h]
-  (let [tex (create-byte-texture :texture-rectangle w h)]
-    (data/overwrite!
-     tex
-     (apply concat
-            (take (* w h)
-                  (repeatedly
-                   #(if (zero? (rand-int 2))
-                      [1 1 1 1]
-                      [0 0 0 0])))))
-    tex))
+  (wrap
+   (take (* w h) (repeatedly #(float (rand-int 2))))
+   [w h]))
 
 (defn init [state]
   (app/title! "Brian's Brain")
