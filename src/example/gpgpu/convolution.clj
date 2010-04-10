@@ -65,7 +65,8 @@
        :tex (reset-image tex))
      (= key :return)
      (assoc state
-       :tex (detect-edges tex [filter-1] [filter-2]))
+       :tex (detect-edges tex [filter-1] [filter-2])
+       )
      :else
      state)))
 
