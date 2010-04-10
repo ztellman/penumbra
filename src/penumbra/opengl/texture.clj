@@ -111,7 +111,6 @@
   (when tex
     (gl-bind-texture (target tex) (id tex))))
 
-
 ;;;
 
 (defn- array? [a] (.isArray (class a)))
@@ -262,9 +261,10 @@
         permanent (ref nil)
         texture (if located
                   located
+                  #^{:type ::texture}
                   (reify
                    Object
-                   (toString [this] (str "Texture " (dim this) " " (id this)))
+                   (toString [this] (str "Texture " (:dim params) " " id))
                    Tex
                    (target [_] (enum (:target params)))
                    (id [_] id)
@@ -315,8 +315,14 @@
 (defn wrap
   ([s]
      (wrap s 1))
-  ([s tuple]
-     (wrap s tuple (rectangle (/ (count s) tuple))))
+  ([s tuple-or-dim]
+     (if (number? tuple-or-dim)
+       (wrap s
+             tuple-or-dim
+             (rectangle (/ (count s) tuple-or-dim)))
+       (wrap s
+             (/ (count s) (apply * tuple-or-dim))
+             tuple-or-dim)))
   ([s tuple dim]
      (let [type                (seq-type s)
            [internal pixel _]  (*read-format* type tuple)

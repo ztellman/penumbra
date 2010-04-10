@@ -121,12 +121,13 @@
 
 (defn init-particles []
   (def particle-tex
-    (let [tex (create-byte-texture 128 128)]
+       (let [[w h] [32 32]
+             tex (create-byte-texture w h)]
       (data/overwrite!
        tex
        (apply concat
-              (for [x (range 128) y (range 128)]
-                (let [pos (map / [x y] [128 128])
+              (for [x (range w) y (range h)]
+                (let [pos (map / [x y] [w h])
                       i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
                   [1 1 1 i]))))
       tex))

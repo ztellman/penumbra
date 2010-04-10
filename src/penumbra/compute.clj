@@ -19,4 +19,4 @@
 
 (defn wrap
   ([s] (wrap s 1))
-  ([s tuple] (tex/wrap s tuple)))
+  ([s tuple-or-dim] (tex/wrap s tuple-or-dim)))

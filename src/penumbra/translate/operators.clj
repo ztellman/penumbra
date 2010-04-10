@@ -104,7 +104,7 @@
   (cond
    (and (vector? t) (->> t first number?)) :dim
    (number? t) :dim
-   (or (satisfies? data/Data t) (vector? t)) :elements
+   (or (= :penumbra.opengl.texture/texture (type t)) (vector? t)) :elements ;;this should be using (satisfies? data/Data t) but that's surprisingly slow
    (map? t) :params
    (symbol? t) :symbol
    (keyword? t) :keyword
