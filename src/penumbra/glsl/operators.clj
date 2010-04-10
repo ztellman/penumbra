@@ -13,7 +13,8 @@
         [penumbra.opengl.context :only (draw-frame-buffer)]
         [clojure.contrib
          (seq :only (separate indexed flatten))
-         (def :only (defvar- defn-memo))])
+         (def :only (defvar- defn-memo))
+         (pprint :only (pprint))])
   (:require [clojure.zip :as zip]
             [penumbra.translate.c :as c]
             [penumbra.opengl.texture :as tex]
@@ -82,7 +83,7 @@
 ;;;
 
 (defn typeof-element [e]
-  (texture-type [(:internal-type e) (:tuple e)]))
+  (texture-type [(->> e data/params :internal-type) (->> e data/params :internal-format tex/internal-format->tuple)]))
 
 (defn typeof-param [p]
   (if (number? p)
@@ -125,7 +126,7 @@
   `(binding [*typeof-param* typeof-param
              *typeof-element* typeof-element
              *typeof-dim* (constantly :float2)
-             *dim-element* :dim
+             *dim-element* tex/dim
              *transformer* transformer,
              *generator* generator,
              *inspector* inspector,
@@ -244,12 +245,17 @@
   "Given the type (float4, etc.), creates the appropriate target texture"
   [typecast dim]
   (let [tuple  (type-tuple typecast)
-        format (type-format typecast)
-        i-f    (cap/write-format format tuple)
+        type (type-format typecast)
+        i-f    (cap/write-format type tuple)
         p-f    (tex/tuple->pixel-format tuple)]
     (if (nil? i-f)
       (throw (Exception. (str "Your graphics hardware does not support writing to texture of type=" format ", tuple=" tuple))))
-    (create-texture :texture-rectangle dim (first i-f) p-f format tuple)))
+    (create-texture
+     :target :texture-rectangle
+     :dim dim
+     :internal-format (first i-f)
+     :pixel-format p-f
+     :internal-type type)))
 
 (defn- run-map
   "Executes the map"
@@ -262,14 +268,14 @@
           targets (map #(create-write-texture % dim) results)]
       (set-params params)
       (apply uniform (list* :_dim (map float dim)))
-      (doseq [[idx d] (indexed (map :dim elements))]
+      (doseq [[idx d] (indexed (map tex/dim elements))]
         (apply uniform (list* (symbol (str "-dim" idx)) (map float d))))
       (fb/attach-textures
        (interleave (map rename-element (range (count elements))) elements)
        targets)
       (apply draw-frame-buffer dim)
       (doseq [e (distinct elements)]
-        (if (not (:persist (meta e)))
+        (when-not (:persist (meta e))
           (data/release! e)))
       (if (= 1 (count targets)) (first targets) targets))))
 
@@ -292,7 +298,7 @@
           data (first (:elements info))]
       (set-params params)
       (fb/attach-textures [] [data])
-      (loop [dim (:dim data), input data]
+      (loop [dim (tex/dim data), input data]
         (if (= [1 1] dim)
           (let [result (data/unwrap! input)]
             (data/release! input)

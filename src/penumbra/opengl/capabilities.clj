@@ -38,17 +38,19 @@
               :pixel-format (tex/tuple->pixel-format tuple)
               :internal-type type)]
      ;;TODO: test that if we write to it, we can read back the same thing
-      (data/destroy! tex)
-      [format (tex/tuple->pixel-format tuple) type])
+     (data/destroy! tex)
+     (map #(-> tex data/params %) [:internal-format :pixel-format :internal-type]))
    (catch Exception e
      false)))
 
 (defn-memo read-format [type tuple]
-  (some
-    #(apply valid-read-format? %)
-    (filter
-     #(and (= type (first %)) (= tuple (second %)))
-     tex/internal-formats)))
+  (let [candidates
+        (filter
+         #(and (= type (first %)) (= tuple (second %)))
+         tex/internal-formats)]
+    (some
+     #(apply valid-read-format? %)
+     candidates)))
 
 (defn- valid-write-format? [type tuple format]
   (let [curr (get-frame-buffer)

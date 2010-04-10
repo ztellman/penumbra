@@ -253,7 +253,7 @@
   (let [params (apply hash-map params)
         decl (:declarations params)
         tuple #(list % (% params))
-        extend (fn [[k v]] [k (concat (:extensions params) v)])
+        extend (fn [[k v]] [k (str (:extensions params) "\n" v)])
         sources (->> [:vertex :fragment :geometry]
                      (map tuple)
                      (apply concat)
@@ -262,7 +262,9 @@
                      (map #(if (:literal params)
                              (literal-translate %)
                              (filter-translate decl %)))
-                     (apply concat))]
+                     (map extend)
+                     (apply concat)
+                     )]
     (apply shader/compile-source sources)))
 
 (defmacro with-program [program & body]
@@ -350,8 +352,8 @@
   [tex]
   (when tex
     (let [[w h]
-          (if (= :texture-rectangle (:target tex))
-            (:dim tex)
+          (if (= (enum :texture-rectangle) (tex/target tex))
+            (tex/dim tex)
             [1 1])]
       (with-texture tex
         (with-texture-transform (scale w h)

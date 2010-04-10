@@ -22,7 +22,7 @@
   (sizeof [d] "Memory, in bytes, used by data.")
   (mimic [d] [d dim] "Returns an equivalent data container.")
   (signature [d] "Returns a data signature, where equivalent signatures implies equivalent containers.")
-  (matches? [a b] "Returns true if the signature of 'a' is compatible with 'b' (this is not necessarily bidirectional)")
+  (matches? [a sig] "Returns true if the signature of 'a' is compatible with sig (this is not necessarily bidirectional)")
   (params [t] "The parameters used to create the data"))
 
 (defn unwrap! [d]
@@ -57,7 +57,7 @@
   ([max-count max-size]
      (let [max-count (ref max-count)
            max-size (ref max-size)
-           cache (ref [])
+           cache (ref #{})
            total-size (ref 0)
            total-count (ref 0)]
        (reify
@@ -69,12 +69,9 @@
          [_ size]
          (dosync (ref-set max-size size)))
         (locate!
-         [_ data]
+         [_ sig]
          (dosync
-          (let [match (->> @cache
-                           (filter available?)
-                           (filter #(matches? data %))
-                           first)]
+          (let [match (some #(when (and (available? %) (matches? % sig)) %) @cache)]
             (when match
               (refcount! match 1))
             match)))
@@ -99,16 +96,16 @@
          [_]
          nil)
         (remove!
-         [_ d]
+         [_ data]
          (dosync
-          (alter cache #(remove (fn [x] (= x d)) %)))
-         (destroy! d))
+          (alter cache #(disj % data))
+          (alter total-count dec)
+          (alter total-size #(- % (sizeof data)))))
         (clear!
          [_]
          (dosync
           (doseq [d @cache]
-            (destroy! d))
-          (ref-set cache [])))))))
+            (destroy! d))))))))
 
 ;;;
 
