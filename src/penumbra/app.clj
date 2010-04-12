@@ -255,7 +255,6 @@
        (app/speed! app 0))
      (partial single-thread-main-loop app))
     (when (controller/stopped? app)
-      (println "stopped, destroying")
       (app/destroy! app)))
   app)
 

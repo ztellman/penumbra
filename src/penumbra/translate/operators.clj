@@ -209,14 +209,16 @@
 ;;defmap
 
 (defn process-map [program params dim elements]
-  (let [num-elements
-        (->> program
-             (tree-filter element?)
-             (map #(if (symbol? %) % (first %)))
-             distinct
-             count)]
-    (if (not= num-elements (count elements))
-      (throw (Exception. (str "Expected " num-elements ", received " (count elements))))))
+  (comment
+    (let [num-elements
+         (->> program
+              (tree-filter element?)
+              (map #(if (symbol? %) % (first %)))
+              distinct
+              count)]
+     ;;verify we have the right number of elements
+     (if (not= num-elements (count elements))
+       (throw (Exception. (str "Expected " num-elements ", received " (count elements)))))))
   ;;verify elements are not nil
   (doseq [[idx e] (indexed elements)]
     (if (nil? e)

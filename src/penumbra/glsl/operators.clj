@@ -130,6 +130,7 @@
              *transformer* transformer,
              *generator* generator,
              *inspector* inspector,
+             *preprocessor* transform-numbers,
              *tagger* c/tagger]
      ~@body))
 
@@ -194,7 +195,7 @@
         declarations (list
                       'do
                       (map #(wrap-uniform (rename-element %) :sampler2DRect) elements)
-                      (map #(wrap-uniform (symbol (str "-dim" %)) :float2) (range 0 (count elements)))
+                      (map #(wrap-uniform (symbol (str "-dim" %)) :float2) elements)
                       (map #(wrap-uniform %) (distinct params)))
        body (->>
              program
@@ -248,7 +249,7 @@
         type (type-format typecast)
         i-f    (cap/write-format type tuple)
         p-f    (tex/tuple->pixel-format tuple)]
-    (if (nil? i-f)
+    (when (nil? i-f)
       (throw (Exception. (str "Your graphics hardware does not support writing to texture of type=" format ", tuple=" tuple))))
     (create-texture
      :target :texture-rectangle
@@ -268,7 +269,7 @@
           targets (map #(create-write-texture % dim) results)]
       (set-params params)
       (apply uniform (list* :_dim (map float dim)))
-      (doseq [[idx d] (indexed (map tex/dim elements))]
+      (doseq [[idx d] (map vector (range (count elements)) (map tex/dim elements))]
         (apply uniform (list* (symbol (str "-dim" idx)) (map float d))))
       (fb/attach-textures
        (interleave (map rename-element (range (count elements))) elements)
