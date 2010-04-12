@@ -16,6 +16,8 @@
 
 ;;;
 
+(defvar *preprocessor* nil
+  "Initial processing step")
 (defvar *generator* nil
   "Anything returned by this is prepended to the beginning of the expression.
   Currently only used for imports, could also be used for anonymous functions.")
@@ -309,6 +311,7 @@
   (try-translate
    (->>
     x
+    (#(if *preprocessor* (*preprocessor* %) %))
     transform-expr*
     generate-exprs reverse
     tag-exprs

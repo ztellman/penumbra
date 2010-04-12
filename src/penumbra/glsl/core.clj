@@ -181,6 +181,19 @@
 
 (def-transform-modifiers 'in 'out 'inout 'uniform 'attribute 'varying)
 
+(defmethod transformer 'nth [x]
+  (concat (take (-> x count dec) x) (list (list 'int (last x)))))
+
+;;;
+
+(defn transform-numbers [x]
+  (let [suffix {1 "", 2 "2", 3 "3", 4 "4"}]
+    (->> x
+         (tree-map #(when (number? %) (float %)))
+         (tree-map
+          #(when (and (vector? %) (< 0 (count %)) (every? number? %))
+             (list* (symbol (str "float" (suffix (count %)))) %))))))
+
 ;;;
 
 (defn transform-constructors [x]
@@ -196,14 +209,23 @@
       %)
    x))
 
+(defn transform-glsl [x]
+  (binding [*preprocessor* transform-numbers
+            *transformer* transformer
+            *generator* generator
+            *inspector* inspector
+            *tagger* c/tagger]
+    (->> x transform-expr)))
+
 (defn translate-glsl [x]
   (try-translate
-   (binding [*transformer* transformer, *generator* generator, *parser* parser, *inspector* inspector, *tagger* c/tagger]
-     (-> x transform-expr transform-tags transform-constructors parser))))
-
-(defn transform-glsl [x]
-  (binding [*transformer* transformer, *generator* generator, *inspector* inspector, *tagger* c/tagger]
-    (-> x transform-expr)))
+   (binding [*preprocessor* transform-numbers
+             *transformer* transformer
+             *generator* generator
+             *parser* parser
+             *inspector* inspector
+             *tagger* c/tagger]
+     (->> x transform-expr transform-tags transform-constructors parser))))
 
 (defn translate-shader
   ([x]

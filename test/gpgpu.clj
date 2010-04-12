@@ -15,8 +15,8 @@
 (deftest run
   (app/with-gl
    (let [s (map float (range 12))
-         s2 (map #(* % 2) s)
-         s3 (map #(* % 3) s)]
+         s2 (map (partial * 2) s)
+         s3 (map (partial * 3) s)]
      (testing "GPGPU"
 
        (testing "Map"
@@ -30,24 +30,30 @@
          (doseq [tuple [3 4]]
            (let [tex (wrap s tuple)]
              (is (= s2 (seq (data/unwrap! (multiply-map {:k 2.0} tex)))))))
+         
+         (defmap multiply-skip (* %2 k))
+         (doseq [tuple [3 4]]
+           (let [tex (wrap s tuple)
+                 tex2 (wrap s2 tuple)]
+             (is (= s2 (seq (data/unwrap! (multiply-skip {:k 2.0} tex2 tex)))))))
 
          (defmap index-map
-           (let [i (* 4.0 :index)]
-             (float4 i (+ 1.0 i) (+ 2.0 i) (+ 3.0 i))))
+           (let [i (* 4 :index)]
+             (+ (float4 i) [0 1 2 3])))
          (is (= (seq (data/unwrap! (index-map 3))) s))
 
          (defmap add-map (+ %1 %2))
          (doseq [tuple [3 4]]
-           (let [tex1 (wrap s tuple), tex2 (wrap s2 tuple)]
-             (is (= s3 (seq (data/unwrap! (add-map tex1 tex2)))))))
+            (let [tex1 (wrap s tuple), tex2 (wrap s2 tuple)]
+              (is (= s3 (seq (data/unwrap! (add-map tex1 tex2)))))))
 
          (defmap split-map [%1 (* 2.0 %1) (* 3.0 %1)])
          (doseq [tuple [3 4 3 4]]
-           (let [tex (wrap s tuple)]
-             (let [[a b c] (map data/unwrap! (split-map tex))]
-               (is (= (seq a) s))
-               (is (= (seq b) s2))
-               (is (= (seq c) s3))))))
+            (let [tex (wrap s tuple)]
+              (let [[a b c] (map data/unwrap! (split-map tex))]
+                (is (= (seq a) s))
+                (is (= (seq b) s2))
+                (is (= (seq c) s3))))))
 
        (testing "Reduce"
 

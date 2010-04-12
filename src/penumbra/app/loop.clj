@@ -52,7 +52,7 @@
        (.printStackTrace e)
        (controller/stop! app :exception))
      (finally
-      (println "exiting pauseable loop" (Thread/currentThread))))))
+      ))))
 
 (defn pauseable-thread
   [app outer-fn inner-fn]
@@ -79,4 +79,4 @@
        (.printStackTrace e)
        (controller/stop! app :exception))
      (finally
-      (println "exiting basic loop" (Thread/currentThread))))))
+      ))))
