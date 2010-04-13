@@ -80,16 +80,19 @@
   "This assumes you only traverse down the last element of the tree"
   [x]
   (or
-    (vector? x)
-    (not (sequential? x))
-    (let [frst (first x)]
-      (and
-       (not (and (element? frst) (= 1 (count x))))
-       (not (or (sequential? frst) (#{'do 'scope} frst)))))))
+   (vector? x)
+   (map? x)
+   (not (sequential? x))
+   (let [frst (first x)]
+     (and
+      (not (and (element? frst) (= 1 (count x))))
+      (not (or (sequential? frst) (#{'do 'scope 'defn} frst)))))))
 
 (defn results [x]
   (if (result? x)
-    (if (vector? x) x (list x))
+    (if (or (vector? x) (map? x))
+      x
+      (list x))
     (results (last x))))
 
 (defn transform-results [f x]
@@ -241,20 +244,20 @@
 ;;defreduce
 
 (defvar- reduce-program
-  '(let [-source-coord (* (floor :coord) 2.0)
+  '(let [-source-coord (* (floor :coord) 2)
          -x (> (.x -bounds) (.x -source-coord))
          -y (> (.y -bounds) (.y -source-coord))]
      (<- -a (% -source-coord))
      (if -x
-       (let [-b (% (+ -source-coord (float2 1.0 0.0)))
+       (let [-b (% (+ -source-coord [1 0]))
              -c -a]
          :expr))
      (if -y
-       (let [-b (% (+ -source-coord (float2 0.0 1.0)))
+       (let [-b (% (+ -source-coord [0 1]))
              -c -a]
          :expr))
      (if (and -x -y)
-       (let [-b (% (+ -source-coord (float2 1.0 1.0)))
+       (let [-b (% (+ -source-coord [1 1]))
              -c -a]
          :expr))
      -a))

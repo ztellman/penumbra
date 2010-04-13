@@ -17,6 +17,12 @@
 (defmacro defreduce [name & body]
   `(def ~name (glsl/create-reduce-template (quote ~body))))
 
+(defmacro defpipeline [name & params]
+  `(def ~name (glsl/create-renderer-template (apply hash-map (quote ~params)))))
+
+(defmacro with-pipeline [pipeline args & body]
+  `(~pipeline ~args (fn [] ~@body)))
+
 (defn wrap
   ([s] (wrap s 1))
   ([s tuple-or-dim] (tex/wrap s tuple-or-dim)))

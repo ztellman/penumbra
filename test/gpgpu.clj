@@ -17,6 +17,7 @@
    (let [s (map float (range 12))
          s2 (map (partial * 2) s)
          s3 (map (partial * 3) s)]
+     
      (testing "GPGPU"
 
        (testing "Map"
@@ -31,12 +32,6 @@
            (let [tex (wrap s tuple)]
              (is (= s2 (seq (data/unwrap! (multiply-map {:k 2.0} tex)))))))
          
-         (defmap multiply-skip (* %2 k))
-         (doseq [tuple [3 4]]
-           (let [tex (wrap s tuple)
-                 tex2 (wrap s2 tuple)]
-             (is (= s2 (seq (data/unwrap! (multiply-skip {:k 2.0} tex2 tex)))))))
-
          (defmap index-map
            (let [i (* 4 :index)]
              (+ (float4 i) [0 1 2 3])))

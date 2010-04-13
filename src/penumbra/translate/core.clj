@@ -216,11 +216,13 @@
       x
       (scope-map
        (fn [x]
-         (when (and (symbol? x)
+         (if (and (symbol? x)
                     (:assignment (meta x))
                     (or *let* (not (@*vars* x))))
-           (swap! *vars* #(conj % x))
-           (add-meta x :first-appearance true)))))))
+           (do
+             (swap! *vars* #(conj % x))
+             (add-meta x :first-appearance true))
+           (add-meta x :first-appearance false)))))))
 
 (defn-try try-tag
   #(*tagger* %)
