@@ -68,7 +68,10 @@
      (size [this] (:resolution (display-mode this)))
      (resized? [this] (= @window-size (size this)))
      (invalidated? [_] (Display/isDirty))
-     (close? [_] (Display/isCloseRequested))
+     (close? [_] (try
+                  (Display/isCloseRequested)
+                  (catch Exception e
+                    true)))
      (update! [_] (Display/update))
      (process! [_] (Display/processMessages))
      (handle-resize! [this]

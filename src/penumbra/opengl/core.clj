@@ -65,6 +65,9 @@
 (defvar *read-format* nil
   "A function which returns the proper read format for a sequence type and tuple.")
 
+(defvar *render-to-screen?* false
+  "Whether the current renderer only targets the screen.")
+
 (defvar *render-target* nil
   "The texture which is the main render target (GL_COLOR_ATTACHMENT0)")
 

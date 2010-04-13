@@ -8,6 +8,7 @@
 
 (ns penumbra.glsl.operators
   (:use [penumbra opengl]
+        [penumbra.opengl core]
         [penumbra.translate core operators]
         [penumbra.glsl core]
         [penumbra.opengl.context :only (draw-frame-buffer)]
@@ -136,13 +137,24 @@
 
 ;;;
 
-(defvar- fixed-transform
+(defvar- fixed-operator-transform
   '((<- -coord (-> :multi-tex-coord0 .xy (* -dim)))
     (<- :position (* :model-view-projection-matrix :vertex))))
+
+(defvar- fixed-render-transform
+  `{:position (* :model-view-projection-matrix :vertex)})
 
 (defn- wrap-uniform
   ([x] (list 'declare (list 'uniform x)))
   ([x type] (list 'declare (list 'uniform (add-meta x :tag type)))))
+
+(defn- wrap-attribute
+  ([x] (list 'declare (list 'attribute x)))
+  ([x type] (list 'declare (list 'attribute (add-meta x :tag type)))))
+
+(defn- wrap-varying
+  ([x] (list 'declare (list 'varying x)))
+  ([x type] (list 'declare (list 'varying (add-meta x :tag type)))))
 
 (defn- prepend-index
   "Adds an -index variable definition to beginning of program if :index is used anywhere inside"
@@ -181,12 +193,12 @@
      (create-program
       :literal true
       :extensions "#extension GL_ARB_texture_rectangle : enable"
-      :vertex (wrap-and-prepend fixed-transform)
+      :vertex (wrap-and-prepend fixed-operator-transform)
       :fragment body)))
 
 (defn- post-process
   "Transforms the body, and pulls out all the relevant information."
-  [program]
+  [results-fn program]
   (let [[elements params] (separate element? (tree-filter #(and (symbol? %) (typeof %)) program))
         elements (set (map element-index elements))
         locals (filter #(:assignment (meta %)) params)
@@ -206,20 +218,23 @@
                #(when (first= % 'dim) (transform-dim %))
                (replace-with :coord #^:float2 '-coord)
                (replace-with :dim #^:float2 '-dim)))
-             (transform-results frag-data-typecast)
+             results-fn
              wrap-and-prepend)]
     (list 'do declarations body)))
 
+(defn compile-program [info]
+  (->> info :program (post-process #(transform-results frag-data-typecast %)) create-operator))
+
 (defn- operator-cache
   "Returns or creates the appropriate shader program for the types"
-  [f]
+  [f program-creator]
   (let [programs (atom {})]
     (fn [program args]
       (let [info (apply signature args)
             hash (if-let [p (@programs (:signature info))]
                    p
                    (let [processed-info (f program (:params info) (:dim info) (:elements info))
-                         processed-program (->> processed-info :program post-process create-operator)
+                         processed-program (program-creator processed-info)
                          hash {:program processed-program
                                :results (:results processed-info)}]
                      (swap! programs #(assoc % (:signature info) hash))
@@ -262,11 +277,11 @@
   "Executes the map"
   [info]
   (with-frame-buffer
-    (let [dim (:dim info)
+    (let [dim      (:dim info)
           elements (:elements info)
-          params (:params info)
-          results (force (:results info))
-          targets (map #(create-write-texture % dim) results)]
+          params   (:params info)
+          results  (force (:results info))
+          targets  (map #(create-write-texture % dim) results)]
       (set-params params)
       (apply uniform (list* :_dim (map float dim)))
       (doseq [[idx d] (map vector (range (count elements)) (map tex/dim elements))]
@@ -283,7 +298,7 @@
 (defn create-map-template
   "Creates a template for a map, which will lazily create a set of shader programs based on the types passed in."
   [x]
-  (let [cache (operator-cache process-map)]
+  (let [cache (operator-cache process-map compile-program)]
     (fn [& args]
       (with-glsl
         (let [info (cache x args)]
@@ -319,7 +334,7 @@
 (defn create-reduce-template
   "Creates a template for a reduce, which will lazily create a set of shader programs based on the types passed in."
   [x]
-  (let [cache (operator-cache process-reduce)]
+  (let [cache (operator-cache process-reduce compile-program)]
     (fn [& args]
       (with-glsl
         (let [info (cache x args)]
@@ -328,4 +343,73 @@
 
 ;;;
 
+(defn process-attributes [program]
+  (list 'do
+        (map #(wrap-attribute %1 %2)
+             (keys (:attributes program))
+             (vals (:attributes program)))))
 
+(defn- process-vertex [program params dim elements]
+  (let [vertex   (transform-results
+                  (fn [x] (list 'do (map (fn [[k v]] (list '<- k v)) x)))
+                  (:vertex program))
+        vertex   (:program (process-map vertex params dim elements))
+        attribs  (list 'do (process-attributes program))
+        varying  (let [names (->> program :vertex results keys (filter symbol?) set)]
+                   (list 'do (map wrap-varying (->> vertex (tree-filter names) distinct))))]
+    {:vertex (list 'do varying attribs (post-process identity vertex))
+     :varying varying}))
+
+(defn- process-fragment [program varying params dim elements]
+  (let [{fragment :program r :results} (process-map (:fragment program) params dim elements)
+        attribs (process-attributes program)]
+    {:results r
+     :fragment (list 'do attribs varying (post-process #(transform-results frag-data-typecast %) fragment))}))
+
+(defn- process-renderer
+  [program params dim elements]
+  (let [program (merge
+                {:vertex fixed-render-transform
+                 :fragment :frag-color}
+                program)]
+    (let [vertex (process-vertex program params dim elements)
+          fragment (process-fragment program (:varying vertex) params dim elements)]
+      (merge vertex fragment))))
+
+(defn- run-renderer
+  [info f]
+  (with-frame-buffer
+    (let [dim      (:dim info)
+          [w h]    dim
+          elements (:elements info)
+          params   (:params info)
+          results  (force (:results info))
+          targets  (map #(create-write-texture % dim) results)]
+      (set-params params)
+      (apply uniform (list* :_dim (map float dim)))
+      (doseq [[idx d] (map vector (range (count elements)) (map tex/dim elements))]
+        (apply uniform (list* (symbol (str "-dim" idx)) (map float d))))
+      (fb/attach-textures
+       (interleave (map rename-element (range (count elements))) elements)
+       targets)
+      (with-viewport [0 0 w h]
+        (f))
+      (doseq [e (distinct elements)]
+        (when-not (:persist (meta e))
+          (data/release! e)))
+      (if (= 1 (count targets)) (first targets) targets))))
+
+(defn create-renderer-template
+  [programs]
+  (let [cache (operator-cache
+               process-renderer
+               #(apply create-program
+                       (concat
+                        (apply concat %)
+                        [:extensions "#extension GL_ARB_texture_rectangle : enable"
+                         :literal true])))]
+    (fn [args f]
+      (with-glsl
+        (let [info (cache programs args)]
+          (with-program (:program info)
+            (run-renderer info f)))))))

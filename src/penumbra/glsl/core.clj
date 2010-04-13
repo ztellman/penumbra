@@ -182,7 +182,11 @@
 (def-transform-modifiers 'in 'out 'inout 'uniform 'attribute 'varying)
 
 (defmethod transformer 'nth [x]
-  (concat (take (-> x count dec) x) (list (list 'int (last x)))))
+  (concat
+   (take (-> x count dec) x)
+   (if (-> x last number?)
+     (list (int (last x)))
+     (list (list 'int (last x))))))
 
 ;;;
 
