@@ -20,6 +20,7 @@
 (gl-import- glBindRenderbufferEXT gl-bind-render-buffer)
 (gl-import- glRenderbufferStorageEXT gl-render-buffer-storage)
 (gl-import- glFramebufferRenderbufferEXT gl-frame-buffer-render-buffer)
+(gl-import- glDeleteRenderbuffersEXT gl-delete-render-buffers)
 
 (defn gen-render-buffer
   "Creates a render buffer."
@@ -28,6 +29,10 @@
     (gl-gen-render-buffers (IntBuffer/wrap a))
     (first a)))
 
+(defn delete-render-buffer
+  [rb]
+  (gl-delete-render-buffers (IntBuffer/wrap (int-array [rb]))))
+
 (defn bind-render-buffer
   "Binds a render buffer."
   [rb]
@@ -35,12 +40,21 @@
 
 (defn attach-depth-buffer
   "Attaches a depth buffer to the currently bound render buffer."
-  [dim]
-  (let [depth-buffer (gen-render-buffer)
-        dim (vec dim)]
-    (bind-render-buffer depth-buffer)
-    (gl-render-buffer-storage :renderbuffer :depth-component24 (dim 0) (dim 1))
-    (gl-frame-buffer-render-buffer :framebuffer :depth-attachment :renderbuffer depth-buffer)))
+  ([dim]
+     (attach-depth-buffer (gen-render-buffer) dim))
+  ([rb dim]
+     (let [dim (vec dim)]
+       (bind-render-buffer rb)
+       (gl-render-buffer-storage :renderbuffer :depth-component24 (dim 0) (dim 1))
+       (gl-frame-buffer-render-buffer :framebuffer :depth-attachment :renderbuffer rb))))
+
+(defmacro with-depth-buffer [dim & body]
+  `(let [rb# (gen-render-buffer)]
+     (attach-depth-buffer rb# ~dim)
+     (try
+      ~@body
+      (finally
+       (delete-render-buffer rb#)))))
 
 ;;Frame Buffers
 
@@ -158,3 +172,12 @@
          (finally
           (bind-frame-buffer 0)
           (destroy-frame-buffer fb)))))))
+
+(defn with-saved-frame-buffer
+  [fb f]
+  (binding [*frame-buffer* fb]
+    (bind-frame-buffer fb)
+    (try
+     (f)
+     (finally
+      (bind-frame-buffer 0)))))

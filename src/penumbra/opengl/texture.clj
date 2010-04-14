@@ -304,8 +304,9 @@
         pixel (enum (:pixel-format params))
         format (enum (:internal-format params))
         type (enum (:internal-type params))
-        [w h] (dim tex)]
-    (gl-bind-texture (target tex) (id tex))
+        [w h] (dim tex)
+        target (target tex)]
+    (gl-bind-texture target (id tex))
     (glu-build-2d-mipmaps
      target format
      w h

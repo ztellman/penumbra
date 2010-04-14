@@ -8,8 +8,9 @@
 
 (ns example.gpgpu.n-body
   (:use [penumbra compute]
-        [clojure.contrib.seq-utils :only (partition-all flatten)])
-  (:require [penumbra.slate :as slate]))
+        [clojure.contrib.seq :only (partition-all flatten)])
+  (:require [penumbra.app :as app]
+            [penumbra.data :as data]))
 
 (defn gen [min max]
   (+ min (* (rand) (- max min))))
@@ -48,7 +49,7 @@
   (defreduce sum (+ %1 %2)))
 
 (defn prn-tex [t]
-  (println (partition 3 (unwrap t))))
+  (println (partition 3 (data/unwrap t))))
 
 (defn piecewise-add [f size]
   (let [add #(add {:k 1.0} %1 %2)
@@ -72,7 +73,7 @@
          (if (> i iterations)
            (do
              (energy m v p num)
-             (release! m) (release! v) (release! p))
+             (data/release! m) (data/release! v) (data/release! p))
            (let [a  (piecewise-add #(gravity {:g 6.673e-11 :idx %} [m] [p]) num)
                  v* (add {:k dt} v a)
                  p* (add {:k dt} p [v*])]
@@ -80,7 +81,7 @@
              (recur v* p* (inc i)))))))))
 
 (defn start []
-  (slate/with-slate
+  (app/with-gl
     (init)
     (dotimes [i 1]
       (let [num (* 100 (inc i))]

@@ -55,7 +55,7 @@
   [program body]
   (let [prev-program *program*]
     (try
-     (binding [*program* (:program program), *uniforms* (:uniforms program)]
+     (binding [*program* program, *uniforms* (:uniforms program)]
        (bind-program program)
        (body))
      (finally
@@ -70,7 +70,7 @@
   (if-let [location (@*uniforms* variable)]
     location
     (let [uniform-buf (ByteBuffer/wrap (.getBytes (str (.replace (name variable) \- \_) "\0")))
-          loc (gl-get-uniform-location *program* uniform-buf)]
+          loc (gl-get-uniform-location (:program *program*) uniform-buf)]
       (dosync (alter *uniforms* #(assoc % variable loc)))
       loc)))
 

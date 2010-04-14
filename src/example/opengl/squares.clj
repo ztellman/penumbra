@@ -9,10 +9,14 @@
   (:use [penumbra opengl compute])
   (:require [penumbra.app :as app]))
 
-(defpipeline shader
-  :vertex {:position (* :model-view-projection-matrix :vertex)
-           position (float3 :vertex)}
-  :fragment (color3 (-> position .x abs)))
+(defn init [state]
+
+  (defpipeline shader
+    :vertex {:position (* :model-view-projection-matrix :vertex)
+             position (float3 :vertex)}
+    :fragment (color3 (-> position .x abs)))
+
+  state)
 
 (defn reshape [_ state]
   (ortho-view -1 1 -1 1 -1 1)
@@ -20,7 +24,6 @@
 
 (defn display [_ state]
   (enable :texture-rectangle)
-  (color 1 0 0)
   (scale 0.9 0.9)
   (blit!
    (with-pipeline shader [(app/size)]
@@ -30,4 +33,4 @@
       (vertex  1 1) (vertex -1 1)))))
 
 (defn start []
-  (app/start {:reshape reshape, :display display} {}))
+  (app/start {:init init, :reshape reshape, :display display} {}))

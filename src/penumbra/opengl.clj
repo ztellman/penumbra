@@ -27,22 +27,12 @@
 (gl-import+ glEnable enable)
 (gl-import+ glDisable disable)
 (gl-import+ glIsEnabled enabled?)
-(gl-import glGetInteger gl-get-integer)
 (gl-import+ glGetString get-string)
 
 (gl-import glMatrixMode gl-matrix-mode)
 (gl-import glPushMatrix gl-push-matrix)
 (gl-import glPopMatrix gl-pop-matrix)
 (gl-import glLoadIdentity gl-load-identity-matrix)
-
-;;;
-
-(defn get-integer
-  "Calls glGetInteger."
-  [param]
-  (let [ary (int-array 16)]
-    (gl-get-integer (enum param) (IntBuffer/wrap ary))
-    (first ary)))
 
 ;;;
 
@@ -351,14 +341,15 @@
   "Blits texture to full screen.  Ignores current projection matrix, but honors current transform matrix."
   [tex]
   (when tex
-    (let [[w h]
-          (if (= (enum :texture-rectangle) (tex/target tex))
-            (tex/dim tex)
-            [1 1])]
-      (with-texture tex
-        (with-texture-transform (scale w h)
-          (try-with-program nil
-            (call-display-list (force *display-list*))))))))
+    (let [target (-> tex data/params :target)
+          [w h] (if (= :texture-rectangle target)
+                  (tex/dim tex)
+                  [1 1])]
+      (with-enabled target
+        (with-texture tex
+          (with-texture-transform (scale w h)
+            (try-with-program nil
+              (call-display-list (force *display-list*)))))))))
 
 (defn blit!
   "Same as blit, but releases texture after rendering."
@@ -366,7 +357,7 @@
   (blit tex)
   (data/release! tex))
 
-(defn render-to-texture*
+(defn render-to-texture-
   [tex f]
   {:skip-wiki true}
   (let [z-offset (if (sequential? tex) (last tex) nil)
@@ -376,15 +367,15 @@
       (binding [*render-target* tex
                 *z-offset* z-offset]
         (with-viewport [0 0 w h]
-          (fb/attach-depth-buffer [w h])
           (fb/attach-textures [] [tex])
           (push-matrix
-           (f)))))))
+           (fb/with-depth-buffer [w h]
+             (f))))))))
 
 (defmacro render-to-texture
   "Renders a scene defined in the inner scope to 'tex'."
   [tex & body]
-  `(render-to-texture* ~tex (fn [] ~@body)))
+  `(render-to-texture- ~tex (fn [] ~@body)))
 
 (defmacro render-to-layered-rexture
   [tex & body]

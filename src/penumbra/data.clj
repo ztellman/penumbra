@@ -94,7 +94,8 @@
             (alter total-size #(+ % (sizeof data))))))
         (stats
          [_]
-         nil)
+         {:size (/ @total-size 10e6)
+          :count @total-count})
         (remove!
          [_ data]
          (dosync

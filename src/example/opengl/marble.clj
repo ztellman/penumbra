@@ -7,48 +7,13 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns example.opengl.marble
-  (:use [penumbra opengl geometry])
-  (:require [penumbra.app :as app])
-  (:use [penumbra.glsl.effects]))
+  (:use [penumbra opengl geometry compute]
+        [penumbra.opengl core teapot])
+  (:require [penumbra.app :as app]
+            [penumbra.text :as text]
+            [penumbra.data :as data]))
 
 ;;;;;;;;;;;;;;;;;
-
-(def declarations
-  '((varying float noise)
-    (varying float4 pos)
-    (varying float4 intensity)))
-
-(def vertex-shader
-  '((import (penumbra.glsl.effects lighting))
-    (let [pos         :vertex
-          noise       (* 1.5 (noise1 pos))
-          intensity   (lighting 0 (normalize (* :normal-matrix :normal)))]
-      (set! :position (* :model-view-projection-matrix :vertex)))))
-
-(def fragment-shader
-  '(let [marble       (-> pos .x (+ noise) (* 3.0) sin abs)
-         marble-color (float4 0.8 0.7 0.7 1.0)
-         vein-color   (float4 0.2 0.15 0.1 1.0)
-         mixed-color  (mix vein-color marble-color (pow marble 0.75))]
-     (<- :frag-color (* intensity mixed-color))))
-
-;;Sphere
-
-(defn sphere-vertices
-  [lod]
-  (for [theta (range 0 361 (/ 360 lod))]
-    (for [phi (range -90 91 (/ 180 (/ lod 2)))]
-      (cartesian [theta phi 1]))))
-
-(defn sphere-geometry [lod]
-  (create-display-list
-   (doseq [arcs (partition 2 1 (sphere-vertices lod))]
-    (draw-quad-strip
-     (doseq [[a b] (map list (first arcs) (second arcs))]
-       (apply normal a) (apply vertex a)
-       (apply normal b) (apply vertex b))))))
-
-;;
 
 (defn reshape [[x y w h] state]
   (frustum-view 60. (/ w (double h)) 0.1 10.)
@@ -63,17 +28,20 @@
   state)
 
 (defn init [state]
-  (app/vsync! true)
+
+  (defpipeline marble
+    :vertex {position (float3 :vertex)
+             noise    (noise1 position)    
+             normal   (normalize (float3 (* :normal-matrix :normal)))
+             :position    (* :model-view-projection-matrix :vertex)}
+    :fragment (let [marble (-> position .x (+ noise) (* 3) sin abs)
+                    mixed (mix [0.2 0.15 0.1 1] [0.8 0.7 0.7 1] (pow marble 0.75))]
+                (* mixed (lighting (int 0) normal)))) 
+  
   (app/title! "Marble")
   (enable :depth-test)
-  (enable :lighting)
-  (enable :light0)
   (assoc state
-    :sphere (sphere-geometry 100)
-    :program (create-program
-              :declarations declarations
-              :vertex vertex-shader
-              :fragment fragment-shader)))
+    :teapot (create-display-list (teapot 20 1))))
 
 (defn mouse-drag [[dx dy] _ button state]
   (assoc state
@@ -83,8 +51,13 @@
 (defn display [[delta time] state]
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
-  (with-program (:program state)
-    (call-display-list (:sphere state))))
+  (color 1 0 0)
+  (blit!
+   (with-pipeline marble [(app/size)]
+     (clear)
+     '(text/write-to-screen (format "%d fps" (int (/ 1 delta))) 0 0)  
+     ((:teapot state))))
+  '(app/repaint!))
 
 (defn start []
   (app/start
