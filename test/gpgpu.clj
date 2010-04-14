@@ -27,6 +27,12 @@
            (let [tex (wrap s tuple)]
              (is (= s (seq (data/unwrap! (identity-map tex)))))))
 
+         (defmap multiply-skip (* %2 k))
+         (doseq [tuple [3 4 3 4]]
+           (let [tex (wrap s tuple)
+                 tex2 (wrap s2 tuple)]
+             (is (= s2 (seq (data/unwrap! (multiply-skip {:k 2.0} tex2 tex)))))))
+
          (defmap multiply-map (* %1 k))
          (doseq [tuple [3 4]]
            (let [tex (wrap s tuple)]

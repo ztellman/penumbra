@@ -143,7 +143,13 @@
   'noise1 :float
   'dot :float
   'length :float
+  'texture1DRect :float4
+  'texture1D :float4
   'texture2DRect :float4
+  'texture2D :float4
+  'texture3DRect :float4
+  'texture3D :float4
+  'lighting :float4
   '< :bool
   '> :bool
   '= :bool

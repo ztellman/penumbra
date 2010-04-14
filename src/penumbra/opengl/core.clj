@@ -20,7 +20,8 @@
                              EXTTextureRectangle
                              EXTGeometryShader4))
   (:import (org.lwjgl.util.glu GLU))
-  (:import (java.lang.reflect Field Method)))
+  (:import (java.lang.reflect Field Method))
+  (:import (java.nio IntBuffer)))
 
 ;;;
 
@@ -193,3 +194,14 @@
   "Documented version of gl-import"
   [import-from import-as]
   (list `gl-import import-from (with-meta import-as (assoc (meta import-as) :skip-wiki nil))))
+
+;;;
+
+(gl-import- glGetInteger gl-get-integer)
+
+(defn get-integer
+  "Calls glGetInteger."
+  [param]
+  (let [ary (int-array 16)]
+    (gl-get-integer (enum param) (IntBuffer/wrap ary))
+    (first ary)))

@@ -88,7 +88,6 @@
               (display-mode! this 800 600))
             (-> (InternalTextureLoader/get) .clear)
             (TextureImpl/bindNone)
-            (blend-func :src-alpha :one-minus-src-alpha)
             (let [[w h] (size this)]
               (viewport 0 0 w h)
               (event/publish! app :reshape [0 0 w h])))

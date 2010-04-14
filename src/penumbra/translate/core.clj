@@ -16,6 +16,8 @@
 
 ;;;
 
+(defvar *elements* nil)
+
 (defvar *preprocessor* nil
   "Initial processing step")
 (defvar *generator* nil

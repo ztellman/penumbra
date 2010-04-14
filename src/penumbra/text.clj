@@ -38,14 +38,16 @@
   "Draws string at pixel coordinates (x, y)"
   [string x y]
   (with-font (or *font* (font "Tahoma" :size 20))
-    (with-disabled [:texture-rectangle :lighting]
-      (with-enabled [:texture-2d :blend]
-        (let [[x-origin y-origin w h] @*view*]
-          (with-projection (ortho-view x-origin (+ x-origin w) (+ y-origin h) y-origin -1 1)
-            (push-matrix
-             (load-identity)
-             (TextureImpl/bindNone)
-             (.drawString *font* x y string))))))))
+    (try-with-program nil
+      (with-disabled [:texture-rectangle :lighting]
+        (with-enabled [:texture-2d :blend]
+          (blend-func :src-alpha :one-minus-src-alpha)
+          (let [[x-origin y-origin w h] @*view*]
+            (with-projection (ortho-view x-origin (+ x-origin w) (+ y-origin h) y-origin -1 1)
+              (push-matrix
+               (load-identity)
+               (TextureImpl/bindNone)
+               (.drawString *font* x y string)))))))))
 
 
 

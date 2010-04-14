@@ -10,15 +10,6 @@
   (:use [penumbra.opengl.core])
   (:import [java.nio FloatBuffer IntBuffer]))
 
-(gl-import- glGetInteger gl-get-integer)
-
-(defn get-integer
-  "Calls glGetInteger."
-  [param]
-  (let [ary (int-array 16)]
-    (gl-get-integer (enum param) (IntBuffer/wrap ary))
-    (first ary)))
-
 (gl-import- glColor3d color-3)
 (gl-import- glColor4d color-4)
 (gl-import- glEnable gl-enable)

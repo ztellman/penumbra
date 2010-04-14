@@ -12,19 +12,10 @@
             [penumbra.opengl.texture :as tex]
             [penumbra.opengl.frame-buffer :as fb]
             [penumbra.data :as data])
-  (:use [penumbra.opengl.core :only (enum enum-name gl-import-)]
+  (:use [penumbra.opengl.core :only (enum enum-name gl-import- get-integer)]
         [clojure.contrib.def :only (defn-memo)]
         [clojure.contrib.combinatorics :only (cartesian-product)])
   (:import [java.nio IntBuffer]))
-
-(gl-import- glGetInteger gl-get-integer)
-
-(defn get-integer
-  [param]
-  (let [ary (int-array 16)]
-    (gl-get-integer (enum param) (IntBuffer/wrap ary))
-    (first ary)))
-
 
 (defn- get-frame-buffer []
   (get-integer :framebuffer-binding))

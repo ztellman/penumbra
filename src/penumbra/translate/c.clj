@@ -268,7 +268,7 @@
 
 (defmethod parser 'nth
   [x]
-  (str (parse (second x)) "[" (third x) "]"))
+  (str (parse (second x)) "[" (parse (third x)) "]"))
 
 (defmethod parser 'do
   [x]

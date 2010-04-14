@@ -85,6 +85,7 @@
    (not (sequential? x))
    (let [frst (first x)]
      (and
+      (not (and (-> x meta :tag nil?) (= 1 (count x)) (-> frst meta :tag)))
       (not (and (element? frst) (= 1 (count x))))
       (not (or (sequential? frst) (#{'do 'scope 'defn} frst)))))))
 

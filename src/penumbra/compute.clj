@@ -7,9 +7,10 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.compute
-  (:require [penumbra.glsl.operators :as glsl])
-  (:require [penumbra.opengl.texture :as tex])
-  (:require [clojure.contrib.def :only (defmacro-)]))
+  (:require [penumbra.glsl.operators :as glsl]
+            [penumbra.opengl.texture :as tex]
+            [clojure.contrib.def :only (defmacro-)])
+  (:use [penumbra.opengl.core :only (*render-to-screen?*)]))
 
 (defmacro defmap [name & body]
   `(def ~name (glsl/create-map-template (quote ~body))))
@@ -22,6 +23,10 @@
 
 (defmacro with-pipeline [pipeline args & body]
   `(~pipeline ~args (fn [] ~@body)))
+
+(defmacro render-to-screen [& body]
+  `(binding [*render-to-screen?* true]
+     ~@body))
 
 (defn wrap
   ([s] (wrap s 1))
