@@ -311,28 +311,23 @@
      (array-to-buffer (unwrap tex) (:internal-type params)))))
 
 (defn wrap
-  ([s]
-     (wrap s 1))
-  ([s tuple-or-dim]
-     (if (number? tuple-or-dim)
-       (wrap s
-             tuple-or-dim
-             (rectangle (/ (count s) tuple-or-dim)))
-       (wrap s
-             (/ (count s) (apply * tuple-or-dim))
-             tuple-or-dim)))
-  ([s tuple dim]
+  ([s tuple dim & params]
      (let [type                (seq-type s)
-           [internal pixel _]  (*read-format* type tuple)
-           ary                 (create-array s type)
-           tex                 (create-texture
-                                :target :texture-rectangle
-                                :dim dim
-                                :internal-format internal
-                                :pixel-format pixel
-                                :internal-type type)]
-       (write-to-texture tex (concat [0 0] dim) ary)
-       tex)))
+           [internal pixel _]  (*read-format* type tuple)]
+           (when (or (nil? internal) (nil? pixel))
+             (throw (Exception. (str "Can't wrap sequence of type=" type " and tuple=" tuple))))
+           (let [ary                 (create-array s type)
+                 tex                 (apply create-texture
+                                            (apply concat
+                                                   (merge
+                                                    {:target :texture-rectangle
+                                                     :dim dim
+                                                     :internal-format internal
+                                                     :pixel-format pixel
+                                                     :internal-type type}
+                                                    (apply hash-map params))))]
+       (write-to-texture tex (concat (take (count dim) (repeat 0)) dim) ary)
+       tex))))
 
 ;;;
 

@@ -105,7 +105,7 @@
 
 (defn- transform-dim [x]
   (let [idx (element-index (second x))]
-    (add-meta (symbol (str "-dim" idx)) :tag :float2)))
+    (add-meta (symbol (str "-dim" idx)) :tag (*typeof-dim* idx))))
 
 (defn transform-element [e]
   (if (element? e)
@@ -146,7 +146,7 @@
 (defmacro with-glsl [& body]
   `(binding [*typeof-param* typeof-param
              *typeof-element* typeof-element
-             *typeof-dim* (constantly :float2)
+             *typeof-dim* (fn [idx#] (texture-type [:float (second (*elements* idx#))]))
              *dim-element* tex/dim
              *transformer* transformer,
              *generator* generator,
@@ -236,7 +236,7 @@
            declarations (list
                          'do
                          (map #(wrap-uniform (rename-element %) (sampler-type (*elements* %))) elements)
-                         (map #(wrap-uniform (symbol (str "-dim" %)) :float2) elements)
+                         (map #(wrap-uniform (symbol (str "-dim" %)) (*typeof-dim* %)) elements)
                          (map #(wrap-uniform %) (distinct params)))
            body (->>
                  program

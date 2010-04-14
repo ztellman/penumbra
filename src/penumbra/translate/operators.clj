@@ -203,7 +203,7 @@
     (apply signature (list* params (*dim-element* (first elements*)) elements*))))
 
 (defmethod signature [:params :dim :elements] [params dim & elements]
-  (let [elements (remove #(and (vector? %) (empty? %)) elements)
+  (let [elements (remove #(and (vector? %) (empty? %)) (process-elements elements))
         dim (if (number? dim) (rectangle dim) dim)]
     {:signature [(map *typeof-param* params) (map *typeof-element* elements)]
      :params params

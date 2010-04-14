@@ -16,13 +16,12 @@
   (defpipeline shader
     :vertex {:position (* :model-view-projection-matrix :vertex)
              position (float3 :vertex)}
-    :fragment (color3 (-> (% (.x position)) abs)))
+    :fragment (color3 (% (-> position .x abs))))
 
   (let [tex (create-texture
              :target :texture-1d
-             :dim [4]
-             :texture-wrap-s :repeat)]
-    (data/overwrite! tex (flatten [[1 0 0 1] [0 1 0 1] [0 0 1 1] [1 1 1 1]]))
+             :dim [4])]
+    (data/overwrite! tex (concat [1 0 0 1] [0 1 0 1] [0 0 1 1] [1 1 1 1]))
     (assoc state
       :tex tex)))
 

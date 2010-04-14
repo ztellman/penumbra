@@ -10,7 +10,8 @@
   (:require [penumbra.glsl.operators :as glsl]
             [penumbra.opengl.texture :as tex]
             [clojure.contrib.def :only (defmacro-)])
-  (:use [penumbra.opengl.core :only (*render-to-screen?*)]))
+  (:use [penumbra.opengl.core :only (*render-to-screen?*)]
+        [penumbra.geometry :only (rectangle)]))
 
 (defmacro defmap [name & body]
   `(def ~name (glsl/create-map-template (quote ~body))))
@@ -30,4 +31,11 @@
 
 (defn wrap
   ([s] (wrap s 1))
-  ([s tuple-or-dim] (tex/wrap s tuple-or-dim)))
+  ([s tuple-or-dim & params]
+     (let [tuple (if (number? tuple-or-dim)
+                   tuple-or-dim
+                   (/ (count s) (apply * tuple-or-dim)))
+           dim (if-not (number? tuple-or-dim)
+                 tuple-or-dim
+                 (rectangle (/ (count s) tuple)))]
+       (apply tex/wrap (list* s tuple dim params)))))
