@@ -27,40 +27,72 @@
     :shininess           64)
   state)
 
+(defn reset-random-texture
+  ([state]
+     (reset-random-texture 32 1 state))
+  ([dim scale state]
+     (when-let [tex (:tex state)]
+       (data/destroy! tex))
+     (assoc state
+       :tex (wrap
+             (take (* dim dim dim) (repeatedly #(float (- (rand (* 2 scale)) scale))))
+             [dim dim dim]
+             :target :texture-3d
+             :texture-wrap-s :repeat
+             :texture-wrap-t :repeat
+             :texture-wrap-r :repeat
+             :texture-min-filter :linear
+             :texture-mag-filter :linear))))
+
 (defn init [state]
 
   (defpipeline marble
-    :vertex {position (float3 :vertex)
-             noise    (noise1 position)    
-             normal   (normalize (float3 (* :normal-matrix :normal)))
-             :position    (* :model-view-projection-matrix :vertex)}
-    :fragment (let [marble (-> position .x (+ noise) (* 3) sin abs)
-                    mixed (mix [0.2 0.15 0.1 1] [0.8 0.7 0.7 1] (pow marble 0.75))]
-                (* mixed (lighting (int 0) normal)))) 
+    :vertex {position  (float3 :vertex)
+             normal    (normalize (float3 (* :normal-matrix :normal)))
+             :position (* :model-view-projection-matrix :vertex)}
+    :fragment (let [noise 0
+                    scale 0.5
+                    pos (* position (float3 (/ 1 (.x (dim %)))))]
+                (dotimes [i octave]
+                  (+= noise (* (% pos) scale))
+                  (*= scale 0.5)
+                  (<- pos (* pos 2)))
+                (let [marble (-> position .x (+ noise) (* 3) sin abs)
+                     mixed (mix [0.2 0.15 0.1 1] [0.8 0.7 0.7 1] (pow marble 0.75))]
+                  (* mixed (lighting (int 0) normal))))) 
   
   (app/title! "Marble")
   (enable :depth-test)
-  (assoc state
-    :teapot (create-display-list (teapot 20 1))))
+
+  (reset-random-texture
+   (assoc state
+     :teapot (create-display-list (teapot 20 1))
+     :octave 5.0)))
 
 (defn mouse-drag [[dx dy] _ button state]
   (assoc state
     :rot-x (+ (:rot-x state) dy)
     :rot-y (+ (:rot-y state) dx)))
 
+(defn key-press [key state]
+  (condp = key
+    "a" (update-in state [:octave] inc)
+    "s" (update-in state [:octave] #(max 0 (dec %)))
+    " " (reset-random-texture state)
+    state))
+
 (defn display [[delta time] state]
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   (color 1 0 0)
-  (blit!
-   (with-pipeline marble [(app/size)]
+  (render-to-screen
+   (with-pipeline marble [{:octave (:octave state)} (app/size) [(:tex state)]]
      (clear)
-     '(text/write-to-screen (format "%d fps" (int (/ 1 delta))) 0 0)  
-     ((:teapot state))))
-  '(app/repaint!))
+     (text/write-to-screen (str (int (:octave state)) " octaves") 0 0)  
+     ((:teapot state)))))
 
 (defn start []
   (app/start
-   {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag}
+   {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag, :key-press key-press}
    {:rot-x 0, :rot-y 0, :program nil}))
 
