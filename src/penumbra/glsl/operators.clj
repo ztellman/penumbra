@@ -82,6 +82,14 @@
 
 (defvar- swizzle { 1 '.x, 2 '.xy, 3 '.xyz, 4 '.xyzw })
 
+(defvar- sampler-type
+  {[:texture-1d 1] :sampler1D
+   [:texture-rectangle 1] :sampler1DRect
+   [:texture-2d 2] :sampler2D
+   [:texture-rectangle 2] :sampler2DRect
+   [:texture-3d 3] :sampler3D
+   [:texture-rectangle 3] :sampler3DRect})
+
 ;;;
 
 (defn typeof-element [e]
@@ -227,7 +235,7 @@
            params (remove (set (concat locals privates not-params)) (distinct params))
            declarations (list
                          'do
-                         (map #(wrap-uniform (rename-element %) :sampler2DRect) elements)
+                         (map #(wrap-uniform (rename-element %) (sampler-type (*elements* %))) elements)
                          (map #(wrap-uniform (symbol (str "-dim" %)) :float2) elements)
                          (map #(wrap-uniform %) (distinct params)))
            body (->>

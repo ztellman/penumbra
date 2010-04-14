@@ -6,27 +6,34 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns example.opengl.squares
-  (:use [penumbra opengl compute])
-  (:require [penumbra.app :as app]))
+  (:use [penumbra opengl compute]
+        [clojure.contrib.seq :only (flatten)])
+  (:require [penumbra.app :as app]
+            [penumbra.data :as data]))
 
 (defn init [state]
 
   (defpipeline shader
     :vertex {:position (* :model-view-projection-matrix :vertex)
              position (float3 :vertex)}
-    :fragment (color3 (-> position .x abs)))
+    :fragment (color3 (-> (% (.x position)) abs)))
 
-  state)
+  (let [tex (create-texture
+             :target :texture-1d
+             :dim [4]
+             :texture-wrap-s :repeat)]
+    (data/overwrite! tex (flatten [[1 0 0 1] [0 1 0 1] [0 0 1 1] [1 1 1 1]]))
+    (assoc state
+      :tex tex)))
 
 (defn reshape [_ state]
   (ortho-view -1 1 -1 1 -1 1)
   state)
 
 (defn display [_ state]
-  (enable :texture-rectangle)
   (scale 0.9 0.9)
   (blit!
-   (with-pipeline shader [(app/size)]
+   (with-pipeline shader [(app/size) [(:tex state)]]
      (clear)
      (draw-quads
       (vertex -1 -1) (vertex 1 -1)

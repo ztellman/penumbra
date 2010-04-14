@@ -192,8 +192,8 @@
 
 (defmulti signature (fn [& args] (->> args group-elements (map param-dispatch) vec)))
 
-(defmethod signature [:dim :elements] [dim]
-  (signature {} dim []))
+(defmethod signature [:dim :elements] [dim & elements]
+  (apply signature (list* {} dim (if (empty? elements) [] (process-elements elements)))))
 
 (defmethod signature [:elements] [& elements]
   (apply signature (list* {} elements)))
