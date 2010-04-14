@@ -141,6 +141,10 @@
   'noise3 :float3
   'noise2 :float2
   'noise1 :float
+  'int :int
+  'int2 :int2
+  'int3 :int3
+  'int4 :int4
   'dot :float
   'length :float
   'texture1DRect :float4
@@ -225,7 +229,7 @@
             *generator* generator
             *inspector* inspector
             *tagger* c/tagger]
-    (->> x transform-expr)))
+    (->> x transform-expr transform-tags transform-constructors)))
 
 (defn translate-glsl [x]
   (try-translate
@@ -235,7 +239,7 @@
              *parser* parser
              *inspector* inspector
              *tagger* c/tagger]
-     (->> x transform-expr transform-tags transform-constructors parser))))
+     (->> x transform-glsl parser))))
 
 (defn translate-shader
   ([x]

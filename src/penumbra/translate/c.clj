@@ -83,7 +83,7 @@
 (defmethod transformer 'dotimes
   [x]
   (let [[var limit] (second x)]
-    (list* 'for `[(<- ~var 0) (< ~var ~limit) (++ ~var)] (nnext x))))
+    (list* 'for `[(<- ~var (int 0)) (< ~var (int ~limit)) (++ ~var)] (nnext x))))
 
 (defn- wrap-cond [pred clause & rest]
   (if (= pred :else)
