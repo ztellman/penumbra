@@ -26,14 +26,14 @@
         (let [z (.xy val)
               iterations (.z val)]
           (<- val
-            (if (< 4. (dot z z))
+            (if (< 4 (dot z z))
                val
                (float3
                 (+ c
                    (float2
                     (- (* (.x z) (.x z)) (* (.y z) (.y z)))
-                    (* 2. (.x z) (.y z))))
-                (+ 1. iterations))))))
+                    (* 2 (.x z) (.y z))))
+                (+ 1 iterations))))))
       val))
 
   (defmap color-fractal
@@ -41,9 +41,9 @@
           z (.xy val)
           n (.z val)
           escape (-> n (- (-> z length log2 log2)) (/ (float max-iterations)))]
-      (if (< 4.0 (dot z z))
-         (mix (float3 1. 0. 0.) (float3 1. 1. 0.) escape)
-         (color3 1. 1. 1.))))
+      (if (< 4 (dot z z))
+         (color3 (mix [0 0 1] [1 1 1] escape))
+         (color3 0 0 0))))
 
   (enable :texture-rectangle)
     
@@ -94,7 +94,7 @@
 (def iterations-per-frame 60)
 
 (defn update [_ state]
-  (let [max-iterations (* 10 (Math/pow (:zoom state) 0.4))]
+  (let [max-iterations (* 20 (Math/pow (:zoom state) 0.7))]
     (if (< (:iterations state) max-iterations)
       (with-frame-buffer
         (let [ul      (:upper-left state)
