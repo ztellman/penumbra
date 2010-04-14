@@ -45,8 +45,6 @@
          (color3 (mix [0 0 1] [1 1 1] escape))
          (color3 0 0 0))))
 
-  (enable :texture-rectangle)
-    
   state)
 
 (defn reset-fractal [state]
@@ -94,7 +92,7 @@
 (def iterations-per-frame 60)
 
 (defn update [_ state]
-  (let [max-iterations (* 20 (Math/pow (:zoom state) 0.7))]
+  (let [max-iterations (* 20 (Math/pow (:zoom state) 0.5))]
     (if (< (:iterations state) max-iterations)
       (with-frame-buffer
         (let [ul      (:upper-left state)

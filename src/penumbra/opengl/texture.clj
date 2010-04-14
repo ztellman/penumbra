@@ -98,14 +98,11 @@
   (dim [t])
   (transform [t]))
 
-(defmethod print-method ::texture [tex writer]
-  (let [[w h] (:dim tex)]
+'(defmethod print-method ::texture [tex writer]
+  (let [[w h] (dim tex)]
     (.write
      writer
-     (format "<<Texture %dx%d %.2fM\n  :id %d refs: %d permanent: %b\n  %s %s %s %s >>"
-             (int w) (int h) (float (/ (sizeof tex) 1e6))
-             (:id tex) @(:ref-count tex) @(:permanent tex)
-             (:target tex) (:internal-format tex) (:internal-type tex) (:pixel-format tex)))))
+     (str "Texture: " (int w) "x" (int h)))))
 
 (defn bind-texture [tex]
   (when tex
