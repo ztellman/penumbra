@@ -53,7 +53,7 @@
     :fragment (let [noise 0
                     scale 0.5
                     pos (* position (float3 (/ 1 (.x (dim %)))))]
-                (dotimes [i octave]
+                (dotimes [i octaves]
                   (+= noise (* (% pos) scale))
                   (*= scale 0.5)
                   (<- pos (* pos 2)))
@@ -67,7 +67,7 @@
   (reset-random-texture
    (assoc state
      :teapot (create-display-list (teapot 20 1))
-     :octave 5.0)))
+     :octaves 5.0)))
 
 (defn mouse-drag [[dx dy] _ button state]
   (assoc state
@@ -76,8 +76,8 @@
 
 (defn key-press [key state]
   (condp = key
-    "a" (update-in state [:octave] inc)
-    "s" (update-in state [:octave] #(max 0 (dec %)))
+    "a" (update-in state [:octaves] inc)
+    "s" (update-in state [:octaves] #(max 0 (dec %)))
     " " (reset-random-texture state)
     state))
 
@@ -86,9 +86,9 @@
   (rotate (:rot-y state) 0 1 0)
   (color 1 0 0)
   (render-to-screen
-   (with-pipeline marble [{:octave (:octave state)} (app/size) [(:tex state)]]
+   (with-pipeline marble [{:octaves (:octaves state)} (app/size) [(:tex state)]]
      (clear)
-     (text/write-to-screen (str (int (:octave state)) " octaves") 0 0)  
+     (text/write-to-screen (str (int (:octaves state)) " octaves") 0 0)  
      ((:teapot state)))))
 
 (defn start []
