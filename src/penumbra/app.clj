@@ -91,7 +91,8 @@
    input-handler
    controller
    parent]
-  )
+  clojure.lang.IDeref
+  (deref [this] @(:state this)))
 
 (auto-extend App penumbra.app.window/Window (deref (:window this)))
 (auto-extend App penumbra.app.input/InputHandler (deref (:input-handler this)))
@@ -118,7 +119,7 @@
                 (window/destroy! app)
                 (input/destroy! app)))})
 
-(defmethod print-method ::App [app writer]
+(defmethod print-method penumbra.app.App [app writer]
   (.write writer "App"))
 
 (defn create [callbacks state]
@@ -129,7 +130,8 @@
         clock (time/clock)
         state (atom state)
         controller (controller/create)
-        app (App. state clock event queue window input controller app/*app*)]
+        app #^{:type ::App} (App. state clock event queue window input controller app/*app*)]
+    (println (meta app) (type app))
     (reset! window (window/create-fixed-window app))
     (reset! input (input/create app))
     (reset! queue (queue/create app))
