@@ -198,6 +198,9 @@
      (list (int (last x)))
      (list (list 'int (last x))))))
 
+(defmethod transformer 'lighting [x]
+  (list* 'lighting (list 'int (second x)) (nnext x)))
+
 ;;;
 
 (defn transform-numbers [x]
