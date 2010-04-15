@@ -438,10 +438,9 @@
                (apply uniform (list* :_dim (map float dim)))
                (doseq [[idx d] (map vector (range (count elements)) (map tex/dim elements))]
                  (apply uniform (list* (symbol (str "-dim" idx)) (map float d))))
-               (when fb?
-                 (fb/attach-textures
-                  (interleave (map rename-element (range (count elements))) elements)
-                  targets))
+               (fb/attach-textures
+                (interleave (map rename-element (range (count elements))) elements)
+                (when fb? targets))
                (with-viewport [0 0 w h]
                  (f))
                (doseq [e (distinct elements)]

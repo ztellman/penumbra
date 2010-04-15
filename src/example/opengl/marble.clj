@@ -47,16 +47,18 @@
 (defn init [state]
 
   (defpipeline marble
+
     :vertex {position  (float3 :vertex)
              normal    (normalize (float3 (* :normal-matrix :normal)))
              :position (* :model-view-projection-matrix :vertex)}
+
     :fragment (let [noise 0
                     scale 0.5
                     pos (* position (float3 (/ 1 (.x (dim %)))))]
                 (dotimes [i octaves]
                   (+= noise (* (% pos) scale))
                   (*= scale 0.5)
-                  (<- pos (* pos 2)))
+                  (*= pos (float3 2)))
                 (let [marble (-> position .x (+ noise) (* 3) sin abs)
                      mixed (mix [0.2 0.15 0.1 1] [0.8 0.7 0.7 1] (pow marble 0.75))]
                   (* mixed (lighting (int 0) normal))))) 
@@ -67,7 +69,7 @@
   (reset-random-texture
    (assoc state
      :teapot (create-display-list (teapot 20 1))
-     :octaves 5.0)))
+     :octaves 6.0)))
 
 (defn mouse-drag [[dx dy] _ button state]
   (assoc state
@@ -76,8 +78,8 @@
 
 (defn key-press [key state]
   (condp = key
-    "a" (update-in state [:octaves] inc)
-    "s" (update-in state [:octaves] #(max 0 (dec %)))
+    ;;"a" (update-in state [:octaves] inc)
+    ;;"s" (update-in state [:octaves] #(max 0 (dec %)))
     " " (reset-random-texture state)
     state))
 
@@ -85,14 +87,14 @@
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   (color 1 0 0)
-  (render-to-screen
+  (blit!
    (with-pipeline marble [{:octaves (:octaves state)} (app/size) [(:tex state)]]
      (clear)
-     (text/write-to-screen (str (int (:octaves state)) " octaves") 0 0)  
+     ;;(text/write-to-screen (str (int (/ 1 delta)) "fps") 0 0)  
      ((:teapot state)))))
 
 (defn start []
   (app/start
    {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag, :key-press key-press}
-   {:rot-x 0, :rot-y 0, :program nil}))
+   {:rot-x 0, :rot-y 0}))
 
