@@ -48,7 +48,7 @@
 (defn mouse-move [_ [x y] state]
   (render-to-texture
    (:tex state)
-   (with-projection (ortho-view 0 1 0 1 -1 1)
+   (with-projection (ortho-view 0 1 1 0 -1 1)
      (draw-points
       (apply vertex (map / [x y] (app/size))))))
   state)
