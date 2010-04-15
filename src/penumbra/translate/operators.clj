@@ -196,7 +196,7 @@
   (apply signature (list* {} dim (if (empty? elements) [] (process-elements elements)))))
 
 (defmethod signature [:elements] [& elements]
-  (apply signature (list* {} elements)))
+  (apply signature (list* {} (or elements []))))
 
 (defmethod signature [:params :elements] [params & elements]
   (let [elements* (process-elements elements)]

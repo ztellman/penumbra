@@ -165,10 +165,11 @@
   ;handle base cases
   [x]
   (cond
-    (swizzle? x)      (str (-> x second parse) (-> x first str))
-    (not (seq? x))    (.replace (str x) \- \_)
-    (-> x first seq?) (parse-lines x *line-terminator*)
-    :else                ""))
+   (swizzle? x)      (str (-> x second parse) (-> x first str))
+   (number? x)       (str x)
+   (not (seq? x))    (.replace (str x) \- \_)
+   (-> x first seq?) (parse-lines x *line-terminator*)
+   :else                ""))
 
 (defmethod parser :function
   ;transforms (a b c d) into a(b, c, d)
