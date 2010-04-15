@@ -82,7 +82,7 @@
                     callbacks)]
     callbacks))
 
-(deftype App
+(defrecord App
   [state
    clock
    event-handler
@@ -91,17 +91,16 @@
    input-handler
    controller
    parent]
-  clojure.lang.IDeref
-  (deref [app] @(:state app)))
+  )
 
-(auto-extend ::App penumbra.app.window/Window (deref (:window this)))
-(auto-extend ::App penumbra.app.input/InputHandler (deref (:input-handler this)))
-(auto-extend ::App penumbra.app.queue/QueueHash (deref (:queue this)))
-(auto-extend ::App penumbra.app.event/EventHandler (:event-handler this))
-(auto-extend ::App penumbra.app.controller/Controller (:controller this))
+(auto-extend App penumbra.app.window/Window (deref (:window this)))
+(auto-extend App penumbra.app.input/InputHandler (deref (:input-handler this)))
+(auto-extend App penumbra.app.queue/QueueHash (deref (:queue this)))
+(auto-extend App penumbra.app.event/EventHandler (:event-handler this))
+(auto-extend App penumbra.app.controller/Controller (:controller this))
 
 (extend
- ::App
+ App
  app/App
  {:speed! (fn [app speed] (time/speed! (:clock app) speed))
   :now (fn [app] @(:clock app))
@@ -130,7 +129,7 @@
         clock (time/clock)
         state (atom state)
         controller (controller/create)
-        app (App state clock event queue window input controller app/*app*)]
+        app (App. state clock event queue window input controller app/*app*)]
     (reset! window (window/create-fixed-window app))
     (reset! input (input/create app))
     (reset! queue (queue/create app))

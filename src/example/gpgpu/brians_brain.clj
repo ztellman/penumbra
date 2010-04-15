@@ -10,8 +10,7 @@
   (:use [penumbra opengl compute])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
-            [penumbra.data :as data]
-            [penumbra.slate :as slate]))
+            [penumbra.data :as data]))
 
 (defn init-kernels []
 
@@ -64,7 +63,7 @@
    {}))
 
 (defn benchmark []
-  (slate/with-slate
+  (app/with-gl
     (init-kernels)
     (loop [tex (create-random-texture 2000 2000), i 0]
       (when (< i 100)
