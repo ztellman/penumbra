@@ -81,7 +81,7 @@
 (defmethod inspector :swizzle [x]
   (let [swizzle (-> x first name rest)
         tuple   (-> x first name count dec)
-        type    (-> x second meta :tag)]
+        type    (-> x second typeof)]
     (if (and
           type
           (or (every? (set "rgba") swizzle)

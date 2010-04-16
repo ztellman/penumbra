@@ -130,8 +130,7 @@
         clock (time/clock)
         state (atom state)
         controller (controller/create)
-        app #^{:type ::App} (App. state clock event queue window input controller app/*app*)]
-    (println (meta app) (type app))
+        app (App. state clock event queue window input controller app/*app*)]
     (reset! window (window/create-fixed-window app))
     (reset! input (input/create app))
     (reset! queue (queue/create app))
