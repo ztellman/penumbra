@@ -242,8 +242,8 @@
                          :texture-wrap-s :clamp
                          :texture-wrap-t :clamp
                          :texture-wrap-r :clamp
-                         :texture-min-filter :nearest
-                         :texture-mag-filter :nearest
+                         :texture-min-filter :linear
+                         :texture-mag-filter :linear
                          :internal-format :rgba
                          :pixel-format :rgba
                          :internal-type :unsigned-byte}))

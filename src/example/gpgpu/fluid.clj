@@ -10,7 +10,15 @@
   (:use [penumbra opengl compute])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
+            [penumbra.opengl.texture :as tex]
             [penumbra.data :as data]))
+
+(defn overdraw! [tex [x y] col]
+  (render-to-texture tex
+   (with-projection (ortho-view 0 1 1 0 -1 1)
+     (apply color col)
+     (draw-points
+      (apply vertex (map / [x y] (app/size)))))))
 
 (defn init [state]
 
@@ -20,48 +28,73 @@
   (color 1 1 1)
   (point-size 10)
   
-  (defmap reset
+  (defmap reset-density
     (float3 0 0 0))
-  
+
+  (defmap reset-velocity
+    (float3 0.5 0.5 0.5))
+
   (defmap diffuse
-    (let [sum (+ %
-                 (% (mod (+ :coord [1 0]) :dim))
-                 (% (mod (+ :coord [-1 0]) :dim))
-                 (% (mod (+ :coord [0 1]) :dim))
-                 (% (mod (+ :coord [0 -1]) :dim)))]
+    (let [neighbors
+          (+ (% (mod (+ :coord [1 0]) :dim))
+             (% (mod (+ :coord [-1 0]) :dim))
+             (% (mod (+ :coord [0 1]) :dim))
+             (% (mod (+ :coord [0 -1]) :dim)))
+          diffusion
+          (* diff (.x :dim) (.y :dim) dt)]
       (max
        (float3 0)
-       (- (/ (float3 sum)
-             (float3 5))
-          (float3 dampening)))))
+       (- (/ (+ % (* diffusion neighbors)) (+ 1 (* 4 diffusion)))
+          (float3 (* loss dt))))))
+
+  (defmap advect
+    (let [offset (* 10 (- (.xy %2) [0.5 0.5]))]
+      (%1 (mod (+ :coord (* diff dt offset)) :dim))))
 
   state)
 
 (defn reshape [[x y w h] state]
 
-  (when (:tex state)
-    (data/destroy! (:tex state)))
+  (when (:density state)
+    (data/destroy! (:density state))
+    (data/destroy! (:velocity state)))
   
-  (assoc state
-    :tex (reset [w h])))
+  (let [density (reset-density [w h])
+        velocity (reset-velocity [w h])]
+    (assoc state
+      :density density 
+      :velocity velocity)))
 
-(defn mouse-move [_ [x y] state]
-  (render-to-texture
-   (:tex state)
-   (with-projection (ortho-view 0 1 1 0 -1 1)
-     (draw-points
-      (apply vertex (map / [x y] (app/size))))))
+(defn mouse-move [[dx dy] [x y] state]
+  (point-size 20)
+  (overdraw! (:velocity state) [x y] (map #(+ 0.5 (/ % 10)) [(- dx) dy 0]))
   state)
 
-(defn update [_ state]
-  (assoc state
-    :tex (diffuse {:dampening 0.01} (:tex state))))
+(defn mouse-drag [_ [x y] button state]
+  (point-size 50)
+  (overdraw! (:density state) [x y] [1 1 1])
+  state)
+
+(defn update [[dt t] state]
+  '(let [[w h] (tex/dim (:density state))]
+    (overdraw! (:density state) [(/ w 2) h] [1 1 1])
+    (overdraw! (:velocity state) [(/ w 2) h] [0.5 0 0]))
+  (let [density (:density state)
+        density (diffuse {:diff 100.0 :dt dt :loss 0.1} (:density state))
+        density (advect {:diff 100.0 :dt dt} density [(:velocity state)])
+        velocity (:velocity state)
+        velocity (diffuse {:diff 100.0 :dt dt :loss 0.0} velocity)
+        velocity (advect {:diff 100.0 :dt dt} velocity velocity)
+        ]
+    (assoc state
+      :density density
+      :velocity velocity)))
 
 (defn display [[dt t] state]
-  (blit (:tex state))
+  (blit (:density state))
   (text/write-to-screen (str (int (/ 1 dt)) "fps") 0 0)
   (app/repaint!))
 
 (defn start []
-  (app/start {:display display, :update update, :mouse-move mouse-move, :reshape reshape, :init init}
+  (app/start {:display display, :update update, :mouse-move mouse-move, :mouse-drag mouse-drag, :reshape reshape, :init init}
              {}))
