@@ -70,7 +70,7 @@
 (defn-memo get-version
   "Gets the version of OpenGL that's supported."
   []
-  (-> (get-string :version) (.split " ") seq first Float/parseFloat))
+  (Float/parseFloat (re-find #"\d+\.\d+" (get-string :version))))
 
 (defn-memo frame-buffer-supported? []
   (contains? (get-extensions) "GL_EXT_framebuffer_object"))
