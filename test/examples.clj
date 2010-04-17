@@ -22,7 +22,8 @@
             [example.game.pong :as pong]
             [example.gpgpu.mandelbrot :as mandelbrot]
             [example.gpgpu.convolution :as convolution]
-            [example.gpgpu.brians-brain :as brian]))
+            [example.gpgpu.brians-brain :as brian]
+            [example.gpgpu.fluid :as fluid]))
 
 (deftest run
   '(testing "Async"
@@ -54,4 +55,6 @@
   (testing "Convolution"
     (convolution/start))
   (testing "Brian's Brains"
-    (brian/start)))
+    (brian/start))
+  (testing "Fluid"
+    (fluid/start)))

@@ -21,6 +21,7 @@
   (key-repeat! [i flag])
   (key-pressed? [i key])
   (button-pressed? [i button])
+  (mouse-location [i])
   (handle-mouse! [i])
   (handle-keyboard! [i]))
 
@@ -85,10 +86,10 @@
            (do
              (event/publish! app (if button-state :mouse-down :mouse-up) [x y] (mouse-button-name button))
              (if button-state
-               (recur (assoc mouse-buttons button [x y]))
+               (recur (assoc mouse-buttons (mouse-button-name button) [x y]))
                (let [loc (mouse-buttons button)]
                  (event/publish! app :mouse-click loc (mouse-button-name button))
-                 (recur (dissoc mouse-buttons button)))))
+                 (recur (dissoc mouse-buttons (mouse-button-name button))))))
            ;;mouse-move
            (and
             (empty? mouse-buttons)
@@ -130,5 +131,7 @@
      (key-repeat! [_ flag] (Keyboard/enableRepeatEvents flag))
      (key-pressed? [_ key] ((-> @keys vals set) key))
      (button-pressed? [_ button] (@buttons button))
+     (mouse-location [_] (let [[w h] (window/size app)]
+                           [(Mouse/getX) (- h (Mouse/getY))]))
      (handle-mouse! [_] (dosync (alter buttons #(handle-mouse app %))))
      (handle-keyboard! [_] (dosync (alter keys #(handle-keyboard app %)))))))

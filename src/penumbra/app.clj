@@ -175,7 +175,7 @@
              stop! pause!)
 
 (auto-import penumbra.app.input/InputHandler
-             key-pressed? button-pressed? key-repeat!)
+             key-pressed? button-pressed? key-repeat! mouse-location)
 
 ;;
 
