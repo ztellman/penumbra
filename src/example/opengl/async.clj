@@ -32,11 +32,18 @@
     (assoc state
       :textures [b a])))
 
+(defn gen-tex [dim]
+  (create-texture
+   :dim dim
+   :target :texture-2d
+   :tex-min-filter :nearest
+   :tex-max-filter :nearest))
+
 (defn init [state]
   (app/title! "Async")
   (enable :texture-2d)
-  (let [a (apply create-byte-texture dim)
-        b (apply create-byte-texture dim)]
+  (let [a (gen-tex dim)
+        b (gen-tex dim)]
     (draw a)
     (draw b)
     (app/periodic-update! 2 (fn [_] (app/enqueue! swap)))
