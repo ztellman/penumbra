@@ -13,7 +13,7 @@
             [penumbra.opengl.texture :as tex]
             [penumbra.data :as data]))
 
-(def dim [200 200])
+(def dim [400 400])
 
 (defn textured-quad []
   (draw-quads
@@ -62,7 +62,7 @@
 (defn init [state]
 
   (app/title! "Fluid")
-  (app/vsync! true)
+  (app/vsync! false)
 
   (init-particles)
   (blend-func :src-alpha :one-minus-src-alpha)
@@ -74,14 +74,14 @@
     [0 0 0])
 
   (defmap denormalize-velocity
-    (* 10 (- % [0.5 0.5 0.5])))
+    (- % [0.5 0.5 0.5]))
 
   (defmap normalize-velocity
-    (+ (/ % 10) [0.5 0.5 0.5]))
+    (+ % [0.5 0.5 0.5]))
 
   (defmap advect
     (let [offset (.xy %2) 
-          coord (- (floor :coord) (* diff dt offset)) 
+          coord (- (floor :coord) (* diff dt offset (.x :dim))) 
           c0 (floor coord)
           c1 (+ c0 [1 1])
           t (- coord c0)
@@ -144,7 +144,7 @@
           finish [x y]
           steps (int (length (map - finish start)))
           locs (map #(lerp start finish (/ % steps)) (range steps))]
-      (overdraw! (:velocity state) locs 0.03 (map #(+ (/ % 10) 0.5) [dx (- dy) 0 1]))
+      (overdraw! (:velocity state) locs 0.03 (map #(+ (/ % 10) 0.5) (concat (map / (map #(* % 100) [dx (- dy)]) dim) [0 1])))
       (overdraw! (:density state) locs 0.03 [1 1 1])))
 
   state)
@@ -153,13 +153,13 @@
   (let [dx (float (/ 1 (first (tex/dim velocity))))
         div       (divergence [velocity])
         pressure  (loop [i 0 p (reset-density dim)]
-                    (if (> i 40)
+                    (if (> i 10)
                       (do
                         (data/release! div)
                         p)
                       (recur
                        (inc i)
-                       (boundary-conditions (jacobi {:alpha (/ 1 400) :beta 4.0} p [div])))))
+                       (boundary-conditions (jacobi {:alpha (/ 10 (first dim)) :beta 4.0} p [div])))))
         pressure  (diffuse {:diff 1.0 :dt dt :decay 0.002} pressure)
         velocity  (gradient pressure velocity)
         velocity  (boundary-conditions velocity)]
@@ -169,13 +169,13 @@
   
   (let [dt dt]
     (let [velocity  (denormalize-velocity (:velocity state))
-          velocity  (diffuse {:diff 0.1 :dt dt :decay 0.5} velocity)
+          velocity  (diffuse {:diff 1.0 :dt dt :decay 0.5} velocity)
           velocity  (project velocity dt)
-          velocity  (advect {:diff 5.0 :dt dt} velocity velocity)
+          velocity  (advect {:diff 1.0 :dt dt} velocity velocity)
           ;;velocity  (project velocity dt)
           density   (:density state)
-          density   (diffuse {:diff 0.01 :dt dt :decay 0.5} density)
-          density   (advect {:diff 5.0 :dt dt} density [velocity])
+          density   (diffuse {:diff 1.0 :dt dt :decay 0.5} density)
+          density   (advect {:diff 1.0 :dt dt} density [velocity])
           ]
       (assoc state
         :density density
@@ -203,4 +203,4 @@
 
 (defn start []
   (app/start {:display display, :update update, :mouse-move mouse-move, :key-press key-press, :reshape reshape, :init init}
-             {:view-density false}))
+             {:view-density true}))
