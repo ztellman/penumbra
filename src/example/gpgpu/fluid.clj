@@ -7,33 +7,71 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns example.gpgpu.fluid
-  (:use [penumbra opengl compute])
+  (:use [penumbra opengl compute geometry])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
             [penumbra.opengl.texture :as tex]
             [penumbra.data :as data]))
 
-(def dim [300 300])
+(def dim [200 200])
+
+(defn textured-quad []
+  (draw-quads
+   (texture 0 0) (vertex -1 -1)
+   (texture 1 0) (vertex 1 -1)
+   (texture 1 1) (vertex 1 1)
+   (texture 0 1) (vertex -1 1)))
+
+(defn init-particles []
+  (def particle-tex
+       (let [[w h] [32 32]
+             tex (create-byte-texture w h)]
+      (data/overwrite!
+       tex
+       (apply concat
+              (for [x (range w) y (range h)]
+                (let [pos (map / [x y] [w h])
+                      i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
+                  [1 1 1 i]))))
+      tex))
+  (def particle-quad
+       (create-display-list (textured-quad))))
+
+(defn overdraw! [tex locs size col]
+  (render-to-texture
+   tex
+   (with-enabled [:blend :texture-2d]
+     (with-texture nil
+       (with-projection (ortho-view 0 1 1 0 -1 1)
+         (apply color col)
+         (doseq [loc locs]
+           (push-matrix
+            (apply translate (map / loc (app/size)))
+            (apply scale [size size])
+            (particle-quad))))))))
 
 (defmacro def-fluid-map [name & body]
   `(defmap ~name
-     (let [~'scale  ~'(float3 (/ [0.5 0.5] :dim) 1)
-           ~'left   ~'(% (mod (+ :coord [-1 0]) :dim))
-           ~'right  ~'(% (mod (+ :coord [1 0]) :dim))
-           ~'top    ~'(% (mod (+ :coord [0 1]) :dim))
-           ~'bottom ~'(% (mod (+ :coord [0 -1]) :dim))]
+     (let [~'scale  ~'(/ 1 (.x :dim))
+           ~'left   ~'(% (+ :coord [-1 0]))
+           ~'right  ~'(% (+ :coord [1 0]))
+           ~'top    ~'(% (+ :coord [0 1]))
+           ~'bottom ~'(% (+ :coord [0 -1]))]
       ~@body)))
 
 (defn init [state]
 
   (app/title! "Fluid")
-  (app/vsync! false)
+  (app/vsync! true)
+
+  (init-particles)
+  (blend-func :src-alpha :one-minus-src-alpha)
 
   (defmap reset-density
     [0 0 0])
 
   (defmap reset-velocity
-    [0.5 0.5 0.5])
+    [0 0 0])
 
   (defmap denormalize-velocity
     (* 10 (- % [0.5 0.5 0.5])))
@@ -43,31 +81,49 @@
 
   (defmap advect
     (let [offset (.xy %2) 
-          scaled-offset (* diff dt offset)]
-      (%1 (mod (- :coord scaled-offset) :dim))))
+          coord (- (floor :coord) (* diff dt offset)) 
+          c0 (floor coord)
+          c1 (+ c0 [1 1])
+          t (- coord c0)
+          t0 (% c0)
+          t1 (% (float2 (.x c0) (.y c1)))
+          t2 (% (float2 (.x c1) (.y c0)))
+          t3 (% c1)]
+      (mix
+       (mix t0 t1 (.y t))
+       (mix t2 t3 (.y t))
+       (.x t))))
 
   (def-fluid-map diffuse
-    (let [diffusion (* diff (.x :dim) (.y :dim) dt)]
-      (/ (+ % (* diffusion (+ left right top bottom))) (+ 1 (* 4 diffusion)))))
+    (let [diffusion (* diff dt (.x :dim))
+          val (/ (+ % (* diffusion (+ left right top bottom))) (+ 1 (* 4 diffusion)))]
+      (* val (- 1 (* dt decay)))))
 
   (def-fluid-map jacobi
-    (/ (+ left right top bottom (* (float3 alpha) %2)) (float3 beta)))
+    (/ (+ left right top bottom (* (float3 alpha) %2)) (float3 (+ alpha beta))))
 
   (def-fluid-map divergence
-    (* scale (float3 (+ (.x (- right left)) (.y (- bottom top))))))
+    (* 0.5 scale (float3 (+ (.x (- right left)) (.y (- top bottom))))))
 
   (def-fluid-map gradient
-    (float3 (- %2 (* (float3 (.x (- right left)) (.y (- bottom top)) 0) scale))))
+    (let [val (float3 (.x (- right left)) (.x (- top bottom)) 0)]
+      (- %2 (* 0.5 (/ val scale)))))
+
+  (defmap boundary-conditions
+    (let [val %]
+      (when (= 0 (floor (.x :coord)))
+        (<- (.x val) (- (.x (% (+ :coord [1 0]))))))
+      (when (= (- (.x :dim) 1) (floor (.x :coord)))
+        (<- (.x val) (- (.x (% (+ :coord [-1 0]))))))
+      (when (= 0 (floor (.y :coord)))
+        (<- (.y val) (- (.y (% (+ :coord [0 1]))))))
+      (when (= (- (.y :dim) 1) (floor (.y :coord)))
+        (<- (.y val) (- (.y (% (+ :coord [0 -1]))))))
+      
+      val))
 
   state)
 
-(defn overdraw! [tex [x y] col]
-  (render-to-texture
-   tex
-   (with-projection (ortho-view 0 1 1 0 -1 1)
-     (apply color col)
-     (draw-points
-      (apply vertex (map / [x y] (app/size)))))))
 
 (defn reshape [[x y w h] state]
 
@@ -78,42 +134,52 @@
   (let [density (reset-density dim)
         velocity (reset-velocity dim)]
     
-    (point-size 200)
-    (overdraw! density (map #(/ % 2) (app/size)) [1 0.5 0])
-    ;;(overdraw! velocity (map #(/ % 2) (app/size)) [0.5 0.5 0.5])
-    
     (assoc state
       :density density 
-      :velocity velocity)))
+      :velocity (normalize-velocity velocity))))
 
 (defn mouse-move [[dx dy] [x y] state]
-  (point-size 10)
-  (overdraw! (:velocity state) [x y] (map #(+ (/ % 10) 0.5) [dx (- dy) 0 1]))
+  (when (:velocity state)
+    (let [start (map - [x y] [dx dy])
+          finish [x y]
+          steps (int (length (map - finish start)))
+          locs (map #(lerp start finish (/ % steps)) (range steps))]
+      (overdraw! (:velocity state) locs 0.03 (map #(+ (/ % 10) 0.5) [dx (- dy) 0 1]))
+      (overdraw! (:density state) locs 0.03 [1 1 1])))
+
   state)
 
-(defn update [[dt t] state]
-  
-  (when (app/button-pressed? :left)
-    (point-size 20)
-    (overdraw! (:density state) (app/mouse-location) [1 0.5 0]))
-  
-  (let [velocity  (denormalize-velocity (:velocity state))
-        velocity  (diffuse {:diff 1.0 :dt dt} velocity)
-        velocity  (advect {:diff 5.0 :dt dt} velocity velocity)
+(defn project [velocity dt]
+  (let [dx (float (/ 1 (first (tex/dim velocity))))
         div       (divergence [velocity])
         pressure  (loop [i 0 p (reset-density dim)]
-                    (if (> i 20)
+                    (if (> i 40)
                       (do
                         (data/release! div)
                         p)
-                      (recur (inc i) (jacobi {:alpha (* dt dt) :beta 4.0} p [div]))))
+                      (recur
+                       (inc i)
+                       (boundary-conditions (jacobi {:alpha (/ 1 400) :beta 4.0} p [div])))))
+        pressure  (diffuse {:diff 1.0 :dt dt :decay 0.002} pressure)
         velocity  (gradient pressure velocity)
-        density   (:density state)
-        density   (diffuse {:diff 1.0 :dt dt} density)
-        density   (advect {:diff 5.0 :dt dt} density [velocity])]
-    (assoc state
-      :density density
-      :velocity (normalize-velocity velocity))))
+        velocity  (boundary-conditions velocity)]
+    velocity))
+
+(defn update [[dt t] state]
+  
+  (let [dt dt]
+    (let [velocity  (denormalize-velocity (:velocity state))
+          velocity  (diffuse {:diff 0.1 :dt dt :decay 0.5} velocity)
+          velocity  (project velocity dt)
+          velocity  (advect {:diff 5.0 :dt dt} velocity velocity)
+          ;;velocity  (project velocity dt)
+          density   (:density state)
+          density   (diffuse {:diff 0.01 :dt dt :decay 0.5} density)
+          density   (advect {:diff 5.0 :dt dt} density [velocity])
+          ]
+      (assoc state
+        :density density
+        :velocity (normalize-velocity velocity)))))
 
 (defn key-press [key state]
   (when (= key " ")
@@ -123,10 +189,18 @@
   (blit ((if (:view-density state)
            :density
            :velocity)
-         state))
+          state))
+
+  '(if (:view-density state)
+    (blit (:velocity state))
+    (let [div (divergence [(:velocity state)])]
+      (blit! (project* (:velocity state) 1.0))))
+  
+
+  ;;(blit! (divergence (:velocity state)))
   ;;(text/write-to-screen (str (int (/ 1 dt)) "fps") 0 0)
   (app/repaint!))
 
 (defn start []
   (app/start {:display display, :update update, :mouse-move mouse-move, :key-press key-press, :reshape reshape, :init init}
-             {:view-density true}))
+             {:view-density false}))
