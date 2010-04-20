@@ -239,11 +239,11 @@
                        (apply hash-map)
                        (merge
                         {:target :texture-2d
-                         :texture-wrap-s :clamp
-                         :texture-wrap-t :clamp
-                         :texture-wrap-r :clamp
-                         :texture-min-filter :linear
-                         :texture-mag-filter :linear
+                         :texture-wrap-s :clamp-to-edge
+                         :texture-wrap-t :clamp-to-edge
+                         :texture-wrap-r :clamp-to-edge
+                         :texture-min-filter :nearest
+                         :texture-mag-filter :nearest
                          :internal-format :rgba
                          :pixel-format :rgba
                          :internal-type :unsigned-byte}))
@@ -381,7 +381,7 @@
   "Binds a texture struct within the inner scope."
   [t body]
   (with-texture-transform
-    #(when (transform t)
+    #(when (and t (transform t))
        ((transform t)))
     #(do
        (bind-texture t)

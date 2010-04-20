@@ -36,7 +36,7 @@
      ~@body
      (release! d)))
 
-(defn- available? [d]
+(defn available? [d]
   (and (<= (refcount d) 0)
        (not (permanent? d))))
 
