@@ -7,21 +7,25 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns example.game.asteroids
-  (:use [penumbra opengl geometry])
+  (:use [penumbra opengl geometry]
+        [clojure.contrib.seq :only (separate)])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
             [penumbra.time :as time]
-            [penumbra.data :as data])
-  (:use [clojure.contrib.seq :only (separate)]))
+            [penumbra.data :as data]))
 
 ;;;
 
-(def *dim* [10 10])
+(def *dim* (vec2 10 10))
 
 (defn wrap
   "Makes the position wrap around from right to left, bottom to top"
   [pos]
-  (map - (map #(mod %1 %2) (map + pos *dim*) (map (partial * 2) *dim*)) *dim*))
+  (sub
+   (modv
+    (add pos *dim*)
+    (mul *dim* 2))
+   *dim*))
 
 (defn expired? [x]
   ((:expired? x)))
@@ -35,13 +39,13 @@
     ((:radius x))))
 
 (defn position [x]
-  (if (sequential? (:position x))
+  (if (vec? (:position x))
     (:position x)
     ((:position x))))
 
 (defn intersects? [a b]
   (let [min-dist (+ (radius a) (radius b))
-        dist (map - (position a) (position b))]
+        dist (sub (position a) (position b))]
     (>= (* min-dist min-dist) (length-squared dist))))
 
 (defn rand-color [a b]
@@ -54,17 +58,17 @@
   [lod]
   (for [theta (range 0 361 (/ 360 lod))]
     (for [phi (range -90 91 (/ 180 (/ lod 2)))]
-      (cartesian [theta phi 1]))))
+      (cartesian (polar3 theta phi)))))
 
 (defn rand-vector []
-  (normalize (cartesian [(rand 360) (rand 360) 1])))
+  (normalize (cartesian (polar3 (rand 360) (rand 360)))))
 
 (defn offset-vertex
   "Expand if on one side of a plane, contract if on the other"
   [v vertex]
   (if (neg? (dot v (normalize vertex)))
-    (map * vertex (repeat 1.01))
-    (map * vertex (repeat 0.99))))
+    (mul vertex 1.01)
+    (mul vertex 0.99)))
 
 (defn offset-sphere [v vertices]
   (map (fn [arc] (map #(offset-vertex v %) arc)) vertices))
@@ -79,7 +83,7 @@
   (doseq [arcs (partition 2 1 vertices)]
     (draw-quad-strip
      (doseq [[a b] (map list (first arcs) (second arcs))]
-       (apply vertex a) (apply vertex b)))))
+       (vertex a) (vertex b)))))
 
 (defn gen-asteroid-geometry [lod iterations]
   (create-display-list (draw-asteroid (gen-asteroid-vertices lod iterations))))
@@ -89,7 +93,7 @@
 
 (defn gen-asteroid [& args]
   (let [params (merge
-                {:position [0 0]
+                {:position (vec2 0 0)
                  :radius 1
                  :theta (rand 360)
                  :speed 1}
@@ -97,13 +101,13 @@
         birth (app/now)
         elapsed #(- (app/now) birth)
         asteroid (nth asteroid-meshes (rand-int 20))
-        [x y] (map (partial * (:speed params)) (cartesian (:theta params)))
-        position #(wrap (map + (:position params) (map * [x y] (repeat (elapsed)))))]
+        velocity (mul (cartesian (:theta params)) (:speed params))
+        position #(wrap (add (:position params) (mul velocity (elapsed))))]
     {:expired? #(< (:radius params) 0.25)
      :position position
      :radius (:radius params)
      :render #(push-matrix
-                (apply translate (position))
+                (translate (position))
                 (rotate (* (:speed params) (elapsed) -50) 1 0 0)
                 (rotate (:theta params) 0 1 0)
                 (apply scale (->> params :radius repeat (take 3)))
@@ -122,13 +126,14 @@
 (defn init-particles []
   (def particle-tex
        (let [[w h] [32 32]
+             dim (vec2 w h)
              tex (create-byte-texture w h)]
       (data/overwrite!
        tex
        (apply concat
               (for [x (range w) y (range h)]
-                (let [pos (map / [x y] [w h])
-                      i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
+                (let [pos (div (vec2 x y) dim)
+                      i (Math/exp (* 16 (- (length-squared (sub pos (vec2 0.5 0.5))))))]
                   [1 1 1 i]))))
       tex))
   (def particle-quad
@@ -137,13 +142,13 @@
 (defn draw-particle [position radius tint]
   (push-matrix
     (apply color tint)
-    (apply translate position)
+    (translate position)
     (scale radius radius)
     (call-display-list particle-quad)))
 
 (defn gen-particle [& args]
   (let [params (merge
-                {:position [0 0]
+                {:position (vec2 0 0)
                  :theta (rand 360)
                  :speed 1
                  :radius (+ 0.25 (rand 0.5))
@@ -151,9 +156,9 @@
                  :lifespan 1}
                 (apply hash-map args))
         birth (app/now)
-        [x y] (map (partial * (:speed params)) (cartesian (:theta params)))
+        velocity (mul (cartesian (polar2 (:theta params))) (:speed params))
         elapsed #(- (app/now) birth)
-        position #(wrap (map + (:position params) (map * [x y] (repeat (elapsed)))))]
+        position #(wrap (add (:position params) (mul velocity (elapsed))))]
     {:expired? #(> (- (app/now) birth) (:lifespan params))
      :position position
      :radius (:radius params)
@@ -193,14 +198,14 @@
           offset (- (rand 30) 15)
           theta (+ 180 (:theta ship) offset)
           particles (:particles state)
-          position (map + (:position ship) (cartesian [theta 0.3]))
-          [theta speed] (polar (map + (:velocity ship) (cartesian theta)))]
+          position (add (:position ship) (cartesian (polar2 theta 0.3)))
+          velocity (polar (add (:velocity ship) (cartesian theta)))]
       (assoc state
         :particles (conj particles
                          (gen-particle
                           :position position
-                          :theta theta
-                          :speed speed
+                          :theta (.theta velocity)
+                          :speed (.r velocity)
                           :radius 0.25
                           :color (rand-color [1 0.5 0.7] [1 1 1])
                           :lifespan (/ (Math/cos (radians (* 3 offset))) 2.5)))))))
@@ -214,10 +219,10 @@
                 :right (rem (- theta (* 360 dt)) 360)
                 theta)
         a     (if (app/key-pressed? :up)
-                  (map (partial * 3) (cartesian theta))
-                  [0 0])
-        v     (map + v (map * a (repeat dt))) 
-        p     (wrap (map + p (map * v (repeat dt))))]
+                  (mul (cartesian theta) 3)
+                  (vec2 0 0))
+        v     (add v (mul a dt))
+        p     (wrap (add p (mul v dt)))]
     (assoc ship
       :theta theta
       :position p
@@ -225,14 +230,14 @@
 
 (defn draw-spaceship [ship]
   (push-matrix
-    (apply translate (:position ship))
+    (translate (:position ship))
     (rotate (- (:theta ship) 90) 0 0 1)
     (call-display-list fuselage)))
 
 (defn gen-spaceship []
-  {:position [0 0]
+  {:position (vec2 0 0)
    :radius 0.5
-   :velocity [0 0]
+   :velocity (vec2 0 0)
    :theta 0
    :birth (app/now)})
 
@@ -245,7 +250,7 @@
     :spaceship (gen-spaceship)
     :asteroids (take 4 (repeatedly
                         #(let [theta (rand 360)
-                               pos (cartesian [theta 2])]
+                               pos (cartesian (polar2 theta 2))]
                            (gen-asteroid :position pos :theta theta :speed (rand)))))))
 
 (defn split-asteroid
@@ -332,15 +337,15 @@
   (init-spaceship)
   (enable :blend)
   (blend-func :src-alpha :one-minus-src-alpha)
-  (app/periodic-update! 10 update-collisions)
+  (app/periodic-update! 25 update-collisions)
   (app/periodic-update! 50 emit-flame)
   (reset state))
 
 (defn reshape [[x y w h] state]
-  (let [dim [(* (/ w h) 10) 10]]
+  (let [dim (vec2 (* (/ w h) 10) 10)]
     (frustum-view 45 (/ w h) 0.1 100)
     (load-identity)
-    (translate 0 0 (- (* 2.165 (second dim))))
+    (translate 0 0 (- (* 2.165 (.y dim))))
     (assoc state
       :dim dim)))
 

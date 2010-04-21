@@ -10,7 +10,8 @@
   (:use [clojure.contrib.def :only (defmacro- defvar)]
         [penumbra.geometry]
         [penumbra.opengl.core])
-  (:require [penumbra.opengl.effects :as fx]))
+  (:require [penumbra.opengl.effects :as fx])
+  (:import [penumbra.geometry Vec2 Vec3]))
 
 ;;;
 
@@ -28,34 +29,52 @@
   (with-transform- [r f]))
 
 (defn vertex
-  ([v] (apply vertex v))
+  ([v]
+     (cond
+      (instance? Vec2 v) (vertex (.x #^Vec2 v) (.y #^Vec2 v))
+      (instance? Vec3 v) (vertex (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+      :else (apply vertex v)))
   ([x y] (vertex x y 0))
   ([x y z] (vertex- *renderer* x y z))
   ([x y z w] (vertex x y z)))
 
 (defn texture
-  ([u] (if (sequential? u)
-         (apply texture u)
-         (texture- *renderer* u)))
+  ([v] (cond
+        (instance? Vec2 v) (texture (.x #^Vec2 v) (.y #^Vec2 v))
+        (instance? Vec3 v) (texture (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+        (number? v) (texture- *renderer* v)
+        :else (apply texture v)))
   ([u v] (texture- *renderer* u v))
   ([u v w] (texture- *renderer* u v w)))
 
 (defn normal
-  ([v] (apply normal v))
+  ([v] (cond
+        (instance? Vec2 v) (normal (.x #^Vec2 v) (.y #^Vec2 v))
+        (instance? Vec3 v) (normal (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+        :else (apply normal v)))
   ([x y z] (normal- *renderer* x y z)))
 
 (defn translate
-  ([v] (apply translate v))
+  ([v] (cond
+        (instance? Vec2 v) (translate (.x #^Vec2 v) (.y #^Vec2 v))
+        (instance? Vec3 v) (translate (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+        :else (apply translate v)))
   ([x y] (translate x y 0))
   ([x y z] (translate- *renderer* x y z)))
 
 (defn scale
-  ([v] (apply scale v))
+  ([v] (cond
+        (instance? Vec2 v) (scale (.x #^Vec2 v) (.y #^Vec2 v))
+        (instance? Vec3 v) (scale (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+        :else (apply scale v)))
   ([x y] (scale x y 1))
   ([x y z] (scale- *renderer* x y z)))
 
 (defn color
-  ([c] (apply color c))
+  ([c] (cond
+        (instance? Vec2 c) (color (.x #^Vec2 c) (.y #^Vec2 c))
+        (instance? Vec3 c) (color (.x #^Vec3 c) (.y #^Vec3 c) (.z #^Vec3 c))
+        :else (apply color c)))
   ([r g b] (color r g b 1))
   ([r g b a] (color- *renderer* r g b a)))
 
@@ -119,13 +138,13 @@
     Renderer
     (vertex- [_ x y z]
       (if (and *intra-primitive-transform* @*intra-primitive-transform*)
-        (let [[x y z _] (apply-matrix *transform-matrix* [x y z 1])]
-          (vertex- *outer-renderer* x y z))
+        (let [v (transform @*transform-matrix* (vec3 x y z))]
+          (vertex- *outer-renderer* (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v)))
         (vertex- *outer-renderer* x y z)))
     (normal- [_ x y z]
       (if (and *intra-primitive-transform* @*intra-primitive-transform*)
-        (let [[x y z _] (apply-matrix (vec (concat (subvec @*transform-matrix* 0 12) [0 0 0 0])) [x y z 1])]
-          (normal- *outer-renderer* x y z))
+        (let [v (transform (normal-matrix @*transform-matrix*) (vec3 x y z))]
+          (normal- *outer-renderer* (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v)))
         (normal- *outer-renderer* x y z)))
     (texture- [_ u]
       (texture- *outer-renderer* u))
@@ -139,15 +158,15 @@
       (apply attribute- (list* *outer-renderer* attrib values)))
     (scale- [_ x y z]
       (dosync
-       (alter *transform-matrix* #(mult-matrix % (scaling-matrix x y z)))
+       (alter *transform-matrix* #(transform-matrix % (scaling-matrix x y z)))
        (ref-set *intra-primitive-transform* true)))
     (translate- [_ x y z]
       (dosync
-       (alter *transform-matrix* #(mult-matrix % (translation-matrix x y z)))
+       (alter *transform-matrix* #(transform-matrix % (translation-matrix x y z)))
        (ref-set *intra-primitive-transform* true)))
     (rotate- [_ angle x y z]
       (dosync
-       (alter *transform-matrix* #(mult-matrix % (rotation-matrix angle x y z)))
+       (alter *transform-matrix* #(transform-matrix % (rotation-matrix angle x y z)))
        (ref-set *intra-primitive-transform* true)))
     (load-identity- [_]
       (dosync
