@@ -25,17 +25,18 @@
 (defn init-particles []
   (def particle-tex
        (let [[w h] [32 32]
+             dim (vec2 w h)
              tex (create-byte-texture w h)]
       (data/overwrite!
        tex
        (apply concat
               (for [x (range w) y (range h)]
-                (let [pos (map / [x y] [w h])
-                      i (Math/exp (* 16 (- (length-squared (map - pos [0.5 0.5])))))]
+                (let [pos (div (vec2 x y) dim)
+                      i (Math/exp (* 16 (- (length-squared (sub pos (vec2 0.5 0.5))))))]
                   [1 1 1 i]))))
       tex))
   (def particle-quad
-       (create-display-list (textured-quad))))
+    (create-display-list (textured-quad))))
 
 (defn overdraw! [tex locs size col]
   (render-to-texture
@@ -46,8 +47,8 @@
          (apply color col)
          (doseq [loc locs]
            (push-matrix
-            (apply translate (map / loc (app/size)))
-            (apply scale [size size])
+            (translate (div loc (apply vec2 (app/size))))
+            (scale size size)
             (particle-quad))))))))
 
 (defmacro def-fluid-map [name & body]
@@ -140,9 +141,9 @@
 
 (defn mouse-move [[dx dy] [x y] state]
   (when (:velocity state)
-    (let [start (map - [x y] [dx dy])
-          finish [x y]
-          steps (int (length (map - finish start)))
+    (let [finish (vec2 x y)
+          start (sub finish (vec2 dx dy))
+          steps (int (length (sub finish start)))
           locs (map #(lerp start finish (/ % steps)) (range steps))]
       (overdraw! (:velocity state) locs 0.03 (map #(+ (/ % 10) 0.5) (concat (map / (map #(* % 100) [dx (- dy)]) dim) [0 1])))
       (overdraw! (:density state) locs 0.03 [1 1 1])))

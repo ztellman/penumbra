@@ -7,7 +7,9 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.geometry
-  (:use [clojure.contrib.lazy-seqs :only (primes)]))
+  (:use [clojure.contrib.lazy-seqs :only (primes)]
+        [clojure.walk :only (postwalk-replace postwalk)]
+        [clojure.contrib.def :only (defmacro-)]))
 
 ;;;
 
@@ -31,129 +33,278 @@
         divisor   (reduce #(if (>= sqrt (* %1 %2)) (* %1 %2) %1) 1 reordered)]
     [divisor (/ n divisor)]))
 
-;;;
-
-(defn lerp [a b t]
-  "Does a linear interpolation between two n-vectors, a and b, based on scalar value t."
-  (if (sequential? a)
-    (map #(+ %1 (* t (- %2 %1))) a b)
-    (+ a (* t (- b a)))))
-
-(defn dot
-  "Returns dot product of two vectors, which must have equal length."
-  [u v]
-  (apply + (map * u v)))
-
-(defn length-squared
-  "Returns scalar length of vector, multiplied by itself."
-  [v]
-  (dot v v))
-
-(defn length
-  "Returns scalar length of vector."
-  [v]
-  (Math/sqrt (length-squared v)))
-
-(defn normalize
-  "Normalizes vector of arbitrary lengths."
-  [v]
-  (let [len (length v)]
-    (map #(/ % len) v)))
-
-(defn cross
-  "Returns cross product of two 3-vectors."
-  [[ax ay az] [bx by bz]]
-  [(- (* ay bz) (* az by))
-   (- (* az bx) (* ax bz))
-   (- (* ax bz) (* ay bx))])
-
 (defn radians
   "Transforms degrees to radians."
   [x]
-  (* (/ Math/PI 180) x))
+  (* (/ Math/PI 180.0) (double x)))
 
 (defn degrees
   "Transforms radians to degrees."
   [x]
-  (* (/ 180 Math/PI) x))
-
-(defn polar
-  "Transforms cartesian coordinates into polar coordinates.
-   [x y] => [theta r]
-   [x y z] => [theta phi r]"
-  [v]
-  (condp = (count v)
-    2 (let [[x y] v]
-         [(degrees (Math/atan2 y x))
-          (length v)])
-    3 (let [[x y z] v
-            len (length v)]
-        [(first (polar [x z]))
-         (degrees (Math/asin (/ y len)))
-         len])))
-
-(defn cartesian
-  "Transforms polar coordinates to cartesian coordinates.
-   theta => (cartesian [theta 1])
-   [theta r] => [x y]
-   [theta phi r] => [x y z]"
-  [v]
-  (if (number? v)
-    (cartesian [v 1])
-    (condp = (count v)
-      1 (cartesian [v 1])
-      2 (let [[theta r] v
-              theta (radians theta)]
-          (map (partial * r) [(Math/cos theta) (Math/sin theta)]))
-      3 (let [[theta phi r] v
-              theta (radians theta)
-              phi (radians (- 90 phi))
-              ts (Math/sin theta)
-              tc (Math/cos theta)
-              ps (Math/sin phi)
-              pc (Math/cos phi)]
-          [(* r ps tc) (* r pc) (* r ps ts)]))))
+  (* (/ 180.0 Math/PI) (double x)))
 
 ;;;
 
+(defprotocol CartesianMath
+  (add [a b])
+  (sub [a b])
+  (mul [a b])
+  (div [a b])
+  (dot [a b])
+  (modv [a b])
+  (mapv- [v f] [v f rest])
+  (polar [v]))
+
+(defprotocol PolarMath
+  (cartesian [p]))
+
+(defn lerp [a b t]
+  (add a (mul (sub b a) t)))
+
+(defn length-squared [v]
+  (dot v v))
+
+(defn length [v]
+  (Math/sqrt (length-squared v)))
+
+(defn normalize [v]
+  (div v (length v)))
+
+(defn mapv [f & vs]
+  (if (> (count vs) 1)
+    (mapv- (first vs) f (rest vs))
+    (mapv- (first vs) f)))
+
+;;;
+
+(defmacro- tag-vars [types body]
+  (let [types (into {} (map (fn [[k v]] [k (with-meta k (merge (meta k) {:tag v}))]) types))]
+    (->> body
+         (postwalk-replace types)
+         (postwalk #(if (vector? %) (postwalk-replace (zipmap (vals types) (keys types)) %) %)))))
+
+(defrecord Polar2 [#^double theta #^double r])
+
+(tag-vars
+ {v Vec2}
+ (defrecord Vec2 [#^double x #^double y]
+   CartesianMath
+   (add [_ v] (Vec2. (+ x (.x v)) (+ y (.y v))))
+   (sub [_ v] (Vec2. (- x (.x v)) (- y (.y v))))
+   (mul [_ b]
+        (if (number? b)
+          (let [b (double b)]
+            (Vec2. (* x b) (* y b)))
+          (let [v b]
+            (Vec2. (* x (.x v)) (* y (.y v))))))
+   (div [_ b]
+        (if (number? b)
+          (let [b (double b)]
+            (Vec2. (/ x b) (/ y b)))
+          (let [v b]
+            (Vec2. (/ x (.x v)) (/ y (.y v))))))
+   (dot [_ v] (+ (* x (.x v)) (* y (.y v))))
+   (modv [_ v] (Vec2. (mod x (.x v)) (mod y (.y v))))
+   (mapv- [_ f]
+          (Vec2. (double (f x)) (double (f y))))
+   (mapv- [v f rest]
+         (let [vs (cons v rest)]
+           (Vec2. (double (apply f (map #(.x #^Vec2 %) vs)))
+                  (double (apply f (map #(.y #^Vec2 %) vs))))))
+   (polar [v] (Polar2. (degrees (Math/atan2 y x)) (length v)))))
+
+(tag-vars
+ {p Polar2}
+ (extend-type Polar2
+  PolarMath
+  (cartesian [p]
+   (let [theta (radians (.theta p))]
+     (Vec2. (* (.r p) (Math/cos theta)) (* (.r p) (Math/sin theta)))))))
+
+(extend-type
+ java.lang.Double
+ PolarMath
+ (cartesian [n] (cartesian (Polar2. n 1))))
+
+(extend-type
+ java.lang.Integer
+ PolarMath
+ (cartesian [n] (cartesian (Polar2. n 1))))
+
+(extend-type
+ java.lang.Float
+ PolarMath
+ (cartesian [n] (cartesian (Polar2. n 1))))
+
+(extend-type
+ clojure.lang.Ratio
+ PolarMath
+ (cartesian [n] (cartesian (Polar2. n 1))))
+
+(defrecord Polar3 [#^double theta #^double phi #^double r])
+
+(tag-vars
+ {v Vec3}
+ (defrecord Vec3 [#^double x #^double y #^double z]
+   CartesianMath
+   (add [_ v] (Vec3. (+ x (.x v)) (+ y (.y v)) (+ z (.z v))))
+   (sub [_ v] (Vec3. (- x (.x v)) (- y (.y v)) (- z (.z v))))
+   (mul [_ b] (if (number? b)
+                (let [b (double b)]
+                  (Vec3. (* x b) (* y b) (* z b)))
+                (let [v b]
+                  (Vec3. (* x (.x v)) (* y (.y v)) (* z (.z v))))))
+   (div [_ b] (if (number? b)
+                (let [b (double b)]
+                  (Vec3. (/ x b) (/ y b) (/ z b)))
+                (let [v b]
+                  (Vec3. (/ x (.x v)) (/ y (.y v)) (/ z (.z v))))))
+   (dot [_ v] (+ (* x (.x v)) (* y (.y v)) (* z (.z v))))
+   (modv [_ v] (Vec3. (mod x (.x v)) (mod y (.y v)) (mod z (.x v))))
+   (mapv- [_ f]
+          (Vec3. (double (f x)) (double (f y)) (double (f z))))
+   (mapv- [v f rest]
+         (let [vs (cons v rest)]
+           (Vec3. (double (apply f (map #(.x #^Vec3 %) vs)))
+                  (double (apply f (map #(.y #^Vec3 %) vs)))
+                  (double (apply f (map #(.z #^Vec3 %) vs))))))
+   (polar [v]
+          (let [len (length v)]
+            (Polar3. (.theta (polar (Vec2. x z)))
+                     (degrees (Math/asin (/ y len)))
+                     len)))))
+
+(tag-vars
+ {p Polar3}
+ (extend-type Polar3
+  PolarMath
+  (cartesian [p]
+   (let [theta (radians (.theta p))
+         phi (radians (- 90 (.phi p)))
+         ts (Math/sin theta)
+         tc (Math/cos theta)
+         ps (Math/sin phi)
+         pc (Math/cos phi)
+         r (.r p)]
+     (Vec3. (* r ps tc) (* r pc) (* r ps ts))))))
+
+;;;
+
+(defn vec2 [x y]
+  (Vec2. x y))
+
+(defn polar2
+  ([theta] (polar2 theta 1))
+  ([theta r] (Polar2. theta r)))
+
+(defn vec3
+  ([#^Vec2 v z] (vec3 (.x v) (.y v) z))
+  ([x y z] (Vec3. x y z)))
+
+(defn polar3
+  ([theta phi] (polar3 theta phi 1))
+  ([theta phi r] (Polar3. theta phi r)))
+
+(defn vec? [v]
+  (or
+   (instance? Vec2 v)
+   (instance? Vec3 v)))
+
+(defn polar? [p]
+  (or
+   (instance? Polar2 p)
+   (instance? Polar3 p)))
+
+(defmethod print-method penumbra.geometry.Vec3 [v writer]
+  (.write writer (str "x=" (.x #^Vec3 v) ", y=" (.y #^Vec3 v) ", z=" (.z #^Vec3 v))))
+
+(defmethod print-method penumbra.geometry.Polar3 [p writer]
+  (.write writer (str "theta=" (.theta #^Polar3 p) ", phi=" (.phi #^Polar3 p) ", r=" (.r #^Polar3 p))))
+
+(defmethod print-method penumbra.geometry.Vec2 [v writer]
+  (.write writer (str "x=" (.x #^Vec2 v) ", y=" (.y #^Vec2 v))))
+
+(defmethod print-method penumbra.geometry.Polar2 [p writer]
+  (.write writer (str "theta=" (.theta #^Polar2 p) ", r=" (.r #^Polar2 p))))
+
+;;;
+
+(defn cross [#^Vec3 a #^Vec3 b]
+  (Vec3. (- (* (.y a) (.z b)) (* (.z a) (.y b)))
+         (- (* (.z a) (.x b)) (* (.x a) (.z b)))
+         (- (* (.x a) (.y b)) (* (.y a) (.x b)))))
+
+;;;
+
+(defprotocol TransformMatrix
+  (transform-matrix [#^Matrix4 a #^Matrix4 b])
+  (transform [#^Matrix4 m #^Vec3 v]))
+
+(defmacro- transform-matrix* []
+  (let [index (fn [m x y] (list (symbol (str ".m" x y)) m))]
+    (list*
+     `Matrix4.
+     (map
+      (fn [[i j]]
+        (list* `+ (map (fn [k] (list `* (index 'a k i) (index 'b j k))) (range 4))))
+      (for [i (range 4) j (range 4)] [i j])))))
+
+(tag-vars
+ {v Vec3
+  a Matrix4
+  b Matrix4}
+ (defrecord Matrix4 [#^double m00 #^double m10 #^double m20 #^double m30
+                     #^double m01 #^double m11 #^double m21 #^double m31
+                     #^double m02 #^double m12 #^double m22 #^double m32
+                     #^double m03 #^double m13 #^double m23 #^double m33]
+   TransformMatrix
+   (transform
+    [_ v]
+    (Vec3. (+ (* (.x v) m00) (* (.y v) m10) (* (.z v) m20) m30)
+           (+ (* (.x v) m01) (* (.y v) m11) (* (.z v) m21) m31)
+           (+ (* (.x v) m02) (* (.y v) m12) (* (.z v) m22) m32)))
+   (transform-matrix
+    [a b]
+    (transform-matrix*))))
+
 (defn identity-matrix []
-  [1 0 0 0
+  (Matrix4.
+   1 0 0 0
    0 1 0 0
    0 0 1 0
-   0 0 0 1])
+   0 0 0 1))
 
 (defn translation-matrix [x y z]
-  [1 0 0 x
+  (Matrix4.
+   1 0 0 x
    0 1 0 y
    0 0 1 z
-   0 0 0 1])
+   0 0 0 1))
 
 (defn scaling-matrix [x y z]
-  [x 0 0 0
+  (Matrix4.
+   x 0 0 0
    0 y 0 0
    0 0 z 0
-   0 0 0 1])
+   0 0 0 1))
+
+(tag-vars
+ {m Matrix4}
+ (defn normal-matrix [m]
+   (Matrix4.
+    (.m00 m) (.m10 m) (.m20 m) 0
+    (.m01 m) (.m11 m) (.m21 m) 0
+    (.m02 m) (.m12 m) (.m22 m) 0
+    (.m03 m) (.m13 m) (.m23 m) 1)))
 
 (defn rotation-matrix [theta x y z]
   (let [s (Math/sin (* Math/PI (/ theta 180)))
         c (Math/cos (* Math/PI (/ theta 180)))
         t (- 1 c)]
-  [(+ c (* t x x))        (- (* t x y) (* s z))   (+ (* t x z) (* s y))   0
-   (+ (* t x y) (* s z))  (+ (* t y y) c)         (- (* t y z) (* s x))   0
-   (- (* t x z) (* s y))  (+ (* t y z) (* s x))   (+ (* t z z) c)         0
-   0                      0                       0                       1]))
-
-(defn- index [m i j] (m (+ i (* j 4))))
-
-(defn mult-matrix [a b]
-  (let [indices (for [i (range 4) j (range 4)] [i j])
-        traverse (fn [[i j]] (apply + (map #(* (index a % i) (index b j %)) (range 4))))]
-    (vec (map traverse indices))))
-
-(defn apply-matrix [m v]
-  (let [traverse-fn (fn [i] #(* (v %) (index m % i)))]
-    (vec (map #(apply + (map (traverse-fn %) (range 4))) (range 4)))))
-
-;;;
+    (Matrix4.
+     (+ c (* t x x))        (- (* t x y) (* s z))   (+ (* t x z) (* s y))   0
+     (+ (* t x y) (* s z))  (+ (* t y y) c)         (- (* t y z) (* s x))   0
+     (- (* t x z) (* s y))  (+ (* t y z) (* s x))   (+ (* t z z) c)         0
+     0                      0                       0                       1)))
 
 

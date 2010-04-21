@@ -17,10 +17,10 @@
 (defn circle
   [steps]
   (let [increment (/ 360 steps)]
-    (map #(cartesian [% 1]) (map (partial * increment) (cycle (range steps))))))
+    (map #(cartesian (polar2 %)) (map (partial * increment) (cycle (range steps))))))
 
 (defn uneven-circle [steps low high]
-  (map #(map * (repeat %1) %2) (cycle [high low low high]) (circle steps)))
+  (map #(mul %1 %2) (circle steps) (cycle [high low low high])))
 
 (defn gear-face [num-teeth inner low high]
   (let [steps (* 4 num-teeth)
@@ -30,25 +30,25 @@
 
 (defn gear-teeth [num-teeth low high]
   (let [teeth (uneven-circle (* 4 num-teeth) low high)
-        a (map (fn [[a b]] [a b 0]) teeth)
-        b (map (fn [[a b]] [a b 1]) teeth)]
+        a (map #(vec3 % 0) teeth)
+        b (map #(vec3 % 1) teeth)]
     (apply concat (interleave (map reverse (partition 2 1 a)) (partition 2 1 b)))))
 
 (defn draw-gear-face [num-teeth inner low high]
   (let [vertices (take (inc (* 16 num-teeth)) (gear-face num-teeth inner low high))]
     (draw-quads
      (doseq [v vertices]
-       (apply vertex v)))))
+       (vertex v)))))
 
 (defn draw-strip [vertices]
   (draw-quads
    (doseq [face (partition 4 vertices)]
      (let [face (vec face)
-           u (map - (face 2) (face 0))
-           v (map - (face 1) (face 0))]
-       (apply normal (normalize (cross u v)))
+           u (sub (face 2) (face 0))
+           v (sub (face 1) (face 0))]
+       (normal (normalize (cross u v)))
        (doseq [v face]
-         (apply vertex v))))))
+         (vertex v))))))
 
 (defn draw-gear-teeth [num-teeth low high]
   (draw-strip (take
