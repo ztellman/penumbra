@@ -216,16 +216,16 @@
    (instance? Polar3 p)))
 
 (defmethod print-method penumbra.geometry.Vec3 [v writer]
-  (.write writer (str "x=" (.x #^Vec3 v) ", y=" (.y #^Vec3 v) ", z=" (.z #^Vec3 v))))
+  (.write writer (str "[ x=" (.x #^Vec3 v) ", y=" (.y #^Vec3 v) ", z=" (.z #^Vec3 v) " ]")))
 
 (defmethod print-method penumbra.geometry.Polar3 [p writer]
-  (.write writer (str "theta=" (.theta #^Polar3 p) ", phi=" (.phi #^Polar3 p) ", r=" (.r #^Polar3 p))))
+  (.write writer (str "[ theta=" (.theta #^Polar3 p) ", phi=" (.phi #^Polar3 p) ", r=" (.r #^Polar3 p) " ]")))
 
 (defmethod print-method penumbra.geometry.Vec2 [v writer]
-  (.write writer (str "x=" (.x #^Vec2 v) ", y=" (.y #^Vec2 v))))
+  (.write writer (str "[ x=" (.x #^Vec2 v) ", y=" (.y #^Vec2 v) " ]")))
 
 (defmethod print-method penumbra.geometry.Polar2 [p writer]
-  (.write writer (str "theta=" (.theta #^Polar2 p) ", r=" (.r #^Polar2 p))))
+  (.write writer (str "[ theta=" (.theta #^Polar2 p) ", r=" (.r #^Polar2 p) " ]")))
 
 ;;;
 
