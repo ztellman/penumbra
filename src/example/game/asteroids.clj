@@ -330,7 +330,7 @@
 
 (defn init [state]
   (app/title! "Asteroids")
-  (app/vsync! true)
+  (app/vsync! false)
   (app/key-repeat! false)
   (init-asteroids)
   (init-particles)
@@ -380,4 +380,4 @@
 (defn start []
   (app/start
    {:reshape reshape, :init init, :key-press key-press, :update update, :display display} 
-   {}))
+   {:dim *dim*}))
