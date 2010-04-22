@@ -46,14 +46,14 @@
 ;;;
 
 (defprotocol CartesianMath
-  (add [a b])
-  (sub [a b])
-  (mul [a b])
-  (div [a b])
-  (dot [a b])
-  (modv [a b])
+  (add [a b] "Equivalent to (map + a b).")
+  (sub [a b] "Equivalent to (map - a b).")
+  (mul [a b] "Equivalent to (map * a b) or (map * a (repeat b)) - b may be either a vector or a number.")
+  (div [a b] "Equivalent to (map / a b) or (map / a (repeat b)) - b may be either a vector or a number.")
+  (dot [a b] "The dot product of two vectors.")
+  (modv [a b] "Equivalent to (map mod a b)")
   (mapv- [v f] [v f rest])
-  (polar [v]))
+  (polar [v] "Converts vector to a cartesian representation."))
 
 (defprotocol PolarMath
   (cartesian [p]))
@@ -73,7 +73,9 @@
 (defn mapv [f & vs]
   (if (> (count vs) 1)
     (mapv- (first vs) f (rest vs))
-    (mapv- (first vs) f)))
+    (if (number? (first vs))
+      (mapv- (first vs) f [])
+      (mapv- (first vs) f))))
 
 ;;;
 
@@ -83,7 +85,30 @@
          (postwalk-replace types)
          (postwalk #(if (vector? %) (postwalk-replace (zipmap (vals types) (keys types)) %) %)))))
 
+(defmacro- extend-numbers [& body]
+  `(do
+     (extend-type java.lang.Double ~@body)
+     (extend-type java.lang.Integer ~@body)
+     (extend-type java.lang.Float ~@body)
+     (extend-type clojure.lang.Ratio ~@body)))
+
 (defrecord Polar2 [#^double theta #^double r])
+
+(extend-numbers
+ PolarMath
+ (cartesian [n] (cartesian (Polar2. n 1))))
+
+(extend-numbers
+ CartesianMath
+ (add [a b] (+ a b))
+ (sub [a b] (- a b))
+ (mul [a b] (* a b))
+ (div [a b] (/ a b))
+ (dot [a b] (* a b))
+ (modv [a b] (mod a b))
+ (mapv- [n f] (f n))
+ (mapv- [n f rest] (apply f (cons n rest)))
+ (polar [n] (throw (Exception. "Can't get polar coordinate for 1-D value"))))
 
 (tag-vars
  {v Vec2}
@@ -120,26 +145,6 @@
   (cartesian [p]
    (let [theta (radians (.theta p))]
      (Vec2. (* (.r p) (Math/cos theta)) (* (.r p) (Math/sin theta)))))))
-
-(extend-type
- java.lang.Double
- PolarMath
- (cartesian [n] (cartesian (Polar2. n 1))))
-
-(extend-type
- java.lang.Integer
- PolarMath
- (cartesian [n] (cartesian (Polar2. n 1))))
-
-(extend-type
- java.lang.Float
- PolarMath
- (cartesian [n] (cartesian (Polar2. n 1))))
-
-(extend-type
- clojure.lang.Ratio
- PolarMath
- (cartesian [n] (cartesian (Polar2. n 1))))
 
 (defrecord Polar3 [#^double theta #^double phi #^double r])
 
@@ -190,27 +195,39 @@
 
 ;;;
 
-(defn vec2 [x y]
+(defn vec2
+  "Creates a 2-D vector."
+  [x y]
   (Vec2. x y))
 
 (defn polar2
+  "Creates a 2-D polar coordinate.
+   (polar theta) => (polar theta 1)"
   ([theta] (polar2 theta 1))
   ([theta r] (Polar2. theta r)))
 
 (defn vec3
+  "Creates a 3-D vector.
+   (vec3 (vec2 x y) z) => (vec3 x y z)"
   ([#^Vec2 v z] (vec3 (.x v) (.y v) z))
   ([x y z] (Vec3. x y z)))
 
 (defn polar3
+  "Creates a 3-D polar coordinate.
+   (polar3 theta phi) => (polar3 theta phi 1)"
   ([theta phi] (polar3 theta phi 1))
   ([theta phi r] (Polar3. theta phi r)))
 
-(defn vec? [v]
+(defn vec?
+  "Returns true if 'v' is a vector."
+  [v]
   (or
    (instance? Vec2 v)
    (instance? Vec3 v)))
 
-(defn polar? [p]
+(defn polar?
+  "Returns true if 'p' is a polar coordinate."
+  [p]
   (or
    (instance? Polar2 p)
    (instance? Polar3 p)))
@@ -229,7 +246,9 @@
 
 ;;;
 
-(defn cross [#^Vec3 a #^Vec3 b]
+(defn cross
+  "Returns the cross product of two 3-D vectors."
+  [#^Vec3 a #^Vec3 b]
   (Vec3. (- (* (.y a) (.z b)) (* (.z a) (.y b)))
          (- (* (.z a) (.x b)) (* (.x a) (.z b)))
          (- (* (.x a) (.y b)) (* (.y a) (.x b)))))
@@ -237,8 +256,8 @@
 ;;;
 
 (defprotocol TransformMatrix
-  (transform-matrix [#^Matrix4 a #^Matrix4 b])
-  (transform [#^Matrix4 m #^Vec3 v]))
+  (transform-matrix [#^Matrix4 a #^Matrix4 b] "Returns the product of two matrices.")
+  (transform [#^Matrix4 m #^Vec3 v] "Returns a vector transformed by the matrix."))
 
 (defmacro- transform-matrix* []
   (let [index (fn [m x y] (list (symbol (str ".m" x y)) m))]
