@@ -150,6 +150,7 @@
 (def color geometry/color)
 (def translate geometry/translate)
 (def load-identity geometry/load-identity)
+(def declare-attributes geometry/declare-attributes)
 
 (defmacro push-matrix [& body]
   `(geometry/with-transform- *renderer* (fn [] ~@body)))

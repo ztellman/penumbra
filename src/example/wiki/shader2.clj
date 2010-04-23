@@ -33,7 +33,7 @@
   (translate -0.5 -0.5 -5)
   (with-program program
     (uniform :tint 1. 1. 0.)
-    (attribute :alpha 0.25)
+    (declare-attributes :alpha)
     (draw-triangles
      (attribute :alpha 0.) (vertex 0 0)
      (attribute :alpha 0.5) (vertex 0 1)

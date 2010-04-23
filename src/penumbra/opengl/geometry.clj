@@ -110,14 +110,22 @@
 (gl-import glGetAttribLocation gl-get-attrib-location)
 
 (defn- attribute-location [variable]
-  (if-let [location (@*attributes* variable)]
-    location
-    (let [ary (.getBytes (str (.replace (name variable) \- \_) "\0"))
-          attribute-buf (-> (BufferUtils/createByteBuffer (count ary)) (.put ary) .rewind)
-          loc (gl-get-attrib-location (:program *program*) attribute-buf)]
-      (println "attribute-location" variable loc)
-      (dosync (alter *attributes* #(assoc % variable loc)))
-      loc)))
+  (let [variable (str (.replace (name variable) \- \_) "\0")]
+    (if-let [location (@*attributes* variable)]
+      location
+      (if *primitive-type*
+        (throw (Exception. "Cannot get attribute location while inside glBegin/glEnd"))
+        (let [ary (.getBytes variable)
+              attribute-buf (-> (BufferUtils/createByteBuffer (count ary))
+                                (.put ary)
+                                .rewind)
+              loc (gl-get-attrib-location (:program *program*) attribute-buf)]
+          (dosync (alter *attributes* #(assoc % variable loc)))
+          loc)))))
+
+(defn declare-attributes [& attributes]
+  (doseq [a attributes]
+    (attribute-location a)))
 
 (defn- set-attrib [variable args]
   (let [loc     (attribute-location variable)
@@ -225,7 +233,9 @@
                  *renderer* intra-primitive-renderer
                  ]
          (gl-begin ~'~(enum primitive-type))
-         ~@body#
-         (gl-end)))))
+         (try
+          ~@body#
+          (finally
+           (gl-end)))))))
 
 ;;;

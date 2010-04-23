@@ -151,8 +151,9 @@
   (let [read-textures (map last (partition 2 read))]
     (doseq [[idx tex] (indexed write)]
       (attach tex idx))
-    (doseq [idx (range (count write) 8)]
-      (attach nil idx)) ;;shouldn't this be unnecessary?
+    (when-not (empty? write)
+      (doseq [idx (range (count write) 8)]
+        (attach nil idx))) ;;shouldn't this be unnecessary?
     (doseq [[idx [vr tex]] (indexed (partition 2 read))]
       (bind-read vr tex idx))
     (when-not (empty? write)

@@ -69,7 +69,9 @@
   (if-let [location (@*uniforms* variable)]
     location
     (let [ary (.getBytes (str (.replace (name variable) \- \_) "\0"))
-          uniform-buf (-> (BufferUtils/createByteBuffer (count ary)) (.put ary) .rewind)
+          uniform-buf (-> (BufferUtils/createByteBuffer (count ary))
+                          (.put ary)
+                          .rewind)
           loc (gl-get-uniform-location (:program *program*) uniform-buf)]
       (dosync (alter *uniforms* #(assoc % variable loc)))
       loc)))
