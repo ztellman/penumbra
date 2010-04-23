@@ -406,11 +406,9 @@
 ;;TODO: tag attributes and varying
 (defn- process-fragment [program varying params dim elements]
   (let [fragment (reduce (fn [x [k v]] (tag-var k v x)) (:fragment program) varying)
-        {fragment :program} (process-map fragment params dim elements)
-        attribs (process-attributes program)]
+        {fragment :program} (process-map fragment params dim elements)]
     {:results (map #(-> % meta :tag) (results fragment))
      :fragment (list 'do
-                     attribs
                      (process-varying varying)
                      (post-process #(transform-results frag-data-typecast %) (set (keys varying)) fragment))}))
 
@@ -434,6 +432,7 @@
                    results  (force (:results info))
                    targets  (when fb?
                               (map #(create-write-texture % dim) results))]
+               (apply declare-attributes (keys (:attributes info)))
                (set-params params)
                (apply uniform (list* :_dim (map float dim)))
                (doseq [[idx d] (map vector (range (count elements)) (map tex/dim elements))]
@@ -469,4 +468,6 @@
       (with-glsl
         (let [info (cache programs args)]
           (with-program (:program info)
-            (run-renderer info f)))))))
+            (run-renderer
+             (assoc info :attributes (:attributes programs))
+             f)))))))
