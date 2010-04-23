@@ -12,7 +12,7 @@
         [clojure.contrib.def :only [defn-memo]]
         [clojure.contrib.seq :only [indexed]])
   (require [penumbra.opengl.texture :as tex])
-  (:import [java.nio IntBuffer]))
+  (:import [org.lwjgl BufferUtils]))
 
 ;;Render Buffers
 
@@ -25,13 +25,13 @@
 (defn gen-render-buffer
   "Creates a render buffer."
   []
-  (let [a (int-array 1)]
-    (gl-gen-render-buffers (IntBuffer/wrap a))
-    (first a)))
+  (let [buf (BufferUtils/createIntBuffer 1)]
+    (gl-gen-render-buffers buf)
+    (.get buf 0)))
 
 (defn delete-render-buffer
   [rb]
-  (gl-delete-render-buffers (IntBuffer/wrap (int-array [rb]))))
+  (gl-delete-render-buffers (-> (BufferUtils/createIntBuffer 1) (.put (int-array [rb])) .rewind)))
 
 (defn bind-render-buffer
   "Binds a render buffer."
@@ -78,15 +78,14 @@
 (defn gen-frame-buffer
   "Creates a single frame buffer object."
   []
-  (let [a (int-array 1)]
-    (gl-gen-frame-buffers (IntBuffer/wrap a))
-    (first a)))
+  (let [buf (BufferUtils/createIntBuffer 1)]
+    (gl-gen-frame-buffers buf)
+    (.get buf 0)))
 
 (defn destroy-frame-buffer
   "Destroys a single frame buffer object."
   [fb]
-  (let [a (int-array [fb])]
-    (gl-delete-frame-buffers (IntBuffer/wrap a))))
+  (gl-delete-frame-buffers (-> (BufferUtils/createIntBuffer 1) (.put (int-array [fb])) .rewind)))
 
 (defn bind-frame-buffer
   "Binds a frame buffer object."
@@ -144,7 +143,7 @@
   "Defines which textures will be written to, where textures are defined by their attachmennt points."
   [start end]
   (let [buffers (int-array (map attachment-lookup (range start end)))]
-    (gl-draw-buffers (IntBuffer/wrap buffers))))
+    (gl-draw-buffers (-> (BufferUtils/createIntBuffer (count buffers)) (.put buffers) .rewind))))
 
 (defn attach-textures
   "Attaches read and write textures, where read textures are a hash with names as keys, and write textures are a standard seq."
