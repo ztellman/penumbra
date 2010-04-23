@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns example.wiki.shader1
+(ns example.wiki.shader2
   (:use [penumbra.opengl])
   (:require [penumbra.app :as app]))
 
