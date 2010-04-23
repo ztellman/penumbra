@@ -21,7 +21,7 @@
                              EXTGeometryShader4))
   (:import (org.lwjgl.util.glu GLU))
   (:import (java.lang.reflect Field Method))
-  (:import (java.nio IntBuffer)))
+  (:import (org.lwjgl BufferUtils)))
 
 ;;;
 
@@ -42,16 +42,13 @@
 (defvar *uniforms* nil
   "Cached integer locations for uniforms (bound on a per-program basis)")
 
+(defvar *attributes* nil
+  "Cached integer locations for attributes (bound on a per-program basis)")
+
 ;;;
 
 (defvar *texture-pool* nil
   "A list of all allocated textures.  Unused textures can be overwritten, thus avoiding allocation.")
-
-(defvar *tex-mem-threshold* 100e6
-  "The memory threshold, in bytes, which will trigger collection of unused textures")
-
-(defvar *tex-count-threshold* 100
-  "The threshold for number of allocated textures which will trigger collection of any which are unused")
 
 ;;;
 
@@ -98,7 +95,7 @@
                      ARBTextureRectangle
                      EXTTransformFeedback
                      EXTGeometryShader4
-                     GL11 GL12 GL13 GL14 GL15 GL20 GL30 GL31 GL32 GLU])
+                     GL20 GL15 GL14 GL13 GL12 GL11 GL30 GL31 GL32 GLU])
 
 (defn- get-fields [#^Class static-class]
   (. static-class getFields))
@@ -202,6 +199,6 @@
 (defn get-integer
   "Calls glGetInteger."
   [param]
-  (let [ary (int-array 16)]
-    (gl-get-integer (enum param) (IntBuffer/wrap ary))
-    (first ary)))
+  (let [buf (BufferUtils/createIntBuffer 16)]
+    (gl-get-integer (enum param) buf)
+    (.get buf 0)))

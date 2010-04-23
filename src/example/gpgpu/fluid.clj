@@ -13,7 +13,7 @@
             [penumbra.opengl.texture :as tex]
             [penumbra.data :as data]))
 
-(def dim [400 400])
+(def dim [200 200])
 
 (defn textured-quad []
   (draw-quads

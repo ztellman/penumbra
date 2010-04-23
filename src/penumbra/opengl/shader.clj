@@ -12,7 +12,6 @@
   (:use [penumbra.opengl.core])
   (:use [penumbra.glsl.core])
   (:use [penumbra.translate.core])
-  (:import (java.nio ByteBuffer IntBuffer FloatBuffer))
   (:import (org.lwjgl BufferUtils)))
 
 ;;;;;;;;;;;;;;;;;;
@@ -30,15 +29,15 @@
 (gl-import- glGetProgramInfoLog gl-get-program-info-log)
 (gl-import- glGetProgram gl-get-program)
 
-(gl-import glUniform1i uniform-1i)
-(gl-import glUniform2i uniform-2i)
-(gl-import glUniform3i uniform-3i)
-(gl-import glUniform4i uniform-4i)
+(gl-import- glUniform1i uniform-1i)
+(gl-import- glUniform2i uniform-2i)
+(gl-import- glUniform3i uniform-3i)
+(gl-import- glUniform4i uniform-4i)
 
-(gl-import glUniform1f uniform-1f)
-(gl-import glUniform2f uniform-2f)
-(gl-import glUniform3f uniform-3f)
-(gl-import glUniform4f uniform-4f)
+(gl-import- glUniform1f uniform-1f)
+(gl-import- glUniform2f uniform-2f)
+(gl-import- glUniform3f uniform-3f)
+(gl-import- glUniform4f uniform-4f)
 
 ;;;
 
@@ -55,7 +54,7 @@
   [program body]
   (let [prev-program *program*]
     (try
-     (binding [*program* program, *uniforms* (:uniforms program)]
+     (binding [*program* program, *uniforms* (:uniforms program), *attributes* (:attributes program)]
        (bind-program program)
        (body))
      (finally
@@ -69,7 +68,8 @@
 (defn uniform-location [variable]
   (if-let [location (@*uniforms* variable)]
     location
-    (let [uniform-buf (ByteBuffer/wrap (.getBytes (str (.replace (name variable) \- \_) "\0")))
+    (let [ary (.getBytes (str (.replace (name variable) \- \_) "\0"))
+          uniform-buf (-> (BufferUtils/createByteBuffer (count ary)) (.put ary) .rewind)
           loc (gl-get-uniform-location (:program *program*) uniform-buf)]
       (dosync (alter *uniforms* #(assoc % variable loc)))
       loc)))
@@ -77,7 +77,8 @@
 (defn uniform [variable & args]
   (let [loc     (uniform-location variable)
         is-int  (int? (first args))
-        args    (vec (map (if is-int int float) args))]
+        args    (vec args) ;;(vec (map (if is-int int float) args))
+        ]
     (if is-int
       (condp = (count args)
         1 (uniform-1i loc (args 0))
@@ -98,9 +99,9 @@
 (defmacro- gl-query-info
   [query-fn setting fn-name]
   `(defn- ~fn-name [param#]
-    (let [a# (int-array 1)]
-      (~query-fn param# ~setting (IntBuffer/wrap a#))
-      (first a#))))
+    (let [buf# (BufferUtils/createIntBuffer 1)]
+      (~query-fn param# ~setting buf#)
+      (.get buf# 0))))
 
 (defmacro- gl-query-status
   [query-fn setting fn-name]
@@ -119,7 +120,7 @@
 (defn- get-shader-log [shader]
   (let [len (shader-info-length shader)
         buf (BufferUtils/createByteBuffer len)]
-    (gl-get-shader-info-log shader (IntBuffer/wrap (int-array [len])) buf)
+    (gl-get-shader-info-log shader (-> (BufferUtils/createIntBuffer len) (.put (int-array [len])) .rewind) buf)
     (let [ary (byte-array len)]
       (.get buf ary)
       (.trim (String. ary)))))
@@ -134,7 +135,8 @@
 
 (defn- load-source [shader source]
   (let [source (-> source cleanup-braces cleanup-braces)
-        source-buf (ByteBuffer/wrap (.getBytes source))]
+        ary (.getBytes source)
+        source-buf (-> (BufferUtils/createByteBuffer (count ary)) (.put ary) .rewind)]
     (gl-shader-source shader source-buf)
     (gl-compile-shader shader)
     (if *verbose*
@@ -146,7 +148,7 @@
 (defn- get-program-log [program]
   (let [len (program-info-length program)
         buf (BufferUtils/createByteBuffer len)]
-    (gl-get-program-info-log program (IntBuffer/wrap (int-array [len])) buf)
+    (gl-get-program-info-log program (-> (BufferUtils/createIntBuffer len) (.put (int-array [len])) .rewind) buf)
     (let [ary (byte-array len)]
       (.get buf ary)
       (.trim (String. ary)))))
@@ -183,5 +185,6 @@
       (println "Linked.\n"))
     {:program program
      :uniforms (ref {})
+     :attributes (ref {})
      :sources src}))
 

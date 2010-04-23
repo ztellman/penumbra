@@ -12,7 +12,7 @@
   (:use [penumbra.geometry :only (rectangle)])
   (:use [penumbra.opengl core])
   (:use [penumbra data])
-  (:import (java.nio ByteBuffer FloatBuffer IntBuffer DoubleBuffer))
+  (:import [org.lwjgl BufferUtils])
   (:import (java.io File))
   (:import (org.newdawn.slick.opengl Texture)))
 
@@ -152,10 +152,10 @@
 
 (defn- array-to-buffer [a type]
   (cond
-   (= type :double)        (DoubleBuffer/wrap a)
-   (= type :float)         (FloatBuffer/wrap a)
-   (= type :int)           (IntBuffer/wrap a)
-   (= type :unsigned-byte) (ByteBuffer/wrap a)
+   (= type :double)        (-> (BufferUtils/createDoubleBuffer (count a)) (.put a) .rewind)
+   (= type :float)         (-> (BufferUtils/createFloatBuffer (count a)) (.put a) .rewind)
+   (= type :int)           (-> (BufferUtils/createIntBuffer (count a)) (.put a) .rewind)
+   (= type :unsigned-byte) (-> (BufferUtils/createByteBuffer (count a)) (.put a) .rewind)
    :else                   (throw (Exception. (str "Don't recognize type " type)))))
 
 (defn- write-to-texture [tex bounds s]
@@ -204,9 +204,9 @@
 ;;;
 
 (defn- gen-texture-id []
-  (let [a (int-array 1)]
-    (gl-gen-textures (IntBuffer/wrap a))
-    (first a)))
+  (let [buf (BufferUtils/createIntBuffer 1)]
+    (gl-gen-textures buf)
+    (.get buf 0)))
 
 (defn- gen-texture [params]
   (let [params (->> params

@@ -1,4 +1,3 @@
-
 ;;   Copyright (c) Zachary Tellman. All rights reserved.
 ;;   The use and distribution terms for this software are covered by the
 ;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
@@ -17,7 +16,7 @@
             [penumbra.opengl.effects :as fx]
             [penumbra.glsl.core :as glsl]
             [penumbra.opengl.geometry :as geometry])
-  (:import (java.nio ByteBuffer IntBuffer FloatBuffer)
+  (:import (org.lwjgl BufferUtils)
            (java.io File ByteArrayOutputStream ByteArrayInputStream)
            (javax.imageio ImageIO)
            (org.newdawn.slick.opengl InternalTextureLoader Texture TextureImpl)))
@@ -230,7 +229,7 @@
 
 (defn- filter-translate [decl [type source]]
   [type
-   (if (= :vertex type)
+   (if (not= :vertex type)
      (glsl/translate-shader (remove #(= 'attribute (first %)) decl) source)
      (glsl/translate-shader decl source))])
 

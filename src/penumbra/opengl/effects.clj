@@ -8,7 +8,7 @@
 
 (ns penumbra.opengl.effects
   (:use [penumbra.opengl.core])
-  (:import [java.nio FloatBuffer IntBuffer]))
+  (:import [org.lwjgl BufferUtils]))
 
 (gl-import- glColor3d color-3)
 (gl-import- glColor4d color-4)
@@ -52,7 +52,7 @@
     (doseq [[property value] (partition 2 params)]
       (let [property (enum property)]
         (if (sequential? value)
-          (set-light-array light-num property (FloatBuffer/wrap (float-array (count value) value)))
+          (set-light-array light-num property (-> (BufferUtils/createFloatBuffer (count value)) (.put (float-array value)) .rewind))
           (set-light light-num property value))))))
 
 (defn material
@@ -64,7 +64,7 @@
     (doseq [[property value] (partition 2 params)]
       (let [property (enum property)]
         (if (sequential? value)
-          (set-material-array side property (FloatBuffer/wrap (float-array (count value) value)))
+          (set-material-array side property (-> (BufferUtils/createFloatBuffer (count value)) (.put (float-array value)) .rewind))
           (set-material side property value))))))
 
 (defn fog
@@ -76,7 +76,7 @@
   [& params]
   (doseq [[property value] (partition 2 params)]
     (if (sequential? value)
-      (set-fog-array (enum property) (FloatBuffer/wrap (float-array (count value) (map #(or (enum %) %) value))))
+      (set-fog-array (enum property) (-> (BufferUtils/createFloatBuffer (count value)) (.put (float-array (map #(or (enum %) %) value))) .rewind))
       (set-fog (enum property) (if (keyword? value) (enum value) value)))))
 
 (defn render-mode

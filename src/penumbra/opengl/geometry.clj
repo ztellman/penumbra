@@ -11,7 +11,8 @@
         [penumbra.geometry]
         [penumbra.opengl.core])
   (:require [penumbra.opengl.effects :as fx])
-  (:import [penumbra.geometry Vec2 Vec3]))
+  (:import [penumbra.geometry Vec2 Vec3]
+           [org.lwjgl BufferUtils]))
 
 ;;;
 
@@ -79,7 +80,7 @@
   ([r g b a] (color- *renderer* r g b a)))
 
 (defn attribute [attrib & values]
-  (apply attribute- *renderer* attrib values))
+  (attribute- *renderer* attrib values))
 
 (defn rotate [angle x y z]
   (rotate- *renderer* angle x y z))
@@ -101,6 +102,32 @@
 (gl-import- glPopMatrix gl-pop-matrix)
 (gl-import- glLoadIdentity gl-load-identity)
 
+(gl-import- glVertexAttrib1f attribute-1f)
+(gl-import- glVertexAttrib2f attribute-2f)
+(gl-import- glVertexAttrib3f attribute-3f)
+(gl-import- glVertexAttrib4f attribute-4f)
+
+(gl-import glGetAttribLocation gl-get-attrib-location)
+
+(defn- attribute-location [variable]
+  (if-let [location (@*attributes* variable)]
+    location
+    (let [ary (.getBytes (str (.replace (name variable) \- \_) "\0"))
+          attribute-buf (-> (BufferUtils/createByteBuffer (count ary)) (.put ary) .rewind)
+          loc (gl-get-attrib-location (:program *program*) attribute-buf)]
+      (println "attribute-location" variable loc)
+      (dosync (alter *attributes* #(assoc % variable loc)))
+      loc)))
+
+(defn- set-attrib [variable args]
+  (let [loc     (attribute-location variable)
+        args    (vec (map float args))]
+    (condp = (count args)
+      1 (attribute-1f loc (args 0))
+      2 (attribute-2f loc (args 0) (args 1))
+      3 (attribute-3f loc (args 0) (args 1) (args 2))
+      4 (attribute-4f loc (args 0) (args 1) (args 2) (args 3)))))
+
 (def basic-renderer
   (reify 
     Renderer
@@ -109,7 +136,7 @@
     (texture- [_ u v] (gl-tex-2 u v))
     (texture- [_ u v w] (gl-tex-3 u v w))
     (color- [_ r g b a] (fx/color r g b a))
-    (attribute- [_ attrib values] nil)
+    (attribute- [_ attrib values] (set-attrib attrib values))
     (normal- [_ x y z] (gl-normal x y z))
     (scale- [_ x y z] (gl-scale x y z))
     (translate- [_ x y z] (gl-translate x y z))
@@ -155,7 +182,7 @@
     (color- [_ r g b a]
       (color- *outer-renderer* r g b a))
     (attribute- [_ attrib values]
-      (apply attribute- (list* *outer-renderer* attrib values)))
+      (attribute- *outer-renderer* attrib values))
     (scale- [_ x y z]
       (dosync
        (alter *transform-matrix* #(transform-matrix % (scaling-matrix x y z)))
