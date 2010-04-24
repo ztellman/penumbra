@@ -8,7 +8,7 @@
 
 (ns example.gpgpu.fluid
   (:use [penumbra opengl compute]
-	    [cantor core])
+	    [cantor])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
             [penumbra.opengl.texture :as tex]

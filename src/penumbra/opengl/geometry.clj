@@ -8,7 +8,7 @@
 
 (ns penumbra.opengl.geometry
   (:use [clojure.contrib.def :only (defmacro- defvar)]
-        [cantor.core]
+        [cantor]
         [penumbra.opengl.core])
   (:require [penumbra.opengl.effects :as fx])
   (:import [org.lwjgl BufferUtils]))

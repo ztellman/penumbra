@@ -9,7 +9,7 @@
 (ns penumbra.translate.operators
   (:use [clojure.walk]
         [penumbra.translate core]
-		[cantor.core :only (rectangle-factors)]
+		[cantor :only (rectangle-factors)]
         [clojure.contrib.seq :only (indexed group-by separate)]
         [clojure.contrib.def :only (defn-memo defvar-)]
         [penumbra.translate.core])
