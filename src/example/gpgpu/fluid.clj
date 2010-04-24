@@ -7,7 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns example.gpgpu.fluid
-  (:use [penumbra opengl compute geometry])
+  (:use [penumbra opengl compute]
+	    [cantor core])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
             [penumbra.opengl.texture :as tex]

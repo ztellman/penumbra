@@ -7,8 +7,9 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns example.game.asteroids
-  (:use [penumbra opengl geometry]
-        [clojure.contrib.seq :only (separate)])
+  (:use [penumbra opengl]
+        [clojure.contrib.seq :only (separate)]
+        [cantor core])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
             [penumbra.time :as time]
@@ -22,7 +23,7 @@
   "Makes the position wrap around from right to left, bottom to top"
   [pos]
   (sub
-   (modv
+   (mod*
     (add pos *dim*)
     (mul *dim* 2))
    *dim*))

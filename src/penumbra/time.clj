@@ -7,7 +7,6 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.time
-  (:use [penumbra.geometry :only [lerp]])
   (:use [clojure.contrib.def :only [defn-memo]]))
 
 (defn wall-time []

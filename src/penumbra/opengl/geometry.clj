@@ -8,11 +8,10 @@
 
 (ns penumbra.opengl.geometry
   (:use [clojure.contrib.def :only (defmacro- defvar)]
-        [penumbra.geometry]
+        [cantor.core]
         [penumbra.opengl.core])
   (:require [penumbra.opengl.effects :as fx])
-  (:import [penumbra.geometry Vec2 Vec3]
-           [org.lwjgl BufferUtils]))
+  (:import [org.lwjgl BufferUtils]))
 
 ;;;
 
@@ -32,8 +31,8 @@
 (defn vertex
   ([v]
      (cond
-      (instance? Vec2 v) (vertex (.x #^Vec2 v) (.y #^Vec2 v))
-      (instance? Vec3 v) (vertex (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+      (vec2? v) (vertex (v 0) (v 1))
+      (vec3? v) (vertex (v 0) (v 1) (v 2))
       :else (apply vertex v)))
   ([x y] (vertex x y 0))
   ([x y z] (vertex- *renderer* x y z))
@@ -41,8 +40,8 @@
 
 (defn texture
   ([v] (cond
-        (instance? Vec2 v) (texture (.x #^Vec2 v) (.y #^Vec2 v))
-        (instance? Vec3 v) (texture (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+        (vec2? v) (texture (v 0) (v 1))
+        (vec3? v) (texture (v 0) (v 1) (v 2))
         (number? v) (texture- *renderer* v)
         :else (apply texture v)))
   ([u v] (texture- *renderer* u v))
@@ -50,31 +49,31 @@
 
 (defn normal
   ([v] (cond
-        (instance? Vec2 v) (normal (.x #^Vec2 v) (.y #^Vec2 v))
-        (instance? Vec3 v) (normal (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+        (vec2? v) (normal (v 0) (v 1))
+        (vec3? v) (normal (v 0) (v 1) (v 2))
         :else (apply normal v)))
   ([x y z] (normal- *renderer* x y z)))
 
 (defn translate
   ([v] (cond
-        (instance? Vec2 v) (translate (.x #^Vec2 v) (.y #^Vec2 v))
-        (instance? Vec3 v) (translate (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+        (vec2? v) (translate (v 0) (v 1))
+        (vec3? v) (translate (v 0) (v 1) (v 2))
         :else (apply translate v)))
   ([x y] (translate x y 0))
   ([x y z] (translate- *renderer* x y z)))
 
 (defn scale
   ([v] (cond
-        (instance? Vec2 v) (scale (.x #^Vec2 v) (.y #^Vec2 v))
-        (instance? Vec3 v) (scale (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v))
+        (vec2? v) (scale (v 0) (v 1))
+        (vec3? v) (scale (v 0) (v 1) (v 2))
         :else (apply scale v)))
   ([x y] (scale x y 1))
   ([x y z] (scale- *renderer* x y z)))
 
 (defn color
   ([c] (cond
-        (instance? Vec2 c) (color (.x #^Vec2 c) (.y #^Vec2 c))
-        (instance? Vec3 c) (color (.x #^Vec3 c) (.y #^Vec3 c) (.z #^Vec3 c))
+        (vec2? c) (color (c 0) (c 1))
+        (vec3? c) (color (c 0) (c 1) (c 2))
         :else (apply color c)))
   ([r g b] (color r g b 1))
   ([r g b a] (color- *renderer* r g b a)))
@@ -173,13 +172,13 @@
     Renderer
     (vertex- [_ x y z]
       (if (and *intra-primitive-transform* @*intra-primitive-transform*)
-        (let [v (transform @*transform-matrix* (vec3 x y z))]
-          (vertex- *outer-renderer* (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v)))
+        (let [v (transform-vector @*transform-matrix* (vec3 x y z))]
+          (vertex- *outer-renderer* (v 0) (v 1) (v 2)))
         (vertex- *outer-renderer* x y z)))
     (normal- [_ x y z]
       (if (and *intra-primitive-transform* @*intra-primitive-transform*)
-        (let [v (transform (normal-matrix @*transform-matrix*) (vec3 x y z))]
-          (normal- *outer-renderer* (.x #^Vec3 v) (.y #^Vec3 v) (.z #^Vec3 v)))
+        (let [v (transform-vector (normal-matrix @*transform-matrix*) (vec3 x y z))]
+          (normal- *outer-renderer* (v 0) (v 1) (v 2)))
         (normal- *outer-renderer* x y z)))
     (texture- [_ u]
       (texture- *outer-renderer* u))
