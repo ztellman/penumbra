@@ -6,8 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.data
-  (:use [penumbra.geometry :only (rectangle)]))
+(ns penumbra.data)
 
 (defprotocol Data
   (acquire! [d] "Increments the reference count.")

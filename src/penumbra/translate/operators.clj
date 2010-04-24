@@ -8,8 +8,8 @@
 
 (ns penumbra.translate.operators
   (:use [clojure.walk]
-        [penumbra.geometry]
         [penumbra.translate core]
+		[cantor.core :only (rectangle-factors)]
         [clojure.contrib.seq :only (indexed group-by separate)]
         [clojure.contrib.def :only (defn-memo defvar-)]
         [penumbra.translate.core])
@@ -204,7 +204,7 @@
 
 (defmethod signature [:params :dim :elements] [params dim & elements]
   (let [elements (remove #(and (vector? %) (empty? %)) (process-elements elements))
-        dim (if (number? dim) (rectangle dim) dim)]
+        dim (if (number? dim) (rectangle-factors dim) dim)]
     {:signature [(map *typeof-param* params) (map *typeof-element* elements)]
      :params params
      :elements elements
@@ -218,7 +218,7 @@
     (if (nil? e)
       (throw (Exception. (str "Element at position " idx " is nil")))))
   (let [dim
-        (if (number? dim) (rectangle dim) dim)
+        (if (number? dim) (rectangle-factors dim) dim)
         program*
         (let [program
               (apply-transforms

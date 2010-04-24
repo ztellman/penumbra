@@ -29,8 +29,9 @@
 
 (defn display [_ state]
   (translate -0.5 -0.5 -5)
-  (render-to-screen
+  (blit!
    (with-pipeline program [{:tint [1. 1. 0.]} (app/size)]
+     (clear)
      (draw-triangles
       (attribute :alpha 0.) (vertex 0 0)
       (attribute :alpha 0.5) (vertex 0 1)

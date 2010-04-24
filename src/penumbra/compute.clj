@@ -11,7 +11,7 @@
             [penumbra.opengl.texture :as tex]
             [clojure.contrib.def :only (defmacro-)])
   (:use [penumbra.opengl.core :only (*render-to-screen?*)]
-        [penumbra.geometry :only (rectangle)]))
+        [cantor.core :only (rectangle-factors)]))
 
 (defmacro defmap [name & body]
   `(def ~name (glsl/create-map-template (quote ~body))))
@@ -37,5 +37,5 @@
                    (/ (count s) (apply * tuple-or-dim)))
            dim (if-not (number? tuple-or-dim)
                  tuple-or-dim
-                 (rectangle (/ (count s) tuple)))]
+                 (rectangle-factors (/ (count s) tuple)))]
        (apply tex/wrap (list* s tuple dim params)))))

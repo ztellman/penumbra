@@ -9,7 +9,6 @@
 (ns penumbra.opengl.texture
   (:use [clojure.contrib.def :only (defmacro- defn-memo)])
   (:use [clojure.contrib.seq :only (separate)])
-  (:use [penumbra.geometry :only (rectangle)])
   (:use [penumbra.opengl core])
   (:use [penumbra data])
   (:import [org.lwjgl BufferUtils])

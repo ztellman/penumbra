@@ -7,7 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns example.opengl.gears
-  (:use [penumbra opengl geometry])
+  (:use [penumbra opengl]
+	    [cantor core])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]))
 
