@@ -9,7 +9,7 @@
 (ns example.game.asteroids
   (:use [penumbra opengl]
         [clojure.contrib.seq :only (separate)]
-        [cantor core])
+        [cantor])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
             [penumbra.time :as time]
@@ -23,7 +23,8 @@
   "Makes the position wrap around from right to left, bottom to top"
   [pos]
   (sub
-   (mod*
+   (map*
+    mod
     (add pos *dim*)
     (mul *dim* 2))
    *dim*))

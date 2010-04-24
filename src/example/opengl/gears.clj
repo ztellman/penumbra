@@ -8,7 +8,7 @@
 
 (ns example.opengl.gears
   (:use [penumbra opengl]
-	    [cantor core])
+	    [cantor])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]))
 

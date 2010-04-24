@@ -9,7 +9,7 @@
 (ns example.opengl.marble
   (:use [penumbra opengl compute]
         [penumbra.opengl core teapot]
-        [cantor core])
+        [cantor])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
             [penumbra.data :as data]))
