@@ -8,7 +8,7 @@
 
 (ns example.opengl.marble
   (:use [penumbra opengl compute]
-        [penumbra.opengl core teapot]
+        [penumbra.opengl core]
         [cantor])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
@@ -69,7 +69,7 @@
 
   (reset-random-texture
    (assoc state
-     :teapot (create-display-list (teapot 20 1))
+     :teapot (create-display-list (teapot))
      :octaves 6.0)))
 
 (defn mouse-drag [[dx dy] _ button state]
