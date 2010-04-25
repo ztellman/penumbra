@@ -7,8 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.teapot
-  (:use [penumbra.opengl]
-        [penumbra.opengl.core])
+  (:use [penumbra.opengl.core])
   (:import [org.lwjgl BufferUtils]
            [java.nio FloatBuffer]))
 
@@ -76,6 +75,10 @@
 (gl-import- glMap2f gl-map-2f)
 (gl-import- glMapGrid2f gl-map-grid-2f)
 (gl-import- glEvalMesh2 gl-eval-mesh-2)
+(gl-import- glEnable gl-enable)
+(gl-import- glRotatef gl-rotate)
+(gl-import- glScalef gl-scale)
+(gl-import- glTranslatef gl-translate)
 
 (defn fill-buffer [buf ary]
   (.clear buf)
@@ -86,11 +89,11 @@
   (.rewind buf))
 
 (defn teapot [grid s]
-  (enable :auto-normal)
-  (enable :map2-vertex-3)
-  (rotate 270 1 0 0)
-  (scale (* 0.5 s) (* 0.5 s) (* 0.5 s))
-  (translate 0 0 -1.5)
+  (gl-enable :auto-normal)
+  (gl-enable :map2-vertex-3)
+  (gl-rotate 270 1 0 0)
+  (gl-scale (* 0.5 s) (* 0.5 s) (* 0.5 s))
+  (gl-translate 0 0 -1.5)
 
   (let [p (make-array Float/TYPE 4 4 3)
         q (make-array Float/TYPE 4 4 3)

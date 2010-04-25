@@ -15,7 +15,8 @@
             [penumbra.opengl.shader :as shader]
             [penumbra.opengl.effects :as fx]
             [penumbra.glsl.core :as glsl]
-            [penumbra.opengl.geometry :as geometry])
+            [penumbra.opengl.geometry :as geometry]
+            [penumbra.opengl.teapot :as t])
   (:import (org.lwjgl BufferUtils)
            (java.io File ByteArrayOutputStream ByteArrayInputStream)
            (javax.imageio ImageIO)
@@ -381,3 +382,10 @@
   [tex & body]
   `(binding [*layered-texture?* true]
      (render-to-texture tex ~@body)))
+
+;;
+
+(defn teapot
+  ([] (teapot 20))
+  ([detail] (t/teapot detail 1)))
+
