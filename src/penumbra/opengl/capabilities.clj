@@ -34,7 +34,7 @@
    (catch Exception e
      false)))
 
-(defn-memo read-format [type tuple]
+(defn read-format [type tuple]
   (let [candidates
         (filter
          #(and (= type (first %)) (= tuple (second %)))
@@ -54,28 +54,29 @@
                 :internal-format format
                 :pixel-format (tex/tuple->pixel-format tuple)
                 :internal-type type)]
-        (fb/attach-textures [] [tex])
-        (if (fb/frame-buffer-ok?)
-          (do
-            (when tex
-              (data/destroy! tex))
-            [format (tex/tuple->pixel-format tuple) type])
-          (do
-            (when tex
-              (data/destroy! tex))
-            false)))
-      (catch Exception e
-        false)
-      (finally
-        (fb/destroy-frame-buffer fb)
-        (fb/bind-frame-buffer curr)))))
+       (fb/attach tex 0)
+       (try
+        (when (fb/frame-buffer-ok?)
+          [format (tex/tuple->pixel-format tuple) type])
+        (catch Exception e
+          false)
+        (finally
+         (when tex
+           (data/destroy! tex)))))
+     (catch Exception e
+       false)
+     (finally
+      (fb/attach nil 0)
+      (fb/destroy-frame-buffer fb)
+      (fb/bind-frame-buffer curr)))))
 
-(defn-memo write-format [type tuple]
-  (some
-    #(apply valid-write-format? %)
-    (filter
-      #(and (= type (first %)) (= tuple (second %)))
-      tex/internal-formats)))
+(defn write-format [type tuple]
+  (let [formats (filter
+                 #(and (= type (first %)) (= tuple (second %)))
+                 tex/internal-formats)]
+    (some
+     #(apply valid-write-format? %)
+     formats)))
 
 (defn print-compatible-types []
   (let [permutations (cartesian-product [:float :int :unsigned-byte] (range 1 5))]
@@ -84,9 +85,9 @@
         (println
           (name type) tuple
           "\n  R " (if-let [format (read-format type tuple)]
-                   (first format)
-                   "NONE")
+                     (first format)
+                     "NONE")
           "\n  W " (if-let [format (write-format type tuple)]
-                   (first format)
-                   "NONE"))))))
+                     (first format)
+                     "NONE"))))))
 

@@ -339,24 +339,36 @@
      (load-texture-from-image (ImageIO/read (File. path)) subsample filter)))
 
 (defn blit
-  "Blits texture to full screen.  Ignores current projection matrix, but honors current transform matrix."
-  [tex]
-  (when tex
-    (let [target (-> tex data/params :target)
-          [w h] (if (= :texture-rectangle target)
-                  (tex/dim tex)
-                  [1 1])]
-      (with-enabled target
-        (with-texture tex
-          (with-texture-transform (scale w h)
-            (try-with-program nil
-              (call-display-list (force *display-list*)))))))))
+  "Blits texture to the screen.  Ignores current projection matrix, but honors current transform matrix."
+  ([tex]
+     (blit tex [0 0 1 1]))
+  ([tex [x y w h]]
+     (when tex
+       (let [target (-> tex data/params :target)
+             [tw th] (if (= :texture-rectangle target)
+                     (tex/dim tex)
+                     [1 1])]
+         (with-enabled target
+           (with-texture tex
+             (try-with-program nil
+               (push-matrix
+                (load-identity)
+                (with-projection (ortho-view 0 1 1 0 -1 1)
+                  (push-matrix
+                   (color 1 1 1)
+                   (draw-quads
+                    (texture 0 0)  (vertex x (+ y h))
+                    (texture tw 0) (vertex (+ x w) (+ y h))
+                    (texture tw th)  (vertex (+ x w) y)
+                    (texture 0 th)   (vertex x y))))))))))))
 
 (defn blit!
   "Same as blit, but releases texture after rendering."
-  [tex]
-  (blit tex)
-  (data/release! tex))
+  ([tex]
+     (blit! tex [0 0 1 1]))
+  ([tex region]
+     (blit tex region)
+     (data/release! tex)))
 
 (defn render-to-texture-
   [tex f]
@@ -387,5 +399,5 @@
 
 (defn teapot
   ([] (teapot 20))
-  ([detail] (t/teapot detail 1)))
+  ([detail] (push-matrix (t/teapot detail 1))))
 
