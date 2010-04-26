@@ -64,7 +64,7 @@
 (defn init [state]
 
   (app/title! "Fluid")
-  (app/vsync! false)
+  (app/vsync! true)
 
   (init-particles)
   (blend-func :src-alpha :one-minus-src-alpha)
@@ -105,14 +105,11 @@
     (/ (+ left right top bottom (* (float3 alpha) %2)) (float3 (+ alpha beta))))
 
   (def-fluid-map divergence
-    (* 0.5 (float3 (+ (.x (- right left)) (.y (- top bottom))))))
+    (* 0.5 scale (float3 (+ (.x (- right left)) (.y (- top bottom))))))
 
   (def-fluid-map gradient
     (let [val (float3 (.x (- right left)) (.x (- top bottom)) 0)]
-      (+ %2 (* 0.5 val))))
-
-  (def-fluid-map actual-gradient
-    (float3 (.x (- right left)) (.x (- top bottom)) 0))
+      (+ %2 (* 0.5 (/ val scale)))))
 
   (defmap boundary-conditions
     (let [val %]
@@ -157,13 +154,13 @@
 (defn pressure [velocity dt]
   (let [div (divergence [velocity])
         p  (loop [i 0 p (reset-density dim)]
-             (if (> i 4)
+             (if (> i 10)
                (do
                  (data/release! div)
                  p)
                (recur
                 (inc i)
-                (boundary-conditions (jacobi {:alpha 1.0 :beta 3.0} p [div])))))
+                (jacobi {:alpha 1.0 :beta 3.0} p [div]))))
         p (diffuse {:diff 0.1 :dt dt :decay 0.002} p)]
     p))
 
@@ -180,7 +177,7 @@
           velocity  (diffuse {:diff 1.0 :dt dt :decay 0.1} velocity)
           velocity  (project velocity dt)
           velocity  (advect {:diff 0.5 :dt dt} velocity velocity)
-          velocity  (project velocity dt)
+          ;;velocity  (project velocity dt)
           density   (:density state)
           density   (diffuse {:diff 1.0 :dt dt :decay 0.5} density)
           density   (advect {:diff 1.0 :dt dt} density [velocity])
@@ -197,14 +194,7 @@
   (blit ((if (:view-density state)
            :density
            :velocity)
-         state))
-  
-  '(do
-    (blit (:density state) [0 0 0.5 0.5])
-    (blit (:velocity state) [0 0.5 0.5 0.5])
-    (blit! (divergence [(:velocity state)]) [0.5 0 0.5 0.5])
-    (blit! (actual-gradient (pressure (:velocity state) dt)) [0.5 0.5 0.5 0.5]))
- 
+         state)) 
 
    ;;(text/write-to-screen (str (int (/ 1 dt)) "fps") 0 0)
   (app/repaint!))
