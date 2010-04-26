@@ -297,11 +297,11 @@
   "Given the type (float4, etc.), creates the appropriate target texture"
   [typecast dim]
   (let [tuple  (type-tuple typecast)
-        type (type-format typecast)
+        type   (type-format typecast)
         i-f    (cap/write-format type tuple)
         p-f    (tex/tuple->pixel-format tuple)]
     (when (nil? i-f)
-      (throw (Exception. (str "Your graphics hardware does not support writing to texture of type=" format ", tuple=" tuple))))
+      (throw (Exception. (str "Your graphics hardware does not support writing to texture of type=" type ", tuple=" tuple))))
     (create-texture
      :target :texture-rectangle
      :dim dim

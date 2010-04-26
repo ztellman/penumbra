@@ -20,7 +20,7 @@
 
 (defn- draw []
   (with-projection (ortho-view -1 1 1 -1 -1 1)
-    (push-matrix []
+    (push-matrix
      (load-identity)
      (gl-active-texture :texture0)
      (color 1 1 1)
@@ -35,7 +35,9 @@
      (draw-frame-buffer 0 0 w h))
   ([x y w h]
      (with-viewport [x y w h]
-       (call-display-list (force *display-list*)))))
+       (push-matrix
+        (load-identity)
+        (call-display-list (force *display-list*))))))
 
 (defn create-context []
   {:display-list (delay (create-display-list (draw)))

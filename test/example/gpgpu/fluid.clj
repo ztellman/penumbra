@@ -82,7 +82,7 @@
     (+ % [0.5 0.5 0.5]))
 
   (defmap advect
-    (let [offset (.xy %2) 
+    (let [offset (.xy %2)
           coord (- (floor :coord) (* diff dt offset (.x :dim))) 
           c0 (floor coord)
           c1 (+ c0 [1 1])
@@ -105,11 +105,14 @@
     (/ (+ left right top bottom (* (float3 alpha) %2)) (float3 (+ alpha beta))))
 
   (def-fluid-map divergence
-    (* 0.5 scale (float3 (+ (.x (- right left)) (.y (- top bottom))))))
+    (* 0.5 (float3 (+ (.x (- right left)) (.y (- top bottom))))))
 
   (def-fluid-map gradient
     (let [val (float3 (.x (- right left)) (.x (- top bottom)) 0)]
-      (- %2 (* 0.5 (/ val scale)))))
+      (+ %2 (* 0.5 val))))
+
+  (def-fluid-map actual-gradient
+    (float3 (.x (- right left)) (.x (- top bottom)) 0))
 
   (defmap boundary-conditions
     (let [val %]
@@ -146,35 +149,38 @@
           start (sub finish (vec2 dx dy))
           steps (int (length (sub finish start)))
           locs (map #(lerp start finish (/ % steps)) (range steps))]
-      (overdraw! (:velocity state) locs 0.03 (map #(+ (/ % 10) 0.5) (concat (map / (map #(* % 100) [dx (- dy)]) dim) [0 1])))
-      (overdraw! (:density state) locs 0.03 [1 1 1])))
+      (overdraw! (:velocity state) locs 0.02 (map #(+ (/ % 10) 0.5) (concat (map / (map #(* % 100) [dx (- dy)]) dim) [0 1])))
+      (overdraw! (:density state) locs 0.02 [1 1 1])))
 
   state)
 
+(defn pressure [velocity dt]
+  (let [div (divergence [velocity])
+        p  (loop [i 0 p (reset-density dim)]
+             (if (> i 4)
+               (do
+                 (data/release! div)
+                 p)
+               (recur
+                (inc i)
+                (boundary-conditions (jacobi {:alpha 1.0 :beta 3.0} p [div])))))
+        p (diffuse {:diff 0.1 :dt dt :decay 0.002} p)]
+    p))
+
 (defn project [velocity dt]
-  (let [dx (float (/ 1 (first (tex/dim velocity))))
-        div       (divergence [velocity])
-        pressure  (loop [i 0 p (reset-density dim)]
-                    (if (> i 10)
-                      (do
-                        (data/release! div)
-                        p)
-                      (recur
-                       (inc i)
-                       (boundary-conditions (jacobi {:alpha (/ 10 (first dim)) :beta 4.0} p [div])))))
-        pressure  (diffuse {:diff 1.0 :dt dt :decay 0.002} pressure)
-        velocity  (gradient pressure velocity)
-        velocity  (boundary-conditions velocity)]
+  (let [p (pressure velocity dt)
+        velocity (gradient p velocity)
+        velocity (boundary-conditions velocity)]
     velocity))
 
 (defn update [[dt t] state]
   
   (let [dt dt]
     (let [velocity  (denormalize-velocity (:velocity state))
-          velocity  (diffuse {:diff 1.0 :dt dt :decay 0.5} velocity)
+          velocity  (diffuse {:diff 1.0 :dt dt :decay 0.1} velocity)
           velocity  (project velocity dt)
-          velocity  (advect {:diff 1.0 :dt dt} velocity velocity)
-          ;;velocity  (project velocity dt)
+          velocity  (advect {:diff 0.5 :dt dt} velocity velocity)
+          velocity  (project velocity dt)
           density   (:density state)
           density   (diffuse {:diff 1.0 :dt dt :decay 0.5} density)
           density   (advect {:diff 1.0 :dt dt} density [velocity])
@@ -191,16 +197,16 @@
   (blit ((if (:view-density state)
            :density
            :velocity)
-          state))
-
-  '(if (:view-density state)
-    (blit (:velocity state))
-    (let [div (divergence [(:velocity state)])]
-      (blit! (project* (:velocity state) 1.0))))
+         state))
   
+  '(do
+    (blit (:density state) [0 0 0.5 0.5])
+    (blit (:velocity state) [0 0.5 0.5 0.5])
+    (blit! (divergence [(:velocity state)]) [0.5 0 0.5 0.5])
+    (blit! (actual-gradient (pressure (:velocity state) dt)) [0.5 0.5 0.5 0.5]))
+ 
 
-  ;;(blit! (divergence (:velocity state)))
-  ;;(text/write-to-screen (str (int (/ 1 dt)) "fps") 0 0)
+   ;;(text/write-to-screen (str (int (/ 1 dt)) "fps") 0 0)
   (app/repaint!))
 
 (defn start []

@@ -10,9 +10,10 @@
   (:use [clojure.contrib.def :only (defn-memo defmacro- defvar defvar-)])
   (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL30 GL31 GL32
                              ARBDrawBuffers
-                             EXTFramebufferObject
+                             ARBFramebufferObject
                              ARBTextureFloat
                              ARBHalfFloatPixel
+                             APPLEFloatPixels
                              ATITextureFloat
                              NVFloatBuffer
                              EXTTransformFeedback
@@ -85,10 +86,12 @@
 
 ;;;
 
-(defvar- containers [EXTFramebufferObject
+(defvar- containers [
+                     APPLEFloatPixels
                      ARBDrawBuffers
                      ARBTextureFloat
                      ARBHalfFloatPixel
+                     ARBFramebufferObject
                      NVFloatBuffer
                      ATITextureFloat
                      EXTTextureRectangle
