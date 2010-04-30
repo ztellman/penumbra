@@ -19,6 +19,7 @@
                              EXTTransformFeedback
                              ARBTextureRectangle
                              EXTTextureRectangle
+                             EXTFramebufferObject
                              EXTGeometryShader4))
   (:import (org.lwjgl.util.glu GLU))
   (:import (java.lang.reflect Field Method))
@@ -92,6 +93,7 @@
                      ARBTextureFloat
                      ARBHalfFloatPixel
                      ARBFramebufferObject
+                     EXTFramebufferObject
                      NVFloatBuffer
                      ATITextureFloat
                      EXTTextureRectangle

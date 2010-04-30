@@ -9,8 +9,7 @@
 (ns penumbra.translate.c
   (:use [penumbra.translate core]
         [clojure.contrib
-         (def :only (defmacro-))
-         (seq :only (flatten))]))
+         (def :only (defmacro-))]))
   
 ;;;;;;;;;;;;;;;;;;;
 

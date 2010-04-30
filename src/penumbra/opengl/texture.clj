@@ -47,41 +47,36 @@
 ;;;
 
 (def internal-formats
-     [
-      [:float 1 :alpha-float32-apple]
-      [:float 1 :luminance32f-arb]
-      [:float 2 :luminance-alpha32f-arb]
-      [:float 3 :rgb32f-arb]
-      [:float 4 :rgba32f-arb]
-      [:float 1 :luminance-float32-apple]
-      [:float 1 :intensity-float32-apple]
-      [:float 1 :float-r32-nv]
-      [:float 2 :float-rg32-nv]
-      [:float 3 :float-rgb32-nv]
-      [:float 4 :float-rgba32-nv]
-      [:float 1 :alpha-float32-ati]
-      [:float 1 :intensity-float32-ati]
-      [:float 1 :luminance-float32-ati]
-      [:float 2 :luminance-alpha-float32-ati]
-      [:float 3 :rgb-float32-ati]
-      [:float 4 :rgba-float32-ati]
-      [:float 1 :luminance16f-arb]
-      [:int 1 :luminance32i]
-      [:int 2 :luminance-alpha32i]
-      [:int 3 :rgb32i]
-      [:int 4 :rgba32i]
-      [:int 1 :alpha-integer]
-      [:int 1 :luminance-integer]
-      [:int 2 :luminance-alpha-integer]
-      [:int 3 :rgb-integer]
-      [:int 4 :rgba-integer]
-      [:unsigned-byte 1 :luminance]
-      [:unsigned-byte 2 :luminance-alpha]
-      [:unsigned-byte 3 :rgb]
-      [:unsigned-byte 4 :rgba]])
+  [[:float 1 :luminance32f-arb]
+   [:float 2 :luminance-alpha32f-arb]
+   [:float 3 :rgb32f-arb]
+   [:float 4 :rgba32f-arb]
+   [:float 1 :float-r32-nv]
+   [:float 2 :float-rg32-nv]
+   [:float 3 :float-rgb32-nv]
+   [:float 4 :float-rgba32-nv]
+   [:float 1 :alpha-float32-ati]
+   [:float 1 :intensity-float32-ati]
+   [:float 1 :luminance-float32-ati]
+   [:float 2 :luminance-alpha-float32-ati]
+   [:float 3 :rgb-float32-ati]
+   [:float 4 :rgba-float32-ati]
+   [:int 1 :luminance32i]
+   [:int 2 :luminance-alpha32i]
+   [:int 3 :rgb32i]
+   [:int 4 :rgba32i]
+   [:int 1 :alpha-integer]
+   [:int 1 :luminance-integer]
+   [:int 2 :luminance-alpha-integer]
+   [:int 3 :rgb-integer]
+   [:int 4 :rgba-integer]
+   [:unsigned-byte 1 :luminance]
+   [:unsigned-byte 2 :luminance-alpha]
+   [:unsigned-byte 3 :rgb]
+   [:unsigned-byte 4 :rgba]])
 
 (def tuple->pixel-format
-     {1 :red, 2 :luminance-alpha, 3 :rgb, 4 :rgba})
+     {1 :luminance, 2 :luminance-alpha, 3 :rgb, 4 :rgba})
 
 (defn- internal-type-bytes [internal-type]
   (if (= internal-type :unsigned-byte)
@@ -212,10 +207,6 @@
     (gl-gen-textures buf)
     (.get buf 0)))
 
-(defn- destroy-texture [tex]
-  (let [buf (-> (BufferUtils/createIntBuffer 1) (.put (int-array [(id tex)])) .rewind)]
-    (gl-delete-textures buf)))
-
 (defn- gen-texture [params]
   (let [params (->> params
                      (map (fn [[k v]] [k (if (keyword? v) (enum v) v)]))
@@ -231,7 +222,6 @@
         i-t (:internal-type params)
         target (:target params)]
     (gl-bind-texture (:target params) id)
-    (gl-tex-parameter (:target params) :texture-max-level 0)
     (doseq [p (take (count dim) [:texture-wrap-s :texture-wrap-t :texture-wrap-r])]
       (gl-tex-parameter (:target params) (enum p) (params p)))
     (doseq [p [:texture-min-filter :texture-mag-filter]]
@@ -298,10 +288,10 @@
                     (write-to-texture this bounds data))
                    (destroy!
                     [this]
-                    (when *texture-pool*
-                      (remove! *texture-pool* this))
-                    (destroy-texture this))))]
-    (when (and *texture-pool* (not located))
+                    (if *texture-pool*
+                      (remove! *texture-pool* this)
+                      (destroy! this)))))]
+    (when-not located
       (add! *texture-pool* texture))
     texture))
 
