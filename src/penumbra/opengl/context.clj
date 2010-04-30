@@ -35,9 +35,7 @@
      (draw-frame-buffer 0 0 w h))
   ([x y w h]
      (with-viewport [x y w h]
-       (push-matrix
-        (load-identity)
-        (call-display-list (force *display-list*))))))
+       (call-display-list (force *display-list*)))))
 
 (defn create-context []
   {:display-list (delay (create-display-list (draw)))

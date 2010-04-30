@@ -128,3 +128,4 @@
   (app/start
    {:reshape reshape, :display display-proxy, :init init, :mouse-drag mouse-drag, :key-press key-press}
    {:rot-x 0, :rot-y 0, :gear nil}))
+
