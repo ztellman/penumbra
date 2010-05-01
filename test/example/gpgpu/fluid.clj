@@ -8,13 +8,14 @@
 
 (ns example.gpgpu.fluid
   (:use [penumbra opengl compute]
-	    [cantor])
+        [penumbra.opengl core]
+        [cantor])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
             [penumbra.opengl.texture :as tex]
             [penumbra.data :as data]))
 
-(def dim [200 200])
+(def dim [800 600])
 
 (defn textured-quad []
   (draw-quads
@@ -25,7 +26,7 @@
 
 (defn init-particles []
   (def particle-tex
-       (let [[w h] [32 32]
+       (let [[w h] [128 128]
              dim (vec2 w h)
              tex (create-byte-texture w h)]
       (data/overwrite!
@@ -39,13 +40,13 @@
   (def particle-quad
     (create-display-list (textured-quad))))
 
-(defn overdraw! [tex locs size col]
+(defn overdraw! [tex locs size [r g b]]
   (render-to-texture
    tex
    (with-enabled [:blend :texture-2d]
-     (with-texture nil
+     (with-texture particle-tex
        (with-projection (ortho-view 0 1 1 0 -1 1)
-         (apply color col)
+         (color r g b (/ 1 (count locs)))
          (doseq [loc locs]
            (push-matrix
             (translate (div loc (apply vec2 (app/size))))
@@ -146,8 +147,8 @@
           start (sub finish (vec2 dx dy))
           steps (int (length (sub finish start)))
           locs (map #(lerp start finish (/ % steps)) (range steps))]
-      (overdraw! (:velocity state) locs 0.02 (map #(+ (/ % 10) 0.5) (concat (map / (map #(* % 100) [dx (- dy)]) dim) [0 1])))
-      (overdraw! (:density state) locs 0.02 [1 1 1])))
+      (overdraw! (:velocity state) locs 0.03 (map #(+ (/ % 10) 0.5) (concat (map / (map #(* % 100) [dx (- dy)]) dim) [0 1])))
+      (overdraw! (:density state) locs 0.03 [1 1 1])))
 
   state)
 
@@ -176,7 +177,7 @@
     (let [velocity  (denormalize-velocity (:velocity state))
           velocity  (diffuse {:diff 1.0 :dt dt :decay 0.1} velocity)
           velocity  (project velocity dt)
-          velocity  (advect {:diff 0.5 :dt dt} velocity velocity)
+          velocity  (boundary-conditions (advect {:diff 0.5 :dt dt} velocity velocity))
           ;;velocity  (project velocity dt)
           density   (:density state)
           density   (diffuse {:diff 1.0 :dt dt :decay 0.5} density)
@@ -184,7 +185,8 @@
           ]
       (assoc state
         :density density
-        :velocity (normalize-velocity velocity)))))
+        :velocity (normalize-velocity velocity))))
+  )
 
 (defn key-press [key state]
   (when (= key " ")
@@ -194,9 +196,10 @@
   (blit ((if (:view-density state)
            :density
            :velocity)
-         state)) 
-
-   ;;(text/write-to-screen (str (int (/ 1 dt)) "fps") 0 0)
+          state))
+  
+  ;;(println (data/stats *texture-pool*))
+  (text/write-to-screen (str (int (/ 1 dt)) "fps") 0 0)
   (app/repaint!))
 
 (defn start []
