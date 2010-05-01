@@ -34,7 +34,7 @@
    (catch Exception e
      false)))
 
-(defn read-format [type tuple]
+(defn-memo read-format [type tuple]
   (let [candidates
         (filter
          #(and (= type (first %)) (= tuple (second %)))
@@ -70,7 +70,7 @@
       (fb/destroy-frame-buffer fb)
       (fb/bind-frame-buffer curr)))))
 
-(defn write-format [type tuple]
+(defn-memo write-format [type tuple]
   (let [formats (filter
                  #(and (= type (first %)) (= tuple (second %)))
                  tex/internal-formats)]
