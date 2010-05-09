@@ -9,10 +9,10 @@
 (ns penumbra.app.event)
 
 (defprotocol EventHandler
-  (subscribe! [event hook f] "Subscribe to an event.")
-  (unsubscribe! [event hook f])
-  (subscribe-once! [event hook f])
-  (publish- [event hook args]))
+  (subscribe! [event hook f] "Subscribe to event 'hook' with callback 'f'.")
+  (unsubscribe! [event hook f] "Unsubscribes callback 'f' from event 'hook'")
+  (subscribe-once! [event hook f] "Subscribes callback 'f'. Once the callback is triggered, it is unsubscribed.")
+  (publish- [event hook args] "Publishes an event. Any callbacks will be invoked with 'args'"))
 
 (defn create []
   (let [event (ref {})]

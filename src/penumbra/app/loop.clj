@@ -17,7 +17,9 @@
 
 ;;;
 
-(defn timed-fn [clock f]
+(defn timed-fn
+  "Creates a wrapper function which prepends any arguments with [dt t] in seconds."
+  [clock f]
   (when f
     (let [previous (atom @clock)]
       (fn [& args]
@@ -27,11 +29,12 @@
            (finally
             (reset! previous now))))))))
 
-(defn create-thread [app outer-fn inner-fn]
+(defn create-thread
+  "Creates a thread. 'outer-fn' is passed 'inner-fn' as its only argument."
+  [app outer-fn inner-fn]
   (Thread.
    #(with-app app
-      (outer-fn
-       (inner-fn)))))
+      (outer-fn inner-fn))))
 
 (defn pauseable-loop
   [app outer-fn inner-fn]

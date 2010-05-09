@@ -16,14 +16,14 @@
 ;;;
 
 (defprotocol InputHandler
-  (init! [i])
-  (destroy! [i])
-  (key-repeat! [i flag])
-  (key-pressed? [i key])
-  (button-pressed? [i button])
-  (mouse-location [i])
-  (handle-mouse! [i])
-  (handle-keyboard! [i]))
+  (init! [i] "Initialize the input handler.")
+  (destroy! [i] "Clean up the input handlers.")
+  (key-repeat! [i flag] "Sets whether a constantly pressed key triggers multiple key-press events.")
+  (key-pressed? [i key] "Checks whether a key is currently pressed.")
+  (button-pressed? [i button] "Checks whether a mouse button is currently presseed.")
+  (mouse-location [i] "Returns the current location of the mouse.  [0 0] is the upper-left corner.")
+  (handle-mouse! [i] "Handle mouse input.")
+  (handle-keyboard! [i] "Mouse keyboard input."))
 
 ;;Keyboard
 

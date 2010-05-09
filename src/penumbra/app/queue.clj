@@ -14,10 +14,10 @@
 ;;;
 
 (defprotocol Queue
-  (init- [q])
-  (start-consumer-thread [q])
-  (enqueue- [q delay f])
-  (periodic-enqueue- [q hz f]))
+  (init- [q] "Initializes action queue.")
+  (start-consumer-thread [q] "Starts a consumer thread for queue.")
+  (enqueue- [q delay f] "Enqueues an action to be executed in 'delay' milliseconds")
+  (periodic-enqueue- [q hz f] "Creates a recurring action to be executed 'hz' times a second"))
 
 (defn- create-queue [app clock]
   (let [heap (ref (sorted-set-by #(- (compare (first %2) (first %1)))))

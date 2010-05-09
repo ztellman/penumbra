@@ -27,14 +27,3 @@
 
 (defn update [node event & args]
   (update- node event args))
-
-(defprotocol TestP
-  (f [x y z]))
-
-(deftype TestT [a])
-
-(def t (TestT (reify TestP (f [x y z] (+ y z)))))
-
-
-
-(auto-extend ::TestT TestP (:a this)) 
