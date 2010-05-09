@@ -12,14 +12,14 @@
 ;;;
 
 (defprotocol Controller
-  (paused? [c])
-  (pause! [c])
-  (stopped? [c])
-  (stop! [c] [c flag])
-  (resume! [c])
-  (invalidated? [c])
-  (invalidated! [c flag])
-  (wait! [c]))
+  (paused? [c] "Returns true if the application is paused.")
+  (pause! [c] "Pauses the application.")
+  (stopped? [c] "Returns true if the application is stopped.")
+  (stop! [c] [c flag] "Stops the application.")
+  (resume! [c] "Resumes the application.  If the application is currently running, this is a no-op.")
+  (invalidated? [c] "Returns true if the application needs to be repainted.")
+  (invalidated! [c flag] "Sets whether the application needs to be repainted.")
+  (wait! [c] "Halts execution of the thread if application is paused or stops.  The thread will resume once the application does."))
 
 ;;;
 

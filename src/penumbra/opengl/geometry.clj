@@ -6,7 +6,8 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.opengl.geometry
+(ns ^{:skip-wiki true}
+    penumbra.opengl.geometry
   (:use [clojure.contrib.def :only (defmacro- defvar)]
         [cantor]
         [penumbra.opengl.core])
@@ -29,6 +30,7 @@
   (with-transform- [r f]))
 
 (defn vertex
+  "Defines the coordinates for a new vertex."
   ([v]
      (cond
       (vec2? v) (vertex (v 0) (v 1))
@@ -39,6 +41,7 @@
   ([x y z w] (vertex x y z)))
 
 (defn texture
+  "Defines the texture coordinate for subsequent vertices."
   ([v] (cond
         (vec2? v) (texture (v 0) (v 1))
         (vec3? v) (texture (v 0) (v 1) (v 2))
@@ -48,13 +51,15 @@
   ([u v w] (texture- *renderer* u v w)))
 
 (defn normal
+  "Defines the normal vector for subsequent vertices."
   ([v] (cond
-        (vec2? v) (normal (v 0) (v 1))
+        (vec2? v) (normal (v 0) (v 1) 0)
         (vec3? v) (normal (v 0) (v 1) (v 2))
         :else (apply normal v)))
   ([x y z] (normal- *renderer* x y z)))
 
 (defn translate
+  "Translates the position of subsequent vertices."
   ([v] (cond
         (vec2? v) (translate (v 0) (v 1))
         (vec3? v) (translate (v 0) (v 1) (v 2))
@@ -63,6 +68,7 @@
   ([x y z] (translate- *renderer* x y z)))
 
 (defn scale
+  "Scales the position of subsequent vertices."
   ([v] (cond
         (vec2? v) (scale (v 0) (v 1))
         (vec3? v) (scale (v 0) (v 1) (v 2))
@@ -71,6 +77,7 @@
   ([x y z] (scale- *renderer* x y z)))
 
 (defn color
+  "Defines the color of subsequent vertices."
   ([c] (cond
         (vec2? c) (color (c 0) (c 1))
         (vec3? c) (color (c 0) (c 1) (c 2))
@@ -78,13 +85,19 @@
   ([r g b] (color r g b 1))
   ([r g b a] (color- *renderer* r g b a)))
 
-(defn attribute [attrib & values]
+(defn attribute
+  "Defines attribute 'attrib' for subsequent vertices."
+  [attrib & values]
   (attribute- *renderer* attrib values))
 
-(defn rotate [angle x y z]
+(defn rotate
+  "Rotates the position of subsequent vertices."
+  [angle x y z]
   (rotate- *renderer* angle x y z))
 
-(defn load-identity []
+(defn load-identity
+  "Resets the transformation of subsequent vertices."
+  []
   (load-identity- *renderer*))
 
 ;;;

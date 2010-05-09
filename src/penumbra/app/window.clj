@@ -24,21 +24,21 @@
 ;;;
 
 (defprotocol Window
-  (display-modes [w])
-  (display-mode [w])
-  (display-mode! [window w h] [w mode])
-  (title! [w title])
-  (size [w])
-  (resized? [w])
-  (invalidated? [w])
-  (close? [w])
-  (process! [w])
-  (update! [w])
-  (handle-resize! [w])
-  (init! [w])
-  (destroy! [w])
-  (vsync! [w flag])
-  (fullscreen! [w flag]))
+  (display-modes [w] "Returns all display modes supported by the display device.")
+  (display-mode [w] "Returns the current display mode.")
+  (display-mode! [window w h] [w mode] "Sets the display mode.")
+  (title! [w title] "Sets the title of the application.")
+  (size [w] "Returns the current size of the application.")
+  (resized? [w] "Returns true if application was resized since handle-resize! was last called.")
+  (invalidated? [w] "Returns true if the window is invalidated by the operating system.")
+  (close? [w] "Returns true if the user has requested it be closed.")
+  (process! [w] "Processes all messages from the operating system.")
+  (update! [w] "Swaps the buffers.")
+  (handle-resize! [w] "Handles any resize events.  If there wasn't a resizing, this is a no-op.")
+  (init! [w] "Initializes the window.")
+  (destroy! [w] "Destroys the window.")
+  (vsync! [w flag] "Toggles vertical sync.")
+  (fullscreen! [w flag] "Toggles fullscreen mode."))
 
 ;;;
 

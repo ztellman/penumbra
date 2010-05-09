@@ -44,7 +44,9 @@
           (next args)))))
     arglists)))
 
-(defmacro- auto-extend [type protocol template & explicit]
+(defmacro- auto-extend
+  "Lets the application, which contains an implementation of a protocol, automatically extend that protocol."
+  [type protocol template & explicit]
   (let [sigs (eval `(vals (:sigs ~protocol)))]
     (list
      `extend
@@ -62,7 +64,9 @@
 
 ;;;
 
-(defn- update- [app state f args]
+(defn- update-
+  "Updates the state of the application."
+  [app state f args]
   (swap! state
         (fn [state]
           (let [state* (if (empty? args)
@@ -72,7 +76,9 @@
               (controller/invalidated! app true))
             (or state* state)))))
 
-(defn- alter-callbacks [clock callbacks]
+(defn- alter-callbacks
+  "Updates the update and display callbacks using timed-fn"
+  [clock callbacks]
   (let [wrap (partial loop/timed-fn clock)
         callbacks (if (:update callbacks)
                     (update-in callbacks [:update] wrap)
@@ -122,7 +128,9 @@
 (defmethod print-method penumbra.app.App [app writer]
   (.write writer "App"))
 
-(defn create [callbacks state]
+(defn create
+  "Creates an application."
+  [callbacks state]
   (let [window (atom nil)
         input (atom nil)
         queue (atom nil)
@@ -142,12 +150,15 @@
 
 ;;;
 
-(defn app []
+(defn app
+  "Returns the current application."
+  []
   app/*app*)
 
-(defn- transform-import-arglists [protocol name arglists]
+(defn- transform-import-arglists [protocol name doc arglists]
   (list*
    `defn name
+   doc
    (map
     (fn [args]
       (list
@@ -158,13 +169,15 @@
         (next args))))
     arglists)))
 
-(defmacro- auto-import [protocol & imports]
+(defmacro- auto-import
+  "Creates an function which automatically fills in app with *app*"
+  [protocol & imports]
   (let [sigs (eval `(vals (:sigs ~protocol)))]
     (list*
      'do
      (map
-      (fn [{name :name arglists :arglists}]
-        (transform-import-arglists protocol name arglists))
+      (fn [{name :name arglists :arglists doc :doc}]
+        (transform-import-arglists protocol name doc arglists))
       (let [imports (set imports)]
         (filter #(imports (:name %)) sigs))))))
 
@@ -180,45 +193,68 @@
 ;;
 
 (defn clock
+  "Returns the application clock."
   ([] (clock app/*app*))
   ([app] (:clock app)))
 
 (defn now
+  "Returns the elapsed clock time, in seconds, since the application began."
   ([] (now app/*app*))
   ([app] @(clock app)))
 
 (defn speed!
+  "Sets the application clock speed."
   ([speed] (speed! app/*app* speed))
   ([app speed] (time/speed! (clock app) speed)))
 
 (defn periodic-update!
+  "Starts a recurring update, which is called 'hz' times a second.
+   Time is governed by 'clock', which defaults to the application clock.
+
+   OpenGL calls cannot be made within this callback."
   ([hz f] (periodic-update! (clock)  hz f))
   ([clock hz f] (periodic-update! app/*app* clock hz f))
   ([app clock hz f] (queue/periodic-enqueue! app clock hz #(update- app (:state app) f nil))))
 
 (defn delay!
+  "Enqueues an update to be executed in 'delay' milliseconds.
+   Time is goverend by 'clock', which defaults to the application clock.
+
+   OpenGL calls cannot be made within this callback."
   ([delay f] (delay! (clock) delay f))
   ([clock delay f] (delay! app/*app* clock delay f))
   ([app clock delay f] (queue/enqueue! app clock delay #(update- app (:state app) f nil))))
 
 (defn update!
+  "Enqueues an update to happen immediately.
+
+   OpenGL calls cannot be made within the callback."
   ([f] (update! app/*app* f))
   ([app f] (delay! (clock app) 0 f)))
 
 (defn enqueue!
+  "Enqueues an update to happen before the next frame is rendered.
+
+   OpenGL calls in this callback are okay."
   ([f] (enqueue! app/*app* f))
   ([app f] (event/subscribe-once! app :enqueue #(update- app (:state app) f nil))))
 
 (defn repaint!
+  "Forces the application to repaint."
   ([] (repaint! app/*app*))
   ([app] (controller/invalidated! app true)))
 
 (defn frequency! [hz]
+  "Updates the update frequency of a periodic update.
+
+   This can only be called from within the periodic callback.  A frequency of 0 or less will halt the update."
   (reset! app/*hz* hz))
 
 ;;
 
-(defmacro with-gl [& body]
+(defmacro with-gl
+  "Creates a valid OpenGL context within the scope."
+  [& body]
   `(slate/with-slate
     (context/with-context nil
       ~@body)))
@@ -245,7 +281,8 @@
      (if (window/close? app)
        (controller/stop! app :requested-by-user))))
 
-(defn start-single-thread [app loop-fn]
+(defn start-single-thread
+  [app loop-fn]
   (context/with-context nil
     (loop-fn
      app

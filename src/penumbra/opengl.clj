@@ -8,7 +8,7 @@
 
 (ns penumbra.opengl
   (:use [penumbra.opengl core]
-        [clojure.contrib.def :only (defn-memo)])
+        [clojure.contrib.def :only (defn-memo defmacro- defvar)])
   (:require [penumbra.opengl.texture :as tex]
             [penumbra.data :as data]
             [penumbra.opengl.frame-buffer :as fb]
@@ -21,6 +21,16 @@
            (java.io File ByteArrayOutputStream ByteArrayInputStream)
            (javax.imageio ImageIO)
            (org.newdawn.slick.opengl InternalTextureLoader Texture TextureImpl)))
+
+;;;
+
+(defmacro- import-fn [sym]
+  (let [m (meta (eval sym))
+        m (meta (intern (:ns m) (:name m)))
+        n (:name m)
+        arglists (:arglists m)
+        doc (:doc m)]
+    (list `def (with-meta n {:doc doc :arglists (list 'quote arglists)}) (eval sym))))
 
 ;;;
 
@@ -142,16 +152,16 @@
 
 ;;Geometry
 
-(def vertex geometry/vertex)
-(def normal geometry/normal)
-(def texture geometry/texture)
-(def attribute geometry/attribute)
-(def rotate geometry/rotate)
-(def scale geometry/scale)
-(def color geometry/color)
-(def translate geometry/translate)
-(def load-identity geometry/load-identity)
-(def declare-attributes geometry/declare-attributes)
+(import-fn geometry/vertex)
+(import-fn geometry/normal)
+(import-fn geometry/texture)
+(import-fn geometry/attribute)
+(import-fn geometry/rotate)
+(import-fn geometry/scale)
+(import-fn geometry/color)
+(import-fn geometry/translate)
+(import-fn geometry/load-identity)
+(import-fn geometry/declare-attributes)
 
 (defmacro push-matrix [& body]
   `(geometry/with-transform- *renderer* (fn [] ~@body)))
@@ -216,11 +226,12 @@
 (gl-import+ glBlendFunc blend-func)
 (gl-import+ glShadeModel shade-model)
 
-(def render-mode fx/render-mode)
-(def color fx/color)
-(def material fx/material)
-(def fog fx/fog)
-(def light fx/light)
+(import-fn fx/render-mode)
+(import-fn fx/render-mode)
+(import-fn fx/color)
+(import-fn fx/material)
+(import-fn fx/fog)
+(import-fn fx/light)
 
 (defmacro with-render-mode [mode & body]
   `(fx/with-render-mode ~mode (fn [] ~@body)))
@@ -281,10 +292,10 @@
 (gl-import+ glTexParameteri tex-parameter)
 (gl-import+ glIsTexture valid-texture-id?)
 
-(def bind-texture tex/bind-texture)
-(def texture tex/texture)
-(def create-texture tex/create-texture)
-(def build-mip-map tex/build-mip-map)
+(import-fn tex/bind-texture)
+(import-fn tex/texture)
+(import-fn tex/create-texture)
+(import-fn tex/build-mip-map)
 
 (defmacro with-texture [tex & body]
   `(tex/with-texture ~tex (fn [] ~@body)))
