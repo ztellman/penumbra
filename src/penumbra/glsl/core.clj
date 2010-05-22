@@ -194,9 +194,9 @@
 (defmethod transformer 'nth [x]
   (concat
    (take (-> x count dec) x)
-   (if (-> x last number?)
+   (if (or (-> x last number?) (-> x last typeof (= :int)))
      (list (int (last x)))
-     (list (list 'int (last x))))))
+     (list (last x)))))
 
 (defmethod transformer 'lighting [x]
   (list* 'lighting (list 'int (second x)) (nnext x)))

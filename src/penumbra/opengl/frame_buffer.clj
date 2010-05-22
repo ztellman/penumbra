@@ -16,11 +16,11 @@
 
 ;;Render Buffers
 
-(gl-import- glGenRenderbuffers gl-gen-render-buffers)
-(gl-import- glBindRenderbuffer gl-bind-render-buffer)
-(gl-import- glRenderbufferStorage gl-render-buffer-storage)
-(gl-import- glFramebufferRenderbuffer gl-frame-buffer-render-buffer)
-(gl-import- glDeleteRenderbuffers gl-delete-render-buffers)
+(gl-import- glGenRenderbuffersEXT gl-gen-render-buffers)
+(gl-import- glBindRenderbufferEXT gl-bind-render-buffer)
+(gl-import- glRenderbufferStorageEXT gl-render-buffer-storage)
+(gl-import- glFramebufferRenderbufferEXT gl-frame-buffer-render-buffer)
+(gl-import- glDeleteRenderbuffersEXT gl-delete-render-buffers)
 
 (defn gen-render-buffer
   "Creates a render buffer."
@@ -58,14 +58,14 @@
 
 ;;Frame Buffers
 
-(gl-import- glGenFramebuffers gl-gen-frame-buffers)
-(gl-import- glBindFramebuffer gl-bind-frame-buffer)
-(gl-import- glCheckFramebufferStatus gl-check-frame-buffer-status)
-(gl-import- glDeleteFramebuffers gl-delete-frame-buffers)
-(gl-import- glFramebufferTexture gl-frame-buffer-texture)
-(gl-import- glFramebufferTexture2D gl-frame-buffer-texture-2d)
-(gl-import- glFramebufferTexture3D gl-frame-buffer-texture-3d)
-(gl-import- glFramebufferTextureLayer gl-frame-buffer-texture-layer)
+(gl-import- glGenFramebuffersEXT gl-gen-frame-buffers)
+(gl-import- glBindFramebufferEXT gl-bind-frame-buffer)
+(gl-import- glCheckFramebufferStatusEXT gl-check-frame-buffer-status)
+(gl-import- glDeleteFramebuffersEXT gl-delete-frame-buffers)
+(gl-import- glFramebufferTextureEXT gl-frame-buffer-texture)
+(gl-import- glFramebufferTexture2DEXT gl-frame-buffer-texture-2d)
+(gl-import- glFramebufferTexture3DEXT gl-frame-buffer-texture-3d)
+(gl-import- glFramebufferTextureLayerEXT gl-frame-buffer-texture-layer)
 (gl-import- glDrawBuffers gl-draw-buffers)
 (gl-import- glDrawBuffer draw-buffer)
 (gl-import- glReadBuffer gl-read-buffer)

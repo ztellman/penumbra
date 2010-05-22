@@ -20,12 +20,7 @@
   (frustum-view 60. (/ w (double h)) 0.1 10.)
   (load-identity)
   (translate 0 0 -3)
-  (light 0
-    :position [1 1 1 0])
-  (material :front-and-back
-    :ambient-and-diffuse [1 1 1 1]
-    :specular            [0.5 0.4 0.4 1]
-    :shininess           64)
+  
   state)
 
 (defn reset-random-texture
@@ -62,7 +57,7 @@
                   (*= pos (float3 2)))
                 (let [marble (-> position .x (+ noise) (* 2) sin abs)
                       mixed (mix [0.2 0.15 0.1 1] [0.8 0.7 0.7 1] (pow marble 0.75))]
-                  (* mixed (lighting 0 normal))))) 
+                  (* mixed (lighting 0 normal)))))
   
   (app/title! "Marble")
   (enable :depth-test)
@@ -85,6 +80,12 @@
     state))
 
 (defn display [[delta time] state]
+  (light 0
+    :position [1 1 1 0])
+  (material :front-and-back
+    :ambient-and-diffuse [1 1 1 1]
+    :specular            [0.5 0.4 0.4 1]
+    :shininess           64)
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   (color 1 0 0)

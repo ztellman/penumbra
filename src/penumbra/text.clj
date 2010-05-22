@@ -24,6 +24,7 @@
   (if-let [font (@*font-cache* (list* name modifiers))]
     font
     (let [hash (apply hash-map modifiers)
+	  hash (update-in hash [:size] float)
           hash (assoc hash :family name)
           hash (zipmap (map text-attribute (keys hash)) (vals hash))
           font (TrueTypeFont. (Font. hash) true)]
