@@ -81,11 +81,15 @@
 
 (defn display [[delta time] state]
   (light 0
-    :position [1 1 1 0])
+	 :position [1 1 1 0])
+  (enable :light0)
+  (enable :lighting)
+  
   (material :front-and-back
     :ambient-and-diffuse [1 1 1 1]
     :specular            [0.5 0.4 0.4 1]
     :shininess           64)
+
   (rotate (:rot-x state) 1 0 0)
   (rotate (:rot-y state) 0 1 0)
   (color 1 0 0)
