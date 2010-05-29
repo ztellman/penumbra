@@ -1,0 +1,438 @@
+<html>
+  <head>
+    <title>penumbra.app API reference (penumbra)</title>
+    <link href="static/favicon.png" rel="icon" />
+    <link href="static/favicon.png" rel="shortcut icon" />
+    <link media="all" type="text/css" href="static/clojure.css" rel="stylesheet" />
+    <link media="all" type="text/css" href="static/wiki.css" rel="stylesheet" />
+    <link media="all" type="text/css" href="static/internal.css" rel="stylesheet" />
+    <!-- TODO: are we using these (from clojure.org)? If so, add the files -->
+    <script src="file/view/code_highlighter.js" type="text/javascript"></script>
+    <script src="file/view/clojure.js" type="text/javascript"></script>
+    <style>.menuWrapper{height: 36px;}</style>
+    <!--[if lte IE 6]>
+    <link rel="stylesheet" href="http://www.wikispaces.com/_/2009051601/s/internal_ie.css" type="text/css" />
+    <![endif]-->
+  </head>
+<!--
+This document was auto-generated from the source by the clojure autodoc system.
+To report errors or ask questions about the overall documentation structure, formatting,
+etc., contact Tom Faulhaber (google mail name: tomfaulhaber).
+For errors in the documentation of a particular namespace, contact the author of that
+namespace.
+-->
+  <body>
+    <div id="AllContentContainer">
+      <div id="Header">
+	<a id="Logo" href="index.html"><img alt="Clojure" height="100" width="100" src="static/clojure-icon.gif" /></a>
+	<h1><a title="page header title" id="page-header" href="index.html">penumbra</a></h1>
+      </div>
+      <div id="leftcolumn"><div style="text-align: center;"></div>
+<div class="menu">
+  <div class="WikiCustomNav WikiElement wiki">
+    <a class="wiki_link" href="index.html">Overview</a><br />
+    <a class="wiki_link" href="api-index.html">API Index</a><br />
+    <a class="wiki_link" href="#">Namespaces:</a>
+    <ul id="left-sidebar-list">
+      <li><a href="penumbra.app-api.html" class="wiki_link">penumbra.app</a></li><li><a href="penumbra.compute-api.html" class="wiki_link">penumbra.compute</a></li><li><a href="penumbra.data-api.html" class="wiki_link">penumbra.data</a></li><li><a href="penumbra.glsl.core-api.html" class="wiki_link">penumbra.glsl.core</a></li><li><a href="penumbra.glsl.effects-api.html" class="wiki_link">penumbra.glsl.effects</a></li><li><a href="penumbra.glsl.operators-api.html" class="wiki_link">penumbra.glsl.operators</a></li><li><a href="penumbra.node-api.html" class="wiki_link">penumbra.node</a></li><li><a href="penumbra.openal-api.html" class="wiki_link">penumbra.openal</a></li><li><a href="penumbra.opengl-api.html" class="wiki_link">penumbra.opengl</a></li><li><a href="penumbra.slate-api.html" class="wiki_link">penumbra.slate</a></li><li><a href="penumbra.text-api.html" class="wiki_link">penumbra.text</a></li><li><a href="penumbra.time-api.html" class="wiki_link">penumbra.time</a></li><li><a href="penumbra.translate.c-api.html" class="wiki_link">penumbra.translate.c</a></li><li><a href="penumbra.translate.core-api.html" class="wiki_link">penumbra.translate.core</a></li><li><a href="penumbra.translate.operators-api.html" class="wiki_link">penumbra.translate.operators</a></li>
+    </ul>
+  </div>
+</div>
+</div>
+      <div id="rightcolumn">
+	<div id="Content">
+	  <div class="contentBox"><div class="innerContentBox">
+              <div id="content_view" class="wiki wikiPage">
+                <div id="right-sidebar"><div id="toc">
+  <h1 class="nopad">Table of Contents</h1>
+  <div style="margin-left: 1em;" class="toc-section">
+    <a href="#toc0">Overview</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/app">app</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/button-pressed?">button-pressed?</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/clock">clock</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/create">create</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/delay!">delay!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/display-mode!">display-mode!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/enqueue!">enqueue!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/fullscreen!">fullscreen!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/key-pressed?">key-pressed?</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/key-repeat!">key-repeat!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/mouse-location">mouse-location</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/now">now</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/pause!">pause!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/periodic-update!">periodic-update!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/repaint!">repaint!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/single-thread-main-loop">single-thread-main-loop</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/size">size</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/speed!">speed!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/start">start</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/stop!">stop!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/title!">title!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/update!">update!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/vsync!">vsync!</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app/with-gl">with-gl</a>
+    </div>
+    <br />
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#penumbra.app.core">penumbra.app.core</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app.core/*app*">*app*</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app.core/*hz*">*hz*</a>
+    </div>
+    <br />
+  </div><div style="margin-left: 1em;" class="toc-section">
+    <a href="#penumbra.app.loop">penumbra.app.loop</a>
+    <div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app.loop/create-thread">create-thread</a>
+    </div><div style="margin-left: 1em;" class="toc-entry">
+      <a href="#penumbra.app.loop/timed-fn">timed-fn</a>
+    </div>
+    <br />
+  </div>
+</div>
+</div>
+                <div id="content-tag"><h1 id="overview">API for <span id="namespace-name">penumbra.app</span></h1>
+by <span id="author">Unknown</span><br />
+<br />Usage:
+<pre>
+(ns your-namespace
+  (:require <span id="long-name">penumbra.app</span>))
+</pre><pre>
+</pre><h2>Overview</h2>
+<pre id="namespace-docstr"></pre>
+<br />
+<h2>Public Variables and Functions</h2>
+<div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/app">app</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (app)
+</pre>
+  <pre id="var-docstr">Returns the current application.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/button-pressed?">button-pressed?</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (button-pressed? button)
+</pre>
+  <pre id="var-docstr">Checks whether a mouse button is currently presseed.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/clock">clock</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (clock)
+       (clock app)
+</pre>
+  <pre id="var-docstr">Returns the application clock.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/create">create</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (create callbacks state)
+</pre>
+  <pre id="var-docstr">Creates an application.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/delay!">delay!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (delay! delay f)
+       (delay! clock delay f)
+       (delay! app clock delay f)
+</pre>
+  <pre id="var-docstr">Enqueues an update to be executed in 'delay' milliseconds.
+Time is goverend by 'clock', which defaults to the application clock.
+
+OpenGL calls cannot be made within this callback.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/display-mode!">display-mode!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (display-mode! w h)
+       (display-mode! mode)
+</pre>
+  <pre id="var-docstr">Sets the display mode.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/enqueue!">enqueue!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (enqueue! f)
+       (enqueue! app f)
+</pre>
+  <pre id="var-docstr">Enqueues an update to happen before the next frame is rendered.
+
+OpenGL calls in this callback are okay.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/fullscreen!">fullscreen!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (fullscreen! flag)
+</pre>
+  <pre id="var-docstr">Toggles fullscreen mode.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/key-pressed?">key-pressed?</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (key-pressed? key)
+</pre>
+  <pre id="var-docstr">Checks whether a key is currently pressed.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/key-repeat!">key-repeat!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (key-repeat! flag)
+</pre>
+  <pre id="var-docstr">Sets whether a constantly pressed key triggers multiple key-press events.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/mouse-location">mouse-location</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (mouse-location)
+</pre>
+  <pre id="var-docstr">Returns the current location of the mouse.  [0 0] is the upper-left corner.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/now">now</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (now)
+       (now app)
+</pre>
+  <pre id="var-docstr">Returns the elapsed clock time, in seconds, since the application began.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/pause!">pause!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (pause!)
+</pre>
+  <pre id="var-docstr">Pauses the application.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/periodic-update!">periodic-update!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (periodic-update! hz f)
+       (periodic-update! clock hz f)
+       (periodic-update! app clock hz f)
+</pre>
+  <pre id="var-docstr">Starts a recurring update, which is called 'hz' times a second.
+Time is governed by 'clock', which defaults to the application clock.
+
+OpenGL calls cannot be made within this callback.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/repaint!">repaint!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (repaint!)
+       (repaint! app)
+</pre>
+  <pre id="var-docstr">Forces the application to repaint.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/single-thread-main-loop">single-thread-main-loop</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (single-thread-main-loop app)
+</pre>
+  <pre id="var-docstr">Does everything in one pass.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/size">size</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (size)
+</pre>
+  <pre id="var-docstr">Returns the current size of the application.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/speed!">speed!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (speed! speed)
+       (speed! app speed)
+</pre>
+  <pre id="var-docstr">Sets the application clock speed.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/start">start</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (start callbacks state)
+</pre>
+  <pre id="var-docstr">Starts a window from scratch, or from a closed state.
+Supported callbacks are: 
+:update         [[delta time] state]
+:display        [[delta time] state]
+:reshape        [[x y width height] state]
+:init           [state]
+:close          [state]
+:mouse-drag     [[[dx dy] [x y]] button state]
+:mouse-move     [[[dx dy] [x y]] state]
+:mouse-up       [[x y] button state]
+:mouse-click    [[x y] button state]
+:mouse-down     [[x y] button state]
+:key-type       [key state]
+:key-press      [key state]
+:key-release    [key state]</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/stop!">stop!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (stop!)
+       (stop! flag)
+</pre>
+  <pre id="var-docstr">Stops the application.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/title!">title!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (title! title)
+</pre>
+  <pre id="var-docstr">Sets the title of the application.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/update!">update!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (update! f)
+       (update! app f)
+</pre>
+  <pre id="var-docstr">Enqueues an update to happen immediately.
+
+OpenGL calls cannot be made within the callback.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/vsync!">vsync!</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (vsync! flag)
+</pre>
+  <pre id="var-docstr">Toggles vertical sync.</pre>
+  
+</div><div id="var-entry">
+  <br />
+  <hr />
+  <h2 id="penumbra.app/with-gl">with-gl</h2>
+  <span id="var-type">macro</span><br />
+  <pre id="var-usage">Usage: (with-gl &amp; body)
+</pre>
+  <pre id="var-docstr">Creates a valid OpenGL context within the scope.</pre>
+  
+</div>
+<h2 id="namespace-name">penumbra.app.core</h2>
+<pre id="namespace-docstr"></pre>
+<br />
+<div id="var-entry">
+  <hr />
+  <h2 id="penumbra.app.core/*app*">*app*</h2>
+  <span id="var-type">var</span><br />
+  <pre id="var-usage"></pre>
+  <pre id="var-docstr">Current application.</pre>
+  
+</div><div id="var-entry">
+  <hr />
+  <h2 id="penumbra.app.core/*hz*">*hz*</h2>
+  <span id="var-type">var</span><br />
+  <pre id="var-usage"></pre>
+  <pre id="var-docstr">Refresh rate of update-loop</pre>
+  
+</div>
+<h2 id="namespace-name">penumbra.app.loop</h2>
+<pre id="namespace-docstr"></pre>
+<br />
+<div id="var-entry">
+  <hr />
+  <h2 id="penumbra.app.loop/create-thread">create-thread</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (create-thread app outer-fn inner-fn)
+</pre>
+  <pre id="var-docstr">Creates a thread. 'outer-fn' is passed 'inner-fn' as its only argument.</pre>
+  
+</div><div id="var-entry">
+  <hr />
+  <h2 id="penumbra.app.loop/timed-fn">timed-fn</h2>
+  <span id="var-type">function</span><br />
+  <pre id="var-usage">Usage: (timed-fn clock f)
+</pre>
+  <pre id="var-docstr">Creates a wrapper function which prepends any arguments with [dt t] in seconds.</pre>
+  
+</div>
+
+
+</div>
+              </div>
+            </div>
+          </div>
+	</div>
+	<div id="foot">
+	  <div style="text-align: center;" id="copyright">No copyright info </div>
+	</div>
+      </div>
+      <div id="DesignedBy">Logo &amp; site design by <a title="Visit Tom Hickey's website." href="http://www.tomhickey.com">Tom Hickey</a>.<br />
+      Clojure auto-documentation system by Tom Faulhaber.</div>
+    </div>
+    <!-- /AllContentContainer -->
+  </body>
+
+</html>
