@@ -332,7 +332,7 @@
 
 (defn init [state]
   (app/title! "Asteroids")
-  (app/vsync! false)
+  (app/vsync! true)
   (app/key-repeat! false)
   (init-asteroids)
   (init-particles)

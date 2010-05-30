@@ -62,7 +62,7 @@
                   (*= pos (float3 2)))
                 (let [marble (-> position .x (+ noise) (* 2) sin abs)
                       mixed (mix [0.2 0.15 0.1 1] [0.8 0.7 0.7 1] (pow marble 0.75))]
-                  (* mixed (lighting 0 normal))))) 
+                  (* mixed (lighting 0 normal)))))
   
   (app/title! "Marble")
   (enable :depth-test)

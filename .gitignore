@@ -6,6 +6,7 @@ penumbra.ipr
 /lib/*
 /native/*
 /autodoc/*
+autodoc
 penumbra.jar
 pom.xml
 META-INF

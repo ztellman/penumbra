@@ -7,7 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns ^{:skip-wiki true}
-    penumbra.opengl.geometry
+  penumbra.opengl.geometry
   (:use [clojure.contrib.def :only (defmacro- defvar)]
         [cantor]
         [penumbra.opengl.core])

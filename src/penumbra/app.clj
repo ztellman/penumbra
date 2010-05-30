@@ -182,7 +182,7 @@
         (filter #(imports (:name %)) sigs))))))
 
 (auto-import penumbra.app.window/Window
-             title! size fullscreen! vsync! display-mode!)
+             title! size fullscreen! vsync! display-mode! display-modes)
 
 (auto-import penumbra.app.controller/Controller
              stop! pause!)

@@ -12,14 +12,14 @@
   '((defn float4 lighting
       [(in int -i)
        (in float3 -normal)]
-      (let [n-dot-vp (max 0 (dot -normal (-> :light-source (nth -i) .position float3 normalize)))
-            n-dot-hv (max 0 (dot -normal (-> :light-source (nth -i) .halfVector float3 normalize)))]
+      (let [n-dot-vp (max 0 (dot -normal (-> :light-source (nth 0) .position float3 normalize)))
+            n-dot-hv (max 0 (dot -normal (-> :light-source (nth 0) .halfVector float3 normalize)))]
         (let [pf (float (if (= n-dot-vp 0)
                           0
                           (pow n-dot-hv (-> :front-material .shininess))))
-              ambient (float4 (-> :light-source (nth -i) .ambient))
-              diffuse (float4 (-> :light-source (nth -i) .diffuse (* n-dot-vp)))
-              specular (float4 (-> :light-source (nth -i) .specular (* pf)))]
+              ambient (float4 (-> :light-source (nth 0) .ambient))
+              diffuse (float4 (-> :light-source (nth 0) .diffuse (* n-dot-vp)))
+              specular (float4 (-> :light-source (nth 0) .specular (* pf)))]
           (return
            (+
             (-> :front-light-model-product .sceneColor)
