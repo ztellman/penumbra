@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.capabilities
-  (:require [penumbra.slate :as slate]
+  (:require [penumbra.opengl.slate :as slate]
             [penumbra.opengl :as gl]
             [penumbra.opengl.texture :as tex]
             [penumbra.opengl.frame-buffer :as fb]

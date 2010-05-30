@@ -41,7 +41,7 @@
     ((:radius x))))
 
 (defn position [x]
-  (if (vec? (:position x))
+  (if (cartesian? (:position x))
     (:position x)
     ((:position x))))
 

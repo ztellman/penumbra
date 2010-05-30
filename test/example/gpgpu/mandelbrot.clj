@@ -9,7 +9,6 @@
 (ns example.gpgpu.mandelbrot
   (:use [penumbra opengl compute])
   (:require [penumbra.app :as app]
-            [penumbra.slate :as slate]
             [penumbra.data :as data]))
 
 (defn init [state]

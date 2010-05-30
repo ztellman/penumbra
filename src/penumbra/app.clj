@@ -15,9 +15,9 @@
         [clojure.walk :only (postwalk-replace)])
   (:require [penumbra.opengl
              [texture :as texture]
-             [context :as context]]
+             [context :as context]
+             [slate :as slate]]
             [penumbra
-             [slate :as slate]
              [time :as time]]
             [penumbra.app
              [core :as app]

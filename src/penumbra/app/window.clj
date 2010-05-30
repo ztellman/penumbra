@@ -9,13 +9,12 @@
 (ns penumbra.app.window
   (:use [penumbra.opengl]
         [clojure.contrib.core :only (-?>)])
-  (:require  [penumbra.slate :as slate]
-             [penumbra.opengl
+  (:require [penumbra.opengl
               [texture :as texture]
               [context :as context]]
-             [penumbra.text :as text]
-             [penumbra.app.event :as event]
-             [penumbra.app.core :as app])
+            [penumbra.text :as text]
+            [penumbra.app.event :as event]
+            [penumbra.app.core :as app])
   (:import [org.lwjgl.opengl Display PixelFormat]
            [org.newdawn.slick.opengl InternalTextureLoader TextureImpl]
            [java.awt Frame Canvas GridLayout Color]

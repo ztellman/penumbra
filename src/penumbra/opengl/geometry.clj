@@ -31,57 +31,61 @@
 
 (defn vertex
   "Defines the coordinates for a new vertex."
-  ([v]
-     (cond
-      (vec2? v) (vertex (v 0) (v 1))
-      (vec3? v) (vertex (v 0) (v 1) (v 2))
-      :else (apply vertex v)))
+  ([v] (if (cartesian? v)
+         (condp = (dimension v)
+           2 (vertex (v 0) (v 1))
+           3 (vertex (v 0) (v 1) (v 2)))
+         (apply vertex v)))
   ([x y] (vertex x y 0))
   ([x y z] (vertex- *renderer* x y z))
   ([x y z w] (vertex x y z)))
 
 (defn texture
   "Defines the texture coordinate for subsequent vertices."
-  ([v] (cond
-        (vec2? v) (texture (v 0) (v 1))
-        (vec3? v) (texture (v 0) (v 1) (v 2))
-        (number? v) (texture- *renderer* v)
-        :else (apply texture v)))
+  ([v] (if (cartesian? v)
+         (condp = (dimension v)
+           2 (texture (v 0) (v 1))
+           3 (texture (v 0) (v 1) (v 2)))
+         (if (number? v)
+           (texture- *renderer* v)
+           (apply vertex v))))
   ([u v] (texture- *renderer* u v))
   ([u v w] (texture- *renderer* u v w)))
 
 (defn normal
   "Defines the normal vector for subsequent vertices."
-  ([v] (cond
-        (vec2? v) (normal (v 0) (v 1) 0)
-        (vec3? v) (normal (v 0) (v 1) (v 2))
-        :else (apply normal v)))
+  ([v] (if (cartesian? v)
+         (condp = (dimension v)
+           2 (normal (v 0) (v 1) 0)
+           3 (normal (v 0) (v 1) (v 2)))
+         (apply normal v)))
   ([x y z] (normal- *renderer* x y z)))
 
 (defn translate
   "Translates the position of subsequent vertices."
-  ([v] (cond
-        (vec2? v) (translate (v 0) (v 1))
-        (vec3? v) (translate (v 0) (v 1) (v 2))
-        :else (apply translate v)))
+  ([v] (if (cartesian? v)
+         (condp = (dimension v)
+           2 (translate (v 0) (v 1))
+           3 (translate (v 0) (v 1) (v 2)))
+         (apply translate v)))
   ([x y] (translate x y 0))
   ([x y z] (translate- *renderer* x y z)))
 
 (defn scale
   "Scales the position of subsequent vertices."
-  ([v] (cond
-        (vec2? v) (scale (v 0) (v 1))
-        (vec3? v) (scale (v 0) (v 1) (v 2))
-        :else (apply scale v)))
+  ([v] (if (cartesian? v)
+         (condp = (dimension v)
+           2 (scale (v 0) (v 1))
+           3 (scale (v 0) (v 1) (v 2)))
+         (apply scale v)))
   ([x y] (scale x y 1))
   ([x y z] (scale- *renderer* x y z)))
 
 (defn color
   "Defines the color of subsequent vertices."
-  ([c] (cond
-        (vec2? c) (color (c 0) (c 1))
-        (vec3? c) (color (c 0) (c 1) (c 2))
-        :else (apply color c)))
+  ([c] (if (cartesian? c)
+         (color (c 0) (c 1) (c 2))
+         (apply color c)))
   ([r g b] (color r g b 1))
   ([r g b a] (color- *renderer* r g b a)))
 

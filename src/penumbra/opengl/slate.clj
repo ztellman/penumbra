@@ -6,7 +6,7 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
-(ns penumbra.slate
+(ns penumbra.opengl.slate
   (:use [clojure.contrib.def :only [defmacro- defn-memo defvar-]]
         [clojure.contrib.pprint]
         [clojure.contrib.seq :only [separate]]
@@ -62,9 +62,6 @@
   `(let [slate# (create)]
      (with-slate- slate#
        ~@body)))
-
-
-
 
 ;;;
 
