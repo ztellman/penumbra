@@ -30,6 +30,6 @@ A long term goal for Penumbra is to simplify GPU programming as much as possible
 
 h3. Using Penumbra
 
-The @master@ branch of Penumbra targets version 1.2.0 for clojure and clojure-contrib.  As a result, Leiningen doesn't fully work.  If you want seamless interop with Leiningen, consider using the "0.5.0 branch":http://github.com/ztellman/penumbra/tree/0.5.0.  Directions for installation and use in other projects can be found "here":http://wiki.github.com/ztellman/penumbra/getting-started.
+Penumbra 0.5.0 targets Clojure 1.1.0, and 0.6.0 targets Clojure 1.2.0.  Directions for installation and use in other projects can be found "here":http://wiki.github.com/ztellman/penumbra/getting-started.
 
 If you have any questions, please visit the "mailing list":http://groups.google.com/group/penumbra-lib.
