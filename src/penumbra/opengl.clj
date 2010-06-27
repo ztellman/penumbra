@@ -405,7 +405,7 @@
   [tex & body]
   `(render-to-texture- ~tex (fn [] ~@body)))
 
-(defmacro render-to-layered-rexture
+(defmacro render-to-layered-texture
   [tex & body]
   `(binding [*layered-texture?* true]
      (render-to-texture tex ~@body)))
