@@ -231,7 +231,6 @@
 (gl-import+ glShadeModel shade-model)
 
 (import-fn fx/render-mode)
-(import-fn fx/render-mode)
 (import-fn fx/color)
 (import-fn fx/material)
 (import-fn fx/fog)
