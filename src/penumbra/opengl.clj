@@ -116,14 +116,16 @@
      (gl-viewport x y w h)))
 
 (defmacro with-viewport
-  "Sets the render window within the inner scope."
-  [[x y w h] & body]
-  `(let [[x# y# w# h#] @*view*]
-    (viewport ~x ~y ~w ~h)
+  "Sets the render window within the inner scope.
+
+   'rect' is of the form [x y w h]."
+  [rect & body]
+  `(let [old-view# @*view*]
+    (apply viewport ~rect)
     (try
       ~@body
       (finally
-        (viewport x# y# w# h#)))))
+        (apply viewport old-view#)))))
 
 (gl-import- glOrtho gl-ortho)
 (gl-import- gluPerspective glu-perspective)
