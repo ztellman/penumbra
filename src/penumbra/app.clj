@@ -276,6 +276,7 @@
          (push-matrix
           (clear 0 0 0)
           (event/publish! app :display))
+	 (Thread/sleep 1)
          (window/update! app))
        (Thread/sleep 1))
      (if (window/close? app)
