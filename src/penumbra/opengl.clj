@@ -146,11 +146,12 @@
   (gl-ortho left right bottom top near far)
   (gl-matrix-mode :modelview))
 
-(defn frustum-view [fovx aspect near far]
+(defn frustum-view
   "Create a standard perspective view."
+  [fovy aspect near far]
   (gl-matrix-mode :projection)
   (gl-load-identity-matrix)
-  (glu-perspective (double fovx) (double aspect) (double near) (double far))
+  (glu-perspective (double fovy) (double aspect) (double near) (double far))
   (gl-matrix-mode :modelview))
 
 ;;Geometry
