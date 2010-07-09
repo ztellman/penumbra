@@ -73,7 +73,10 @@
    [:unsigned-byte 1 :luminance]
    [:unsigned-byte 2 :luminance-alpha]
    [:unsigned-byte 3 :rgb]
-   [:unsigned-byte 4 :rgba]])
+   [:unsigned-byte 4 :rgba]
+   [:unsigned-byte 2 :depth-component16]
+   [:unsigned-byte 3 :depth-component24]
+   [:unsigned-byte 4 :depth-component32]])
 
 (def tuple->pixel-format
      {1 :luminance, 2 :luminance-alpha, 3 :rgb, 4 :rgba})
@@ -226,6 +229,9 @@
       (gl-tex-parameter (:target params) (enum p) (params p)))
     (doseq [p [:texture-min-filter :texture-mag-filter]]
       (gl-tex-parameter (:target params) (enum p) (params p)))
+    (doseq [p [:texture-compare-mode :texture-compare-func]]
+      (if (contains? params p)
+        (gl-tex-parameter (:target params) (enum p) (params p))))
     (when-not valid?
       (condp = (count dim)
         1 (gl-tex-image-1d target 0 i-f (dim 0) 0 p-f i-t nil)
