@@ -58,7 +58,7 @@
        (bind-program program)
        (body))
      (finally
-      (if (and prev-program (not= prev-program program))
+      (if (not= prev-program program)
         (bind-program prev-program))))))
 
 (defn- int? [p]
