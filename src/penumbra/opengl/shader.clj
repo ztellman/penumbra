@@ -158,7 +158,7 @@
 (defn compile-source
   "Takes translated source (in GLSL, not s-expressions) for two shaders, and combines them into a program.
    Usage:
-   (create-program-from-source
+   (compile-source
      :vertex vertex-source
      :fragment fragment-source
      :geometry geometry-source)"
