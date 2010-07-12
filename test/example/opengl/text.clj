@@ -16,4 +16,4 @@
     (text/write-to-screen "hello world" 0 100)))
 
 (defn start []
-  (app/start* {:display display} {}))
+  (app/start {:display display} {}))
