@@ -8,7 +8,7 @@
 
 (ns penumbra.text
   (:use [penumbra.opengl]
-        [penumbra.opengl.core :only [*view* *font-cache* *font*]]
+        [penumbra.opengl.core :only [get-integer *view* *font-cache* *font*]]
         [clojure.contrib.def :only (defvar defn-memo)])
   (:import [java.awt Font]
            [java.awt.font TextAttribute]
@@ -42,13 +42,16 @@
     (try-with-program nil
       (with-disabled [:texture-rectangle :lighting]
         (with-enabled [:texture-2d :blend]
-          (blend-func :src-alpha :one-minus-src-alpha)
-          (let [[x-origin y-origin w h] @*view*]
-            (with-projection (ortho-view x-origin (+ x-origin w) (+ y-origin h) y-origin -1 1)
-              (push-matrix
-               (load-identity)
-               (TextureImpl/bindNone)
-               (.drawString *font* x y string)))))))))
+          (let [blend-dst (get-integer :blend-dst)
+		blend-src (get-integer :blend-src)]
+	    (blend-func :src-alpha :one-minus-src-alpha)
+	    (let [[x-origin y-origin w h] @*view*]
+	      (with-projection (ortho-view x-origin (+ x-origin w) (+ y-origin h) y-origin -1 1)
+		(push-matrix
+		  (load-identity)
+		  (TextureImpl/bindNone)
+		  (.drawString *font* x y string))))
+	    (blend-func blend-src blend-dst)))))))
 
 
 

@@ -8,22 +8,24 @@
 
 (ns examples
   (:use [clojure.test])
-  (:require [example.app.async :as async]
-            [example.app.switch :as switch]
-            [example.app.nested :as nested]
-            [example.opengl.gears :as gears]
-            [example.opengl.sierpinski :as sierpinski]
-            [example.opengl.render-to-texture :as rtt]
-            [example.opengl.marble :as marble]
-            [example.opengl.accumulate :as accumulate]
-            [example.opengl.async :as gl-async]
-            [example.game.tetris :as tetris]
-            [example.game.asteroids :as asteroids]
-            [example.game.pong :as pong]
-            [example.gpgpu.mandelbrot :as mandelbrot]
-            [example.gpgpu.convolution :as convolution]
-            [example.gpgpu.brians-brain :as brian]
-            [example.gpgpu.fluid :as fluid]))
+  (:require
+    ;;[example.app.async :as async]
+    ;;[example.app.switch :as switch]
+    ;;[example.app.nested :as nested]
+    [example.opengl.text :as text]
+    [example.opengl.gears :as gears]
+    [example.opengl.sierpinski :as sierpinski]
+    [example.opengl.render-to-texture :as rtt]
+    [example.opengl.marble :as marble]
+    [example.opengl.accumulate :as accumulate]
+    [example.opengl.async :as gl-async]
+    [example.game.tetris :as tetris]
+    [example.game.asteroids :as asteroids]
+    [example.game.pong :as pong]
+    [example.gpgpu.mandelbrot :as mandelbrot]
+    [example.gpgpu.convolution :as convolution]
+    [example.gpgpu.brians-brain :as brian]
+    [example.gpgpu.fluid :as fluid]))
 
 (deftest run
   '(testing "Async"
@@ -31,7 +33,9 @@
   '(testing "Switch"
     (switch/start))
   '(testing "Nested"
-    (nested/start))
+     (nested/start))
+  '(testing "Text"
+    (text/start))
   (testing "Gears"
     (gears/start))
   (testing "Sierpinski"
