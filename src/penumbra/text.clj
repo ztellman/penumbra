@@ -8,20 +8,14 @@
 
 (ns penumbra.text
   (:use [penumbra.opengl]
-        [penumbra.opengl.core :only [*view*]]
+        [penumbra.opengl.core :only [*view* *font-cache* *font*]]
         [clojure.contrib.def :only (defvar defn-memo)])
   (:import [java.awt Font]
            [java.awt.font TextAttribute]
            [org.newdawn.slick TrueTypeFont]
            [org.newdawn.slick.opengl TextureImpl]))
 
-(defvar *font-cache* nil
-  "Where all the fonts are kept")
-
-(defvar *font* nil
-  "Current font")
-
-(defn-memo attribute
+(defn-memo text-attribute
   "Takes :keyword and returns TextAttribute/KEYWORD"
   [k]
   (eval `(. TextAttribute ~(-> k name (.replace \- \_) .toUpperCase symbol))))
@@ -30,8 +24,9 @@
   (if-let [font (@*font-cache* (list* name modifiers))]
     font
     (let [hash (apply hash-map modifiers)
+	      hash (update-in hash [:size] float)
           hash (assoc hash :family name)
-          hash (zipmap (map attribute (keys hash)) (vals hash))
+          hash (zipmap (map text-attribute (keys hash)) (vals hash))
           font (TrueTypeFont. (Font. hash) true)]
       (swap! *font-cache* #(assoc % (list* name modifiers) font))
       font)))
@@ -44,14 +39,16 @@
   "Draws string at pixel coordinates (x, y)"
   [string x y]
   (with-font (or *font* (font "Tahoma" :size 20))
-    (with-disabled [:texture-rectangle :lighting]
-      (with-enabled [:texture-2d :blend]
-        (let [[x-origin y-origin w h] @*view*]
-          (with-projection (ortho-view x-origin (+ x-origin w) (+ y-origin h) y-origin -1 1)
-            (push-matrix
-             (load-identity)
-             (TextureImpl/bindNone)
-             (.drawString *font* x y string))))))))
+    (try-with-program nil
+      (with-disabled [:texture-rectangle :lighting]
+        (with-enabled [:texture-2d :blend]
+          (blend-func :src-alpha :one-minus-src-alpha)
+          (let [[x-origin y-origin w h] @*view*]
+            (with-projection (ortho-view x-origin (+ x-origin w) (+ y-origin h) y-origin -1 1)
+              (push-matrix
+               (load-identity)
+               (TextureImpl/bindNone)
+               (.drawString *font* x y string)))))))))
 
 
 

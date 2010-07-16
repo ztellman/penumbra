@@ -53,8 +53,8 @@
      (update 0 f))
   ([delay f]
      (update *queue* delay f))
-  ([queue delay f]
-     (queue
+  ([app delay f]
+     (@(:queue app)
       delay
       #(try
         (f)
