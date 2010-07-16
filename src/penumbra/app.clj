@@ -288,7 +288,9 @@
     (loop-fn
      app
      (fn [inner-fn]
+       (app/speed! app 0)
        (app/init! app)
+       (app/speed! app 1)
        (inner-fn)
        (app/speed! app 0))
      (partial single-thread-main-loop app))

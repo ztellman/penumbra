@@ -8,9 +8,9 @@
 
 (ns examples
   (:use [clojure.test])
-  (:require ;;[example.app.async :as async]
-            ;;[example.app.switch :as switch]
-            ;;[example.app.nested :as nested]
+  (:require [example.app.async :as async]
+            [example.app.switch :as switch]
+            [example.app.nested :as nested]
             [example.opengl.gears :as gears]
             [example.opengl.sierpinski :as sierpinski]
             [example.opengl.render-to-texture :as rtt]
