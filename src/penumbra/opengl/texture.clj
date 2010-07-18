@@ -359,7 +359,7 @@
 ;;;
 
 (defn texture
-  "Calls glTexture*d."
+  "Calls glTexCoord*d."
   ([u]
      (if (sequential? u)
        (apply texture u)
