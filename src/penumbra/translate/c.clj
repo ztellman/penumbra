@@ -131,7 +131,7 @@
   [x]
   (cond
     (swizzle? x)
-      (str (apply str (interpose " " (map name (next x)))) (-> x first name))
+      (str (apply parse (interpose " " (map name (next x)))) (-> x first name))
     (symbol? x)
       (let [x* (symbol (.replace (name x) \- \_))]
         (if (:first-appearance (meta x))
