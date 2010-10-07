@@ -296,6 +296,14 @@
   [x]
   (str "return " (parse (second x))))
 
+(defmethod parser 'break
+  [x]
+  (str "break;\n"))
+
+(defmethod parser 'continue
+  [x]
+  (str "continue;\n"))
+
 (defmethod parser 'scope
   [x]
   (str "{\n" (indent (parse-lines (next x) ";")) "}\n"))
