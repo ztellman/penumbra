@@ -23,9 +23,12 @@
                              EXTGeometryShader4))
   (:import (org.lwjgl.util.glu GLU))
   (:import (java.lang.reflect Field Method))
-  (:import (org.lwjgl BufferUtils)))
+  (:import (org.lwjgl BufferUtils))
+  (:import (penumbra PenumbraSystem Natives)))
 
 ;;;
+(Natives/extractNativeLibs (PenumbraSystem/getPlatform) "LWGL")
+
 
 (defvar *primitive-type* nil
   "What type of primitive is being rendered?")

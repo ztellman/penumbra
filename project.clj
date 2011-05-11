@@ -3,6 +3,10 @@
   :dependencies [[slick-util "1.0.0"]
                  [cantor "0.2.1"]
                  [org.clojure/clojure "1.2.0"] 
-                 [org.clojure/clojure-contrib "1.2.0"]]
-  :native-dependencies [[penumbra/lwjgl "2.4.2"]]
-  :dev-dependencies [[native-deps "1.0.4"]])
+                 [org.clojure/clojure-contrib "1.2.0"]
+				 [org.clojars.charles-stain/lwjgl "3.0"]
+				 [org.lwjgl/lwjgl-util "2.7.1"]
+				 [org.clojars.charles-stain/jme3-lwjgl-natives "3.0"]]
+  
+  :java-source-path "java"
+  :dev-dependencies [[swank-clojure "1.3.0"]])
