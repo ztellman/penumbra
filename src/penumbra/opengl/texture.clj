@@ -153,12 +153,21 @@
                      (byte-array (denormalize-bytes s)))))
 
 (defn- array-to-buffer [a type]
+  (println "type" type)
   (cond
    (= type :double)        (-> (BufferUtils/createDoubleBuffer (count a)) (.put a) .rewind)
    (= type :float)         (-> (BufferUtils/createFloatBuffer (count a)) (.put a) .rewind)
    (= type :int)           (-> (BufferUtils/createIntBuffer (count a)) (.put a) .rewind)
    (= type :unsigned-byte) (-> (BufferUtils/createByteBuffer (count a)) (.put a) .rewind)
    :else                   (throw (Exception. (str "Don't recognize type " type)))))
+
+(defn- create-buffer [size type]
+  (cond
+    (= type :double)        (BufferUtils/createDoubleBuffer size)
+    (= type :float)         (BufferUtils/createFloatBuffer size) 
+    (= type :int)           (BufferUtils/createIntBuffer size)
+    (= type :unsigned-byte) (BufferUtils/createByteBuffer size)
+    :else                   (throw (Exception. (str "Don't recognize type " type)))))
 
 (defn- write-to-texture [tex bounds s]
   (bind-texture tex)
@@ -171,37 +180,37 @@
     (condp = (count (dim tex))
       1 (let [[x w] bounds]
           (gl-tex-sub-image-1d
-           (int target) 0
-           (int x) (int w)
-           (int pixel) (int type)
-           buf))
+	    (int target) 0
+	    (int x) (int w)
+	    (int pixel) (int type)
+	    buf))
       2 (let [[x y w h] bounds]
           (gl-tex-sub-image-2d
-           (int target) 0
-           (int x) (int y) (int w) (int h)
-           (int pixel) (int type)
-           buf))
+	    (int target) 0
+	    (int x) (int y) (int w) (int h)
+	    (int pixel) (int type)
+	    buf))
       3 (let [[x y z w h d] bounds]
           (gl-tex-sub-image-3d
-           (int target) 0
-           (int x) (int y) (int z) (int w) (int h) (int d)
-           (int pixel) (int type)
-           buf)))))
+	    (int target) 0
+	    (int x) (int y) (int z) (int w) (int h) (int d)
+	    (int pixel) (int type)
+	    buf)))))
 
 (defn- unwrap-texture
   ([tex]
      (unwrap-texture tex (* (apply * (dim tex)) (->> tex params :internal-format internal-format->tuple))))
   ([tex size]
-     (let [a (create-array size (->> tex params :internal-type))
-           params (params tex)]
+     (let [params (params tex)
+	   buf (create-buffer size (:internal-type params))]
        (bind-texture tex)
        (gl-get-tex-image
         (target tex)
         0
         (enum (:pixel-format params))
         (enum (:internal-type params))
-        (array-to-buffer a (:internal-type params)))
-       a)))
+	buf)
+       buf)))
 
 ;;;
 
@@ -230,7 +239,7 @@
     (doseq [p [:texture-min-filter :texture-mag-filter]]
       (gl-tex-parameter (:target params) (enum p) (params p)))
     (doseq [p [:texture-compare-mode :texture-compare-func]]
-      (if (contains? params p)
+      (when (contains? params p)
         (gl-tex-parameter (:target params) (enum p) (params p))))
     (when-not valid?
       (condp = (count dim)
@@ -241,17 +250,17 @@
 
 (defn create-texture [& params]
   (let [params    (->> params
-                       (apply hash-map)
-                       (merge
-                        {:target :texture-2d
-                         :texture-wrap-s :clamp-to-edge
-                         :texture-wrap-t :clamp-to-edge
-                         :texture-wrap-r :clamp-to-edge
-                         :texture-min-filter :nearest
-                         :texture-mag-filter :nearest
-                         :internal-format :rgba
-                         :pixel-format :rgba
-                         :internal-type :unsigned-byte}))
+		    (apply hash-map)
+		    (merge
+		      {:target :texture-2d
+		       :texture-wrap-s :clamp-to-edge
+		       :texture-wrap-t :clamp-to-edge
+		       :texture-wrap-r :clamp-to-edge
+		       :texture-min-filter :nearest
+		       :texture-mag-filter :nearest
+		       :internal-format :rgba
+		       :pixel-format :rgba
+		       :internal-type :unsigned-byte}))
         sig       (map params [:internal-format :pixel-format :internal-format :dim])
         tuple     (internal-format->tuple (:internal-format params))
         sizeof    (* tuple (apply * (:dim params)))
@@ -265,38 +274,35 @@
                   located
                   #^{:type ::texture}
                   (reify
-                   Object
-                   (toString [this] (str "Texture " (:dim params) " " id))
-                   Tex
-                   (target [_] (enum (:target params)))
-                   (id [_] id)
-                   (dim [_] (:dim params))
-                   (transform [_] (:transform params))
-                   Data
-                   (acquire! [_] (dosync (alter refcount inc)))
-                   (release! [_] (dosync (alter refcount dec)))
-                   (refcount [_] @refcount)
-                   (refcount! [_ count] (dosync (ref-set refcount count)))
-                   (permanent? [_] @permanent)
-                   (permanent! [_ flag] (dosync (ref-set permanent flag)))
-                   (signature [_] sig)
-                   (params [_] params)
-                   (matches? [_ s] (= sig s))
-                   (sizeof [_] sizeof)
-                   (mimic [_] (apply create-texture (apply concat params)))
-                   (mimic [_ dim] (apply create-texture (apply concat (assoc params :dim dim))))
-                   (unwrap [this] (unwrap-texture this))
-                   (overwrite!
-                    [this data]
-                    (write-to-texture this (concat (take (count (dim this)) (repeat 0)) (dim this)) data))
-                   (overwrite!
-                    [this bounds data]
-                    (write-to-texture this bounds data))
-                   (destroy!
-                    [this]
-                    (if *texture-pool*
-                      (remove! *texture-pool* this)
-                      (destroy! this)))))]
+		    Object
+		    (toString [this] (str "Texture " (:dim params) " " id))
+		    Tex
+		    (target [_] (enum (:target params)))
+		    (id [_] id)
+		    (dim [_] (:dim params))
+		    (transform [_] (:transform params))
+		    Data
+		    (acquire! [_] (dosync (alter refcount inc)))
+		    (release! [_] (dosync (alter refcount dec)))
+		    (refcount [_] @refcount)
+		    (refcount! [_ count] (dosync (ref-set refcount count)))
+		    (permanent? [_] @permanent)
+		    (permanent! [_ flag] (dosync (ref-set permanent flag)))
+		    (signature [_] sig)
+		    (params [_] params)
+		    (matches? [_ s] (= sig s))
+		    (sizeof [_] sizeof)
+		    (mimic [_] (apply create-texture (apply concat params)))
+		    (mimic [_ dim] (apply create-texture (apply concat (assoc params :dim dim))))
+		    (unwrap [this] (unwrap-texture this))
+		    (overwrite! [this data]
+		      (write-to-texture this (concat (take (count (dim this)) (repeat 0)) (dim this)) data))
+		    (overwrite! [this bounds data]
+		      (write-to-texture this bounds data))
+		    (destroy! [this]
+		      (if *texture-pool*
+			(remove! *texture-pool* this)
+			(destroy! this)))))]
     (when-not located
       (add! *texture-pool* texture))
     texture))
@@ -319,20 +325,20 @@
   ([s tuple dim & params]
      (let [type                (seq-type s)
            [internal pixel _]  (*read-format* type tuple)]
-           (when (or (nil? internal) (nil? pixel))
-             (throw (Exception. (str "Can't wrap sequence of type=" type " and tuple=" tuple))))
-           (let [ary                 (create-array s type)
-                 tex                 (apply create-texture
-                                            (apply concat
-                                                   (merge
-                                                    {:target :texture-rectangle
-                                                     :dim dim
-                                                     :internal-format internal
-                                                     :pixel-format pixel
-                                                     :internal-type type}
-                                                    (apply hash-map params))))]
-       (write-to-texture tex (concat (take (count dim) (repeat 0)) dim) ary)
-       tex))))
+       (when (or (nil? internal) (nil? pixel))
+	 (throw (Exception. (str "Can't wrap sequence of type=" type " and tuple=" tuple))))
+       (let [ary (create-array s type)
+	     tex (apply create-texture
+		   (apply concat
+		     (merge
+		       {:target :texture-rectangle
+			:dim dim
+			:internal-format internal
+			:pixel-format pixel
+			:internal-type type}
+		       (apply hash-map params))))]
+	 (write-to-texture tex (concat (take (count dim) (repeat 0)) dim) ary)
+	 tex))))
 
 ;;;
 
@@ -345,16 +351,16 @@
            tex-dim [(.getTextureWidth tex) (.getTextureHeight tex)]
            [sx sy] (map / dim tex-dim)]
        (create-texture
-        :dim tex-dim
-        :id (.getTextureID tex)
-        :target :texture-2d
-        :transform #(gl-scale sx sy 1)
-        :pixel-format (if alpha? :rgba :rgb)
-        :internal-format (if alpha? :rgba :rgb)
-        :internal-type :unsigned-byte
-        :tuple (if alpha? 4 3)
-        :texture-min-filter filter
-        :texture-mag-filter filter))))
+	 :dim tex-dim
+	 :id (.getTextureID tex)
+	 :target :texture-2d
+	 :transform #(gl-scale sx sy 1)
+	 :pixel-format (if alpha? :rgba :rgb)
+	 :internal-format (if alpha? :rgba :rgb)
+	 :internal-type :unsigned-byte
+	 :tuple (if alpha? 4 3)
+	 :texture-min-filter filter
+	 :texture-mag-filter filter))))
 
 ;;;
 

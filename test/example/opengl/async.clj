@@ -17,14 +17,13 @@
 (defn xor [a b] (or (and a (not b)) (and (not a) b)))
 
 (defn draw [tex]
-  (data/overwrite!
-   tex
-   (apply concat
-          (let [offset (int (* 5 (app/now)))]
-            (for [x (range offset (+ offset (first dim))) y (range (second dim))]
-              (if (xor (even? (bit-shift-right x 3)) (even? (bit-shift-right y 3)))
-                [1 0 0 1]
-                [0 0 0 1]))))))
+  (data/overwrite! tex
+    (apply concat
+      (let [offset (int (* 5 (app/now)))]
+	(for [x (range offset (+ offset (first dim))) y (range (second dim))]
+	  (if (xor (even? (bit-shift-right x 3)) (even? (bit-shift-right y 3)))
+	    [1 0 0 1]
+	    [0 0 0 1]))))))
 
 (defn swap [state]
   (let [[a b] (:textures state)]
