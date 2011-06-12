@@ -32,7 +32,7 @@
 (defn vertex
   "Defines the coordinates for a new vertex."
   ([v] (if (cartesian? v)
-         (condp = (dimension v)
+         (condp = (count v)
            2 (vertex (v 0) (v 1))
            3 (vertex (v 0) (v 1) (v 2)))
          (apply vertex v)))
@@ -43,7 +43,7 @@
 (defn texture
   "Defines the texture coordinate for subsequent vertices."
   ([v] (if (cartesian? v)
-         (condp = (dimension v)
+         (condp = (count v)
            2 (texture (v 0) (v 1))
            3 (texture (v 0) (v 1) (v 2)))
          (if (number? v)
@@ -55,7 +55,7 @@
 (defn normal
   "Defines the normal vector for subsequent vertices."
   ([v] (if (cartesian? v)
-         (condp = (dimension v)
+         (condp = (count v)
            2 (normal (v 0) (v 1) 0)
            3 (normal (v 0) (v 1) (v 2)))
          (apply normal v)))
@@ -64,7 +64,7 @@
 (defn translate
   "Translates the position of subsequent vertices."
   ([v] (if (cartesian? v)
-         (condp = (dimension v)
+         (condp = (count v)
            2 (translate (v 0) (v 1))
            3 (translate (v 0) (v 1) (v 2)))
          (apply translate v)))
@@ -74,7 +74,7 @@
 (defn scale
   "Scales the position of subsequent vertices."
   ([v] (if (cartesian? v)
-         (condp = (dimension v)
+         (condp = (count v)
            2 (scale (v 0) (v 1))
            3 (scale (v 0) (v 1) (v 2)))
          (apply scale v)))
