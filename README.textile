@@ -1,4 +1,4 @@
-*Penumbra is not under active development.  However, it's still a fun way to play around with OpenGL and Clojure.  Bugs will be fixed, time permitting, but new features are unlikely.*
+*Penumbra is not under active development.*  However, it's still a fun way to play around with OpenGL and Clojure.  Bugs will be fixed, time permitting, but new features are unlikely.
 
 Penumbra is an idiomatic wrapper for OpenGL in Clojure, by way of LWJGL.  
 
