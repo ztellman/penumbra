@@ -68,9 +68,9 @@
   (enable :depth-test)
 
   (reset-random-texture
-   (assoc state
-     :teapot (create-display-list (teapot))
-     :octaves 6.0)))
+    (assoc state
+      :teapot (create-display-list (teapot))
+      :octaves 6.0)))
 
 (defn mouse-drag [[dx dy] _ button state]
   (assoc state
@@ -89,7 +89,7 @@
   (rotate (:rot-y state) 0 1 0)
   (color 1 0 0)
   (blit!
-   (with-pipeline marble [{:octaves (:octaves state)} (app/size) [(:tex state)]]
+    (with-pipeline marble [{:octaves (:octaves state)} (app/size) [(:tex state)]]
      (clear)
      ;;(text/write-to-screen (str (int (/ 1 delta)) "fps") 0 0)  
      ((:teapot state)))))

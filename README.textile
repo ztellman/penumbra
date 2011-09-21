@@ -1,3 +1,5 @@
+*Penumbra is not under active development.  However, it's still a fun way to play around with OpenGL and Clojure.  Bugs will be fixed, time permitting, but new features are unlikely.*
+
 Penumbra is an idiomatic wrapper for OpenGL in Clojure, by way of LWJGL.  
 
 This Java/C code
@@ -30,6 +32,6 @@ A long term goal for Penumbra is to simplify GPU programming as much as possible
 
 h3. Using Penumbra
 
-Penumbra 0.5.0 targets Clojure 1.1.0, and 0.6.0 targets Clojure 1.2.0.  Directions for installation and use in other projects can be found "here":http://wiki.github.com/ztellman/penumbra/getting-started.
+Directions for installation and use in other projects can be found "here":http://wiki.github.com/ztellman/penumbra/getting-started.
 
 If you have any questions, please visit the "mailing list":http://groups.google.com/group/penumbra-lib.
