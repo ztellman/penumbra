@@ -10,3 +10,4 @@ autodoc
 *.jar
 pom.xml
 META-INF
+lein
