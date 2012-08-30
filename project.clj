@@ -7,5 +7,5 @@
 				 [org.clojars.charles-stain/lwjgl "3.0"]
 				 [org.lwjgl/lwjgl-util "2.7.1"]
 				 [org.clojars.charles-stain/jme3-lwjgl-natives "3.0"]]
-  :java-source-path "java"
+  :java-source-paths ["java"]
   :dev-dependencies [[swank-clojure "1.3.0"]])
