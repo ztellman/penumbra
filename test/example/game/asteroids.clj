@@ -8,7 +8,7 @@
 
 (ns example.game.asteroids
   (:use [penumbra opengl]
-        [clojure.contrib.seq :only (separate)]
+        [penumbra.seq :only (separate)] ;;modified to drop contrib.
         [cantor])
   (:require [penumbra.app :as app]
             [penumbra.text :as text]
@@ -379,6 +379,8 @@
       (draw-spaceship (:spaceship state)))
     (app/repaint!)))
 
+;;tom
+;;Doesn't work for me, probably not supported shader stuff on my hardware.
 (defn start []
   (app/start
    {:reshape reshape, :init init, :key-press key-press, :update update, :display display} 

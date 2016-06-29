@@ -18,10 +18,12 @@
 
 ;;
 
-(def *dim-element* nil)
-(def *typeof-dim* nil)
-(def *typeof-element* nil)
-(def *typeof-param* nil)
+;;tom
+;;patched these to use clojure's changed dynamic declarations.
+(def ^:dynamic *dim-element* nil)
+(def ^:dynamic *typeof-dim* nil)
+(def ^:dynamic *typeof-element* nil)
+(def ^:dynamic *typeof-param* nil)
 
 ;;utilities
 

@@ -25,10 +25,12 @@
 (defn incrementer [k]
   (fn [state] (update-in state [k] inc)))
 
+;;tom
+;;fixed periodic-update -> periodic-update!
 (defn init [state]
-  (app/periodic-update 1 (incrementer :second))
-  (app/periodic-update (/ 1 60) (incrementer :minute))
-  (app/periodic-update (/ 1 3600) (incrementer :hour))    
+  (app/periodic-update! 1 (incrementer :second))
+  (app/periodic-update! (/ 1 60) (incrementer :minute))
+  (app/periodic-update! (/ 1 3600) (incrementer :hour))    
   state)
 
 (defn reshape [[x y w h] state]

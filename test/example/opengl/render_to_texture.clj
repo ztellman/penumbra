@@ -114,6 +114,8 @@
          (load-identity)
          (draw-lines (vertex 0.5 0) (vertex 0.5 1)))))))
 
+;;tom
+;;This one quits immeidately, no rendering.  Dunno if it's hardware limitation.
 (defn start []
   (app/start
    {:display display, :mouse-drag mouse-drag, :reshape reshape, :init init}

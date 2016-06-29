@@ -158,7 +158,8 @@
    (not (seq? x))
    (-> x first seq?)))
 
-(def *line-terminator* ";")
+;;updated to dynvar declaration.
+(def ^:dynamic *line-terminator* ";")
 
 (defmethod parser nil
   ;handle base cases
@@ -200,7 +201,8 @@
   `(defmethod parser ~op-symbol [x#]
      (str ~op-string (parse (second x#)))))
 
-(def *assignment* false)
+;;updated to 1.7 dynvar decl
+(def ^:dynamic *assignment* false)
 
 (defmacro- def-assignment-parser
   "Defines an assignment operator, making use of parse-assignment for the l-value

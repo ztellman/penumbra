@@ -125,6 +125,7 @@
   (draw-paddle (- 0.99 paddle-width) (:right state))
   (app/repaint!))
 
+;;pong works, yay.
 (defn start []
   (app/start
    {:display display, :reshape reshape, :update update, :init init}

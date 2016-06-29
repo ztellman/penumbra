@@ -25,7 +25,8 @@
   (write-to-screen (str "nested " (:count state) " deep!") 0 0))
  
 (def callbacks {:key-press key-press :display display})
- 
+
+;;This works fine.
 (defn start
   ([] (start {:count 1}))
   ([state] (app/start callbacks state)))

@@ -7,8 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns example.gpgpu.n-body
-  (:use [penumbra compute]
-        [clojure.contrib.seq :only (partition-all flatten)])
+  (:use [penumbra compute])
+;        [clojure.contrib.seq :only (partition-all flatten)])
   (:require [penumbra.app :as app]
             [penumbra.data :as data]))
 

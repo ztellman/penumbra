@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.app.core
-  (:use [clojure.contrib.def :only [defvar]]))
+  (:use [penumbra.def :only [defvar]]))
 
 (defvar *app* nil
   "Current application.")

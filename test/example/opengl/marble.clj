@@ -94,6 +94,9 @@
      ;;(text/write-to-screen (str (int (/ 1 delta)) "fps") 0 0)  
      ((:teapot state)))))
 
+
+;;tom
+;;doesn't work for me, exits out.   May be due to hardware limitations.  Test on another machine...
 (defn start []
   (app/start
    {:reshape reshape, :display display, :init init, :mouse-drag mouse-drag, :key-press key-press}

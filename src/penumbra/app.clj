@@ -8,8 +8,8 @@
 ;;   software.
 
 (ns penumbra.app
-  (:use [clojure.contrib.core :only (-?>)]
-        [clojure.contrib.def :only [defmacro- defvar-]]
+  (:use 
+        [penumbra.def :only [defmacro- defvar-]]
         [penumbra.opengl]
         [penumbra.opengl.core]
         [clojure.walk :only (postwalk-replace)])

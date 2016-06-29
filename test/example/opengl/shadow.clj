@@ -47,6 +47,8 @@
        (clear)
        (draw-scene)))))
 
+;;tom
+;;doesn't work for me.  Probably hardware not supporting the shader pipeline.
 (defn start []
   (app/start {:init init, :reshape reshape, :mouse-drag mouse-drag, :display display}
              {:rot-x 0, :rot-y 0}))

@@ -23,37 +23,14 @@
 making private definitions more succinct."} 
   penumbra.def)
 
-
-;;added by tom to account for implicitly dynamic vars...
-(defn dynamic-meta [symb]
-  (let [nm (name symb)
-        fst (first nm)
-        lst (last nm)]
-    (if (and (= fst lst \*))
-      ;;dynamic var...
-      (merge (meta symb) {:dynamic true})
-      (meta symb))))
-      
-;;modified by tom to account for implicitly dynamic vars...
 (defmacro defvar
   "Defines a var with an optional intializer and doc string"
   ([name]
-     `(def ~(with-meta name (dynamic-meta name))))
+     (list `def name))
   ([name init]
-     `(def ~(with-meta name (dynamic-meta name)) ~init))
-  ([name init doc]   
-   `(def ~(with-meta name
-            (assoc (dynamic-meta name) :doc doc)) ~init)))
-
-;;original
-;; (defmacro defvar
-;;   "Defines a var with an optional intializer and doc string"
-;;   ([name]
-;;      (list `def name))
-;;   ([name init]
-;;      (list `def name init))
-;;   ([name init doc]
-;;      (list `def (with-meta name (assoc (meta name) :doc doc)) init)))
+     (list `def name init))
+  ([name init doc]
+     (list `def (with-meta name (assoc (meta name) :doc doc)) init)))
 
 (defmacro defunbound
   "Defines an unbound var with optional doc string"

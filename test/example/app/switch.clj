@@ -49,10 +49,10 @@
   (write-to-screen "second app" 0 0))
 
 ;;
-
 (def apps {:controller (app/create {:init controller-init} {})
-           :first (app/create {:init first-init, :key-press first-key-press, :display first-display} {})
-           :second (app/create {:init second-init, :key-press second-key-press :display second-display} {})})
+           :first      (app/create {:init first-init, :key-press first-key-press, :display first-display} {})
+           :second     (app/create {:init second-init, :key-press second-key-press :display second-display} {})})
 
+;;tom- can't get this one to work....app/start was called with one arg, needed a second.  ask Zach.
 (defn start []
-  (app/start (:controller apps)))
+  (app/start (:controller apps) nil))
