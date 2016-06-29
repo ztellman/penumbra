@@ -1,8 +1,8 @@
-(defproject penumbra "0.6.0"
+(defproject penumbra "0.6.1"
   :description "An idiomatic wrapper for OpenGL"
   :dependencies [[slick-util "1.0.0"]
                  [cantor "0.3.0"]
-                 [org.clojure/clojure "1.7.0"]
+                 [org.clojure/clojure "1.8.0"]
                  [org.clojure/math.combinatorics "0.1.3"]
 ;                 [org.clojure/clojure-contrib "1.2.0"]
                  [org.clojars.charles-stain/lwjgl "3.0"]
