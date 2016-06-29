@@ -1,4 +1,5 @@
-[Port of legacy Penumbra circa Clojure 1.2 to Clojure 1.7+]
+Port of legacy Penumbra circa Clojure 1.2 to Clojure 1.7+
+
 This is an update of Zach Tellman's impressive penumbra library.
 All of the legacy cruft from clojure.contrib has been migrated or
 removed.  Currently this is a stability release intended to get the
