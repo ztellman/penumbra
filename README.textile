@@ -1,4 +1,19 @@
-*Penumbra is not under active development.*  However, it's still a fun way to play around with OpenGL and Clojure.  Bugs will be fixed, time permitting, but new features are unlikely.
+[Port of legacy Penumbra circa Clojure 1.2 to Clojure 1.7+]
+This is an update of Zach Tellman's impressive penumbra library.
+All of the legacy cruft from clojure.contrib has been migrated or
+removed.  Currently this is a stability release intended to get the
+examples working.  They all compile and run, however, many of the
+examples that rely on shader implementations (like a bunch of the
+demos  in test/examples/opengl) rather than the fixed function
+pipeline, will drop out when you run them.
+
+I'm not sure where to go with this library, but it seemed a waste to
+leave it in the dustbin.  I'm currently evaluating alternatives for
+rendering, and I remembered penumbra.
+-Tom
+
+*Penumbra is not under active development.*
+However, it's still a fun way to play around with OpenGL and Clojure.  Bugs will be fixed, time permitting, but new features are unlikely.
 
 Penumbra is an idiomatic wrapper for OpenGL in Clojure, by way of LWJGL.  
 
