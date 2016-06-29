@@ -7,8 +7,8 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.translate.core
-  (:use [clojure.contrib.pprint])
-  (:use [clojure.contrib.def :only (defmacro- defvar defvar-)])
+  (:use [clojure.pprint])
+  (:use [penumbra.def :only (defmacro- defvar defvar-)])
   (:use [clojure.walk])
   (:import (java.text ParseException))
   (:import (java.io StringWriter))

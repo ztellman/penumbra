@@ -9,8 +9,8 @@
 (ns penumbra.opengl.frame-buffer
   (:use [penumbra.opengl core]
         [penumbra.opengl.shader :only [uniform-location]]
-        [clojure.contrib.def :only [defn-memo]]
-        [clojure.contrib.seq :only [indexed]])
+        [penumbra.def :only [defn-memo]]
+        [penumbra.seq :only [indexed]])
   (require [penumbra.opengl.texture :as tex])
   (:import [org.lwjgl BufferUtils]))
 

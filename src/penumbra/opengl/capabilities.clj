@@ -13,8 +13,8 @@
             [penumbra.opengl.frame-buffer :as fb]
             [penumbra.data :as data])
   (:use [penumbra.opengl.core :only (enum enum-name gl-import- get-integer)]
-        [clojure.contrib.def :only (defn-memo)]
-        [clojure.contrib.combinatorics :only (cartesian-product)])
+        [penumbra.def :only (defn-memo)]
+        [clojure.math.combinatorics :only (cartesian-product)])
   (:import [java.nio IntBuffer]))
 
 (defn- get-frame-buffer []

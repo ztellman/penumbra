@@ -8,8 +8,8 @@
 
 (ns penumbra.translate.c
   (:use [penumbra.translate core]
-        [clojure.contrib
-         (def :only (defmacro-))]))
+        [penumbra.def
+          :only (defmacro-)]))
   
 ;;;;;;;;;;;;;;;;;;;
 

@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.time
-  (:use [clojure.contrib.def :only [defn-memo]]))
+  (:use [penumbra.def :only [defn-memo]]))
 
 (defn wall-time []
   (/ (double (System/nanoTime)) (double 1e9)))

@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.core
-  (:use [clojure.contrib.def :only (defn-memo defmacro- defvar defvar-)])
+  (:use [penumbra.def :only (defn-memo defmacro- defvar defvar-)])
   (:import (org.lwjgl.opengl GL11 GL12 GL13 GL14 GL15 GL20 GL30 GL31 GL32
                              ARBDrawBuffers
                              ARBFramebufferObject

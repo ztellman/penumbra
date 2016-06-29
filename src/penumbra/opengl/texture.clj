@@ -7,8 +7,8 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.texture
-  (:use [clojure.contrib.def :only (defmacro- defn-memo)])
-  (:use [clojure.contrib.seq :only (separate)])
+  (:use [penumbra.def :only (defmacro- defn-memo)])
+  (:use [penumbra.seq :only (separate)])
   (:use [penumbra.opengl core])
   (:use [penumbra data])
   (:import [org.lwjgl BufferUtils])

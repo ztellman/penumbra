@@ -7,8 +7,8 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.shader
-  (:use [clojure.contrib.def :only (defmacro- defvar)])
-  (:use [clojure.contrib.seq :only (indexed)])
+  (:use [penumbra.def :only (defmacro- defvar)])
+  (:use [penumbra.seq :only (indexed)])
   (:use [penumbra.opengl.core])
   (:use [penumbra.glsl.core])
   (:use [penumbra.translate.core])

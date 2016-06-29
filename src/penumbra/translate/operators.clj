@@ -10,8 +10,8 @@
   (:use [clojure.walk]
         [penumbra.translate core]
 		[cantor :only (rectangle-factors)]
-        [clojure.contrib.seq :only (indexed separate)]
-        [clojure.contrib.def :only (defn-memo defvar-)]
+        [penumbra.seq :only (indexed separate)]
+        [penumbra.def :only (defn-memo defvar-)]
         [penumbra.translate.core])
   (:require [clojure.zip :as zip]
             [penumbra.data :as data]))

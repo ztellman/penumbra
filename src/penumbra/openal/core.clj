@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.openal.core
-  (:use [clojure.contrib.def])
+  (:use [penumbra.def])
   (:import [org.lwjgl.openal AL AL10 AL11]
            [java.lang.reflect Field Method]))
 

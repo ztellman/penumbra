@@ -9,7 +9,7 @@
 (ns penumbra.text
   (:use [penumbra.opengl]
         [penumbra.opengl.core :only [get-integer *view* *font-cache* *font*]]
-        [clojure.contrib.def :only (defvar defn-memo)])
+        [penumbra.def :only (defvar defn-memo)])
   (:import [java.awt Font]
            [java.awt.font TextAttribute]
            [org.newdawn.slick TrueTypeFont]
