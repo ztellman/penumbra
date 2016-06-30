@@ -244,7 +244,6 @@
   light
   ])
 
-
 (defmacro with-render-mode [mode & body]
   `(fx/with-render-mode ~mode (fn [] ~@body)))
 

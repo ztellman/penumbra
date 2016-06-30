@@ -11,3 +11,4 @@ autodoc
 pom.xml
 META-INF
 lein
+*.clj~
