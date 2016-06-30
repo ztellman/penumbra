@@ -153,13 +153,23 @@
                      (byte-array (denormalize-bytes s)))))
 
 (defn- array-to-buffer [a type]
-  (println "type" type)
+  (println "type" type)  
   (cond
+    (isa? (class a) java.nio.Buffer) a ;;return the buffer 
    (= type :double)        (-> (BufferUtils/createDoubleBuffer (count a)) (.put a) .rewind)
    (= type :float)         (-> (BufferUtils/createFloatBuffer (count a)) (.put a) .rewind)
    (= type :int)           (-> (BufferUtils/createIntBuffer (count a)) (.put a) .rewind)
    (= type :unsigned-byte) (-> (BufferUtils/createByteBuffer (count a)) (.put a) .rewind)
    :else                   (throw (Exception. (str "Don't recognize type " type)))))
+
+;; (defn- array-to-buffer [a type]
+;;   (println "type" type)
+;;   (cond
+;;    (= type :double)        (-> (BufferUtils/createDoubleBuffer (count a)) (.put a) .rewind)
+;;    (= type :float)         (-> (BufferUtils/createFloatBuffer (count a)) (.put a) .rewind)
+;;    (= type :int)           (-> (BufferUtils/createIntBuffer (count a)) (.put a) .rewind)
+;;    (= type :unsigned-byte) (-> (BufferUtils/createByteBuffer (count a)) (.put a) .rewind)
+;;    :else                   (throw (Exception. (str "Don't recognize type " type)))))
 
 (defn- create-buffer [size type]
   (cond
