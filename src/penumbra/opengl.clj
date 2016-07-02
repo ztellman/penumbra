@@ -9,7 +9,7 @@
 (ns ^{:author "Zachary Tellman"}
   penumbra.opengl
   (:use [penumbra.opengl core]
-        [clojure.contrib.def :only (defn-memo defmacro- defvar)])
+        [penumbra.def :only (defn-memo defmacro- defvar)])
   (:require [penumbra.opengl.texture :as tex]
             [penumbra.data :as data]
             [penumbra.opengl.frame-buffer :as fb]
@@ -17,7 +17,8 @@
             [penumbra.opengl.effects :as fx]
             [penumbra.glsl.core :as glsl]
             [penumbra.opengl.geometry :as geometry]
-            [penumbra.opengl.teapot :as t])
+            [penumbra.opengl.teapot :as t]
+            [penumbra.meta :as import])
   (:import (org.lwjgl BufferUtils)
            (java.io File ByteArrayOutputStream ByteArrayInputStream)
            (javax.imageio ImageIO)
@@ -25,13 +26,14 @@
 
 ;;;
 
-(defmacro- import-fn [sym]
-  (let [m (meta (eval sym))
-        m (meta (intern (:ns m) (:name m)))
-        n (:name m)
-        arglists (:arglists m)
-        doc (:doc m)]
-    (list `def (with-meta n {:doc doc :arglists (list 'quote arglists)}) (eval sym))))
+;;out of date..doesn't work with current clojure definitions.  using potemkin instead.
+;; (defmacro- import-fn [sym]
+;;   (let [m (meta (eval sym))
+;;         m (meta (intern (:ns m) (:name m)))
+;;         n (:name m)
+;;         arglists (:arglists m)
+;;         doc (:doc m)]
+;;     (list `def (with-meta n {:doc doc :arglists (list 'quote arglists)}) (eval sym))))
 
 ;;;
 
@@ -155,17 +157,19 @@
   (gl-matrix-mode :modelview))
 
 ;;Geometry
-
-(import-fn geometry/vertex)
-(import-fn geometry/normal)
-(import-fn geometry/texture)
-(import-fn geometry/attribute)
-(import-fn geometry/rotate)
-(import-fn geometry/scale)
-(import-fn geometry/color)
-(import-fn geometry/translate)
-(import-fn geometry/load-identity)
-(import-fn geometry/declare-attributes)
+;;replaced old import-fn 
+(import/import-vars
+ [penumbra.opengl.geometry   
+  vertex
+  normal
+  texture
+  attribute
+  rotate
+  scale
+  color
+  translate
+  load-identity
+  declare-attributes])
 
 (defmacro push-matrix [& body]
   `(geometry/with-transform- *renderer* (fn [] ~@body)))
@@ -230,11 +234,15 @@
 (gl-import+ glBlendFunc blend-func)
 (gl-import+ glShadeModel shade-model)
 
-(import-fn fx/render-mode)
-(import-fn fx/color)
-(import-fn fx/material)
-(import-fn fx/fog)
-(import-fn fx/light)
+;;replaced old import-fn
+(import/import-vars
+ [penumbra.opengl.effects
+  render-mode
+  color
+  material
+  fog
+  light
+  ])
 
 (defmacro with-render-mode [mode & body]
   `(fx/with-render-mode ~mode (fn [] ~@body)))
@@ -295,10 +303,13 @@
 (gl-import+ glTexParameteri tex-parameter)
 (gl-import+ glIsTexture valid-texture-id?)
 
-(import-fn tex/bind-texture)
-(import-fn tex/texture)
-(import-fn tex/create-texture)
-(import-fn tex/build-mip-map)
+;;replaced old import-fn
+(import/import-vars
+ [penumbra.opengl.texture
+  bind-texture
+  texture
+  create-texture
+  build-mip-map])
 
 (defmacro with-texture [tex & body]
   `(tex/with-texture ~tex (fn [] ~@body)))

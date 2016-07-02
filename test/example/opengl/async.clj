@@ -53,5 +53,7 @@
   (blit (first (:textures state)))
   (app/repaint!))
 
+;;Ask Zach..
+;;currently just blits out and exits.
 (defn start []
   (app/start {:display display, :init init} {}))

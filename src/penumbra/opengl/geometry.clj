@@ -8,7 +8,7 @@
 
 (ns ^{:skip-wiki true}
   penumbra.opengl.geometry
-  (:use [clojure.contrib.def :only (defmacro- defvar)]
+  (:use [penumbra.def :only (defmacro- defvar)]
         [cantor]
         [penumbra.opengl.core])
   (:require [penumbra.opengl.effects :as fx])

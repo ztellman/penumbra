@@ -7,8 +7,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.app.input
-  (:use [clojure.contrib.seq :only [indexed]]
-        [clojure.contrib.def :only [defvar]])
+  (:use [penumbra.seq :only [indexed]]
+        [penumbra.def :only [defvar]])
   (:require [penumbra.app.window :as window]
             [penumbra.app.event :as event])
   (:import [org.lwjgl.input Keyboard Mouse]))

@@ -7,8 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.app.window
-  (:use [penumbra.opengl]
-        [clojure.contrib.core :only (-?>)])
+  (:use [penumbra.opengl])
   (:require [penumbra.opengl
               [texture :as texture]
               [context :as context]]

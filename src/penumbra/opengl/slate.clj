@@ -7,10 +7,9 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns penumbra.opengl.slate
-  (:use [clojure.contrib.def :only [defmacro- defn-memo defvar-]]
-        [clojure.contrib.pprint]
-        [clojure.contrib.seq :only [separate]]
-        [clojure.contrib.core :only [-?>]]
+  (:use [penumbra.def :only [defmacro- defn-memo defvar-]]
+        [clojure.pprint]
+        [penumbra.seq :only [separate]]
         [penumbra.opengl core]
         [penumbra.app core])
   (:import [org.lwjgl.opengl Pbuffer PixelFormat]))
@@ -33,7 +32,7 @@
   ([]
      (create nil))
   ([parent]
-     (let [drawable (when-let [drawable-fn (-?> *app* :window :drawable)]
+     (let [drawable (when-let [drawable-fn (some-> *app* :window :drawable)]
                       (drawable-fn))
            pixel-buffer (Pbuffer. 1 1 (-> (PixelFormat.)) drawable)]
        (struct-map slate-struct

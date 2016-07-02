@@ -8,8 +8,8 @@
 
 (ns penumbra.glsl.core
   (:use [penumbra.translate core])
-  (:use [clojure.contrib.def :only (defvar defvar- defmacro-)])
-  (:use [clojure.contrib.pprint :only (pprint)])
+  (:use [penumbra.def :only (defvar defvar- defmacro-)])
+  (:use [clojure.pprint :only (pprint)])
   (:import (java.text ParseException))
   (:require [penumbra.translate.c :as c]))
 

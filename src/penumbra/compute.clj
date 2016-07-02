@@ -9,7 +9,8 @@
 (ns penumbra.compute
   (:require [penumbra.glsl.operators :as glsl]
             [penumbra.opengl.texture :as tex]
-            [clojure.contrib.def :only (defmacro-)])
+            [penumbra.def :only (defmacro-)]
+            )
   (:use [penumbra.opengl.core :only (*render-to-screen?*)]
         [cantor :only (rectangle-factors)]))
 

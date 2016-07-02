@@ -12,9 +12,10 @@
         [penumbra.translate core operators]
         [penumbra.glsl core]
         [penumbra.opengl.context :only (draw-frame-buffer)]
-        [clojure.contrib
+        [penumbra
          (seq :only (separate indexed))
-         (def :only (defvar- defn-memo))
+         (def :only (defvar- defn-memo))]
+        [clojure
          (pprint :only (pprint))])
   (:require [clojure.zip :as zip]
             [penumbra.translate.c :as c]

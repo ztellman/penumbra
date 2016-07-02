@@ -6,8 +6,8 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns example.opengl.squares
-  (:use [penumbra opengl compute]
-        [clojure.contrib.seq :only (flatten)])
+  (:use [penumbra opengl compute])
+;        [clojure.contrib.seq :only (flatten)]) ;;already in clojure.core
   (:require [penumbra.app :as app]
             [penumbra.data :as data]))
 
@@ -38,5 +38,7 @@
       (vertex -1 -1) (vertex 1 -1)
       (vertex  1 1) (vertex -1 1)))))
 
+;;tom
+;;also doesn't work for me, probably due to not supporting shader model.
 (defn start []
   (app/start {:init init, :reshape reshape, :display display} {}))
